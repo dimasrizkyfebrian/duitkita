@@ -41,12 +41,10 @@ export default function LoginPage() {
     try {
       const result = await loginUser(data);
       setAuth(result.user, result.accessToken);
+      toast.success(`Selamat datang, ${result.user.name}!`);
       router.push("/dashboard");
-    } catch (err: unknown) {
-      const message =
-        (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message ?? "Login gagal. Coba lagi.";
-      toast.error(message);
+    } catch {
+      toast.error("Email atau password salah.");
     } finally {
       setIsPending(false);
     }
