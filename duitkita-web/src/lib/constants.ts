@@ -38,7 +38,7 @@ export const API_ROUTES = {
     couple: "/reports/couple",
     trend: "/reports/trend",
     categoryTrend: "/reports/trend/category",
-    rollover: "/reports/rollover",
+    rollover: (categoryId: string) => `/reports/rollover/${categoryId}`,
   },
   activity: {
     list: "/activity",
@@ -82,6 +82,12 @@ export const QUERY_KEYS = {
       "reports",
       "trend",
       "category",
+      monthsBack,
+    ],
+    rollover: (categoryId: string, monthsBack: number) => [
+      "reports",
+      "rollover",
+      categoryId,
       monthsBack,
     ],
   },
