@@ -179,3 +179,10 @@ export interface PaginatedActivity {
   limit: number;
   offset: number;
 }
+
+export interface UpdateExpenseRequest {
+  amount?: number;
+  note?: string;
+  expenseDate?: string;
+  categoryId?: string;
+}
