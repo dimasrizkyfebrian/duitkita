@@ -222,3 +222,33 @@ export interface UpdateExpenseRequest {
   expenseDate?: string;
   categoryId?: string;
 }
+
+// ─────────────────────────────────────────
+// Profile / Couples
+// ─────────────────────────────────────────
+
+export interface Partner {
+  id: string;
+  name: string;
+  email: string;
+  linkedAt: string;
+}
+
+export interface UpdateProfileRequest {
+  name?: string;
+  email?: string;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface LinkPartnerRequest {
+  code: string;
+}
+
+export interface LinkPartnerResponse {
+  status: "linked" | "pending";
+  partner?: Partner;
+}
