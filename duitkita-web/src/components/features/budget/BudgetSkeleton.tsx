@@ -3,20 +3,22 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function BudgetHeaderSkeleton() {
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="grid grid-cols-[auto_1fr_auto] items-center">
         <Skeleton className="w-8 h-8 rounded-full" />
-        <Skeleton className="w-28 h-5" />
-        <Skeleton className="w-8 h-8 rounded-full" />
+        <Skeleton className="w-28 h-5 mx-auto" />
+        <div className="flex items-center gap-1">
+          <Skeleton className="w-8 h-8 rounded-full" />
+          <Skeleton className="w-8 h-8 rounded-full" />
+        </div>
       </div>
       <div className="bg-card rounded-2xl p-4 flex justify-around">
-        {[0, 1].map((i) => (
+        {[0, 1, 2].map((i) => (
           <div key={i} className="flex flex-col items-center gap-1.5">
             <Skeleton className="h-3 w-14" />
-            <Skeleton className="h-5 w-20" />
+            <Skeleton className="h-5 w-16" />
           </div>
         ))}
       </div>
-      <Skeleton className="h-9 w-full rounded-lg" />
     </div>
   );
 }
