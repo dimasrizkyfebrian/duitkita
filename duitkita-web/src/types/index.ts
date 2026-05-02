@@ -130,6 +130,42 @@ export interface TrendItem {
   percentageUsed: number;
 }
 
+export interface CoupleReport {
+  year: number;
+  month: number;
+  me: MonthlyReport;
+  partner: MonthlyReport | null;
+  combinedTotalSpent: number;
+  combinedTotalBudget: number;
+  combinedPercentageUsed: number;
+}
+
+export interface CategoryTrend {
+  categoryId: string;
+  categoryName: string;
+  categoryIcon: string | null;
+  trend: TrendItem[];
+}
+
+export interface RolloverHistoryItem {
+  year: number;
+  month: number;
+  baseAmount: number;
+  rolloverAmount: number;
+  totalAmount: number;
+  totalSpent: number;
+  leftover: number;
+}
+
+export interface CategoryRolloverHistory {
+  categoryId: string;
+  categoryName: string;
+  categoryIcon: string | null;
+  months: RolloverHistoryItem[];
+}
+
+export type ReportScope = "me" | "partner" | "both";
+
 // ─────────────────────────────────────────
 // API Request/Response Types
 // ─────────────────────────────────────────
