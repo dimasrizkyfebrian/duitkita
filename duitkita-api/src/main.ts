@@ -10,6 +10,15 @@ async function bootstrap() {
 
   app.useLogger(app.get(Logger));
 
+  // Disable Express ETags and prevent browser caching of API responses.
+  // Without this, browsers reuse cached GET responses across different users
+  // (same URL, different Authorization token) causing stale data.
+  app.getHttpAdapter().getInstance().set('etag', false);
+  app.use((_req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    next();
+  });
+
   app.use(helmet());
 
   app.enableCors({
