@@ -130,6 +130,42 @@ export interface TrendItem {
   percentageUsed: number;
 }
 
+export interface CoupleReport {
+  year: number;
+  month: number;
+  me: MonthlyReport;
+  partner: MonthlyReport | null;
+  combinedTotalSpent: number;
+  combinedTotalBudget: number;
+  combinedPercentageUsed: number;
+}
+
+export interface CategoryTrend {
+  categoryId: string;
+  categoryName: string;
+  categoryIcon: string | null;
+  trend: TrendItem[];
+}
+
+export interface RolloverHistoryItem {
+  year: number;
+  month: number;
+  baseAmount: number;
+  rolloverAmount: number;
+  totalAmount: number;
+  totalSpent: number;
+  leftover: number;
+}
+
+export interface CategoryRolloverHistory {
+  categoryId: string;
+  categoryName: string;
+  categoryIcon: string | null;
+  months: RolloverHistoryItem[];
+}
+
+export type ReportScope = "me" | "partner" | "both";
+
 // ─────────────────────────────────────────
 // API Request/Response Types
 // ─────────────────────────────────────────
@@ -178,4 +214,41 @@ export interface PaginatedActivity {
   total: number;
   limit: number;
   offset: number;
+}
+
+export interface UpdateExpenseRequest {
+  amount?: number;
+  note?: string;
+  expenseDate?: string;
+  categoryId?: string;
+}
+
+// ─────────────────────────────────────────
+// Profile / Couples
+// ─────────────────────────────────────────
+
+export interface Partner {
+  id: string;
+  name: string;
+  email: string;
+  linkedAt: string;
+}
+
+export interface UpdateProfileRequest {
+  name?: string;
+  email?: string;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface LinkPartnerRequest {
+  code: string;
+}
+
+export interface LinkPartnerResponse {
+  status: "linked" | "pending";
+  partner?: Partner;
 }
