@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { QueryProvider } from "@/components/shared/QueryProvider";
+import { ServiceWorkerRegister } from "@/components/shared/ServiceWorkerRegister";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -18,6 +19,9 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "DuitKita",
+  },
+  icons: {
+    apple: "/apple-touch-icon.png",
   },
 };
 
@@ -50,6 +54,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <QueryProvider>
+            <ServiceWorkerRegister />
             {children}
             <Toaster
               position="top-center"
