@@ -25,7 +25,6 @@ export function useProfile() {
   const partnerQuery = useQuery({
     queryKey: QUERY_KEYS.partner(),
     queryFn: fetchPartner,
-    staleTime: 5 * 60 * 1000,
   });
 
   // Keep auth store in sync with the freshest server profile.
