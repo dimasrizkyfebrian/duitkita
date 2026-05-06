@@ -1,21 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Loader2, RefreshCw, Share2 } from "lucide-react";
+import { Copy, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-function randomCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
+import { useAuthStore } from "@/stores/auth.store";
 
 interface PartnerInviteSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (code: string) => Promise<void>;
+  onSubmit: (email: string) => Promise<void>;
   isSubmitting: boolean;
 }
 
@@ -23,113 +20,49 @@ function InviteContent({
   onSubmit,
   isSubmitting,
 }: Pick<PartnerInviteSheetProps, "onSubmit" | "isSubmitting">) {
-  const [myCode, setMyCode] = useState(randomCode);
-  const [partnerCode, setPartnerCode] = useState("");
-  const [submittingSide, setSubmittingSide] = useState<
-    "mine" | "partner" | null
-  >(null);
+  const myEmail = useAuthStore((s) => s.user?.email ?? "");
+  const [partnerEmail, setPartnerEmail] = useState("");
 
-  async function handleCopy() {
+  async function handleCopyEmail() {
     try {
-      await navigator.clipboard.writeText(myCode);
-      toast.success("Kode disalin");
+      await navigator.clipboard.writeText(myEmail);
+      toast.success("Email disalin");
     } catch {
-      toast.error("Gagal menyalin kode");
+      toast.error("Gagal menyalin email");
     }
   }
 
-  async function handleShare() {
-    const text = `Pakai kode ${myCode} buat hubungin akun DuitKita kita.`;
-    if (typeof navigator !== "undefined" && "share" in navigator) {
-      try {
-        await navigator.share({ title: "DuitKita", text });
-        return;
-      } catch {
-        // user cancelled or share failed — fall through to copy
-      }
-    }
-    await handleCopy();
+  async function handleSubmit() {
+    if (!partnerEmail.trim()) return;
+    await onSubmit(partnerEmail.trim().toLowerCase());
   }
 
-  async function handleSubmitMine() {
-    setSubmittingSide("mine");
-    try {
-      await onSubmit(myCode);
-    } catch {
-      // toast handled by mutation onError
-    } finally {
-      setSubmittingSide(null);
-    }
-  }
-
-  async function handleSubmitPartner() {
-    if (partnerCode.length !== 6) return;
-    setSubmittingSide("partner");
-    try {
-      await onSubmit(partnerCode);
-    } catch {
-      // toast handled by mutation onError
-    } finally {
-      setSubmittingSide(null);
-    }
-  }
-
-  const partnerCodeValid = /^\d{6}$/.test(partnerCode);
+  const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(partnerEmail.trim());
 
   return (
     <>
-      {/* Top zone — my generated code */}
+      {/* My email section */}
       <div className="bg-muted/40 rounded-2xl p-4 space-y-3">
         <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-          Kode kamu
+          Email kamu
         </Label>
-
         <div className="flex items-center justify-between gap-2">
-          <p className="text-3xl font-bold tracking-[0.4em] text-foreground tabular-nums">
-            {myCode}
+          <p className="text-sm font-medium text-foreground break-all">
+            {myEmail}
           </p>
           <Button
             variant="ghost"
             size="icon-sm"
-            onClick={() => setMyCode(randomCode())}
+            onClick={handleCopyEmail}
             disabled={isSubmitting}
-            aria-label="Acak ulang kode"
-          >
-            <RefreshCw />
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCopy}
-            disabled={isSubmitting}
+            aria-label="Salin email"
           >
             <Copy />
-            Salin
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleShare}
-            disabled={isSubmitting}
-          >
-            <Share2 />
-            Bagikan
           </Button>
         </div>
-
-        <Button
-          className="w-full"
-          onClick={handleSubmitMine}
-          disabled={isSubmitting}
-        >
-          {submittingSide === "mine" && (
-            <Loader2 size={14} className="animate-spin" />
-          )}
-          Hubungkan dengan kode ini
-        </Button>
+        <p className="text-xs text-muted-foreground">
+          Bagikan email ini ke pasanganmu agar mereka bisa menghubungkan akun.
+        </p>
       </div>
 
       {/* Divider */}
@@ -139,32 +72,26 @@ function InviteContent({
         <div className="flex-1 h-px bg-border" />
       </div>
 
-      {/* Bottom zone — partner's code input */}
+      {/* Partner email input */}
       <div className="space-y-3">
-        <Label htmlFor="partner-code">Masukkan kode pasangan</Label>
+        <Label htmlFor="partner-email">Masukkan email pasangan</Label>
         <Input
-          id="partner-code"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          maxLength={6}
-          placeholder="123456"
-          value={partnerCode}
-          onChange={(e) =>
-            setPartnerCode(e.target.value.replace(/\D/g, "").slice(0, 6))
-          }
+          id="partner-email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          placeholder="pasangan@email.com"
+          value={partnerEmail}
+          onChange={(e) => setPartnerEmail(e.target.value)}
           disabled={isSubmitting}
-          className="text-center text-2xl font-bold tracking-[0.4em] tabular-nums h-12"
         />
-
         <Button
           variant="outline"
           className="w-full"
-          onClick={handleSubmitPartner}
-          disabled={isSubmitting || !partnerCodeValid}
+          onClick={handleSubmit}
+          disabled={isSubmitting || !isValidEmail}
         >
-          {submittingSide === "partner" && (
-            <Loader2 size={14} className="animate-spin" />
-          )}
+          {isSubmitting && <Loader2 size={14} className="animate-spin" />}
           Hubungkan
         </Button>
       </div>
@@ -194,12 +121,10 @@ export function PartnerInviteSheet({
               Hubungkan dengan Pasangan
             </SheetTitle>
             <p className="text-xs text-muted-foreground mt-1">
-              Kamu dan pasangan harus memakai kode yang sama. Salah satu bikin
-              kode, yang lain memasukkannya.
+              Masukkan email pasanganmu untuk menghubungkan akun kalian.
             </p>
           </div>
 
-          {/* Inner content remounts each time SheetContent mounts -> fresh code per open. */}
           <InviteContent onSubmit={onSubmit} isSubmitting={isSubmitting} />
         </div>
       </SheetContent>
