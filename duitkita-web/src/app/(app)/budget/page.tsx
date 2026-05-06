@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Plus, Wallet } from "lucide-react";
+import { Lock, Plus, Wallet } from "lucide-react";
 import { useBudget } from "@/hooks/useBudget";
 import { useAppStore } from "@/stores/app.store";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { BudgetPageHeader } from "@/components/features/budget/BudgetPageHeader";
 import { BudgetCard } from "@/components/features/budget/BudgetCard";
 import { BudgetFormSheet } from "@/components/features/budget/BudgetFormSheet";
@@ -24,9 +23,9 @@ const listVariants = {
   visible: { transition: { staggerChildren: 0.05 } },
 };
 
-function EmptyState() {
+function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className="text-center py-10 space-y-3">
+    <div className="text-center py-10 px-4 space-y-3">
       <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto">
         <Wallet size={20} className="text-muted-foreground" />
       </div>
@@ -36,6 +35,10 @@ function EmptyState() {
           Tambahkan anggaran untuk bulan ini
         </p>
       </div>
+      <Button size="sm" onClick={onAdd}>
+        <Plus size={14} />
+        Tambah Anggaran
+      </Button>
     </div>
   );
 }
@@ -154,29 +157,34 @@ export default function BudgetPage() {
       transition={{ duration: 0.25, ease: "easeOut" }}
       className="w-full"
     >
-      <div className="w-full pt-4">
-        <div className="px-4">
-          {/* Header: month nav + summary + finalize */}
-          {isLoading ? (
-            <BudgetHeaderSkeleton />
-          ) : (
-            <BudgetPageHeader
-              year={activeYear}
-              month={activeMonth}
-              totalBudget={totalBudget}
-              totalSpent={totalSpent}
-              isFinalized={isFinalized}
-              hasBudgets={budgets.length > 0}
-              onPrevMonth={handlePrevMonth}
-              onNextMonth={handleNextMonth}
-              onFinalize={finalizeBudgets}
-              isFinalizing={isFinalizing}
-            />
-          )}
-        </div>
+      <div className="px-4 pt-4 pb-2 flex items-center justify-between gap-3">
+        <h1 className="text-xl font-bold text-foreground">Budget</h1>
+        {isFinalized && (
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-muted text-muted-foreground">
+            <Lock size={12} />
+            Bulan dikunci
+          </span>
+        )}
       </div>
 
       <div className="px-4 pb-6 space-y-4">
+        {/* Header: month nav + summary + finalize */}
+        {isLoading ? (
+          <BudgetHeaderSkeleton />
+        ) : (
+          <BudgetPageHeader
+            year={activeYear}
+            month={activeMonth}
+            totalBudget={totalBudget}
+            totalSpent={totalSpent}
+            isFinalized={isFinalized}
+            hasBudgets={budgets.length > 0}
+            onPrevMonth={handlePrevMonth}
+            onNextMonth={handleNextMonth}
+            onFinalize={finalizeBudgets}
+            isFinalizing={isFinalizing}
+          />
+        )}
 
         {/* Error state */}
         {isError && (
@@ -193,66 +201,68 @@ export default function BudgetPage() {
           </div>
         )}
 
-        {/* Budget section — consistent card container for both states */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={`${activeYear}-${activeMonth}`}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="w-full bg-card rounded-2xl overflow-hidden"
-          >
-            {isLoading ? (
-              <BudgetListSkeleton />
-            ) : budgets.length === 0 ? (
-              <EmptyState />
-            ) : (
-              <motion.ul
-                variants={listVariants}
-                initial="hidden"
-                animate="visible"
-                className="divide-y divide-border"
-              >
-                {budgets.map((budget, i) => (
-                  <BudgetCard
-                    key={budget.id}
-                    budget={budget}
-                    index={i}
-                    isFinalized={isFinalized}
-                    onEdit={handleEditOpen}
-                    onDelete={(b) => setDeletingBudget(b)}
-                  />
-                ))}
-              </motion.ul>
-            )}
-          </motion.div>
-        </AnimatePresence>
-
-        {/* Add budget button — always shown when not finalized */}
-        {!isLoading && !isFinalized && (
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => setSheetMode("add")}
-          >
-            <Plus size={16} />
-            Tambah Anggaran
-          </Button>
-        )}
+        {/* Budget section */}
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold text-foreground px-1">
+            Anggaran per Kategori
+          </h2>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`${activeYear}-${activeMonth}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="w-full bg-card rounded-2xl overflow-hidden"
+            >
+              {isLoading ? (
+                <BudgetListSkeleton />
+              ) : budgets.length === 0 ? (
+                <EmptyState onAdd={() => setSheetMode("add")} />
+              ) : (
+                <motion.ul
+                  variants={listVariants}
+                  initial="hidden"
+                  animate="visible"
+                  className="divide-y divide-border"
+                >
+                  {budgets.map((budget, i) => (
+                    <BudgetCard
+                      key={budget.id}
+                      budget={budget}
+                      index={i}
+                      isFinalized={isFinalized}
+                      onEdit={handleEditOpen}
+                      onDelete={(b) => setDeletingBudget(b)}
+                    />
+                  ))}
+                  {!isFinalized && (
+                    <li>
+                      <button
+                        type="button"
+                        onClick={() => setSheetMode("add")}
+                        className="w-full px-3 py-3 flex items-center justify-center gap-2 text-sm font-medium text-primary hover:bg-muted/40 transition-colors"
+                      >
+                        <Plus size={16} />
+                        Tambah Anggaran
+                      </button>
+                    </li>
+                  )}
+                </motion.ul>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </section>
 
         {/* Category manager */}
         {!isLoading && (
-          <>
-            <Separator />
-            <CategoryManager
-              categories={categories}
-              onAdd={handleAddCategory}
-              onEdit={handleEditCategory}
-              onDelete={handleDeleteCategory}
-              isSubmitting={isAddingCategory || isEditingCategory}
-            />
-          </>
+          <CategoryManager
+            categories={categories}
+            onAdd={handleAddCategory}
+            onEdit={handleEditCategory}
+            onDelete={handleDeleteCategory}
+            isSubmitting={isAddingCategory || isEditingCategory}
+          />
         )}
       </div>
 

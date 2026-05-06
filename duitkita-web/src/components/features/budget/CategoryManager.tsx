@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import {
+  Loader2,
+  MoreVertical,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -13,6 +19,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -101,13 +113,11 @@ export function CategoryManager({
   }
 
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-foreground">
-          Kelola Kategori
-        </h2>
+    <section className="space-y-2">
+      <div className="flex items-center justify-between px-1">
+        <h2 className="text-sm font-semibold text-foreground">Kategori</h2>
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
           onClick={() => setDialogMode("add")}
         >
@@ -123,45 +133,54 @@ export function CategoryManager({
           </p>
         </div>
       ) : (
-        <ul className="space-y-2">
+        <ul className="bg-card rounded-2xl divide-y divide-border overflow-hidden">
           {categories.map((cat) => (
             <li
               key={cat.id}
-              className="flex items-center justify-between bg-card rounded-xl px-3 py-2.5"
+              className="flex items-center justify-between px-3 py-2.5"
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <span className="text-lg w-8 h-8 flex items-center justify-center bg-muted rounded-lg shrink-0">
+                <span className="text-lg w-9 h-9 flex items-center justify-center bg-muted rounded-xl shrink-0">
                   {cat.icon ?? cat.name[0].toUpperCase()}
                 </span>
                 <span className="text-sm font-medium text-foreground truncate">
                   {cat.name}
                 </span>
               </div>
-              <div className="flex items-center gap-0.5 shrink-0">
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => {
-                    setEditingCategory(cat);
-                    setDialogMode("edit");
-                  }}
-                >
-                  <Pencil size={13} />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => handleDelete(cat.id)}
-                  disabled={deletingId === cat.id}
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                >
-                  {deletingId === cat.id ? (
-                    <Loader2 size={13} className="animate-spin" />
-                  ) : (
-                    <Trash2 size={13} />
-                  )}
-                </Button>
-              </div>
+              {deletingId === cat.id ? (
+                <div className="w-8 h-8 flex items-center justify-center text-muted-foreground">
+                  <Loader2 size={14} className="animate-spin" />
+                </div>
+              ) : (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon-sm">
+                      <MoreVertical size={14} />
+                      <span className="sr-only">Menu</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setEditingCategory(cat);
+                        setDialogMode("edit");
+                      }}
+                      className="gap-2"
+                    >
+                      <Pencil size={14} />
+                      Edit kategori
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleDelete(cat.id)}
+                      variant="destructive"
+                      className="gap-2"
+                    >
+                      <Trash2 size={14} />
+                      Hapus kategori
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </li>
           ))}
         </ul>
