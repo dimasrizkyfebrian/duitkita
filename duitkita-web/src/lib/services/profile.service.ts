@@ -39,9 +39,11 @@ export async function fetchPartner(): Promise<Partner | null> {
   }
 }
 
-export async function linkPartner(code: string): Promise<LinkPartnerResponse> {
+export async function linkPartner(
+  partnerEmail: string,
+): Promise<LinkPartnerResponse> {
   const res = await api.post<LinkPartnerResponse>(API_ROUTES.couples.link, {
-    code,
+    partnerEmail,
   });
   return res.data;
 }

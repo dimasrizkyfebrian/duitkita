@@ -1,6 +1,7 @@
 import api from "@/lib/api";
 import { API_ROUTES } from "@/lib/constants";
 import type { MonthlyBudget, Activity } from "@/types";
+import axios from "axios";
 
 export async function fetchBudgets(
   year: number,
@@ -13,6 +14,14 @@ export async function fetchBudgets(
 }
 
 export async function fetchRecentActivity(): Promise<Activity[]> {
-  const response = await api.get<Activity[]>(API_ROUTES.activity.recent);
-  return response.data;
+  try {
+    const response = await api.get<Activity[]>(API_ROUTES.activity.recent);
+    return response.data;
+  } catch (err) {
+    // 404 = no partner linked yet — treat as empty, not an error
+    if (axios.isAxiosError(err) && err.response?.status === 404) {
+      return [];
+    }
+    throw err;
+  }
 }
