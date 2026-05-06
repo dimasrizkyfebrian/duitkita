@@ -43,6 +43,7 @@ export function ExpenseSheet() {
     (b) => b.categoryId === selectedCategoryId,
   );
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (isOpen) {
       setAmountStr("");
@@ -51,6 +52,7 @@ export function ExpenseSheet() {
       setSelectedCategoryId(storeCategoryId);
     }
   }, [isOpen, storeCategoryId]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   function handleSubmit() {
     if (!selectedCategoryId || !amountStr || Number(amountStr) === 0) return;

@@ -1,19 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { motion } from "framer-motion";
-import { HeartCrack, Inbox } from "lucide-react";
-import { useReports, useTrend } from "@/hooks/useReports";
+import { Inbox } from "lucide-react";
+import { useReports, useTrend, useCategoryTrend } from "@/hooks/useReports";
 import { useAppStore } from "@/stores/app.store";
-import { Button } from "@/components/ui/button";
 import { ReportPageHeader } from "@/components/features/reports/ReportPageHeader";
 import { ScopeTabs } from "@/components/features/reports/ScopeTabs";
 import { ReportSummaryCard } from "@/components/features/reports/ReportSummaryCard";
 import { CategoryDistributionChart } from "@/components/features/reports/CategoryDistributionChart";
 import { TrendChart } from "@/components/features/reports/TrendChart";
+import { CategoryTrendChart } from "@/components/features/reports/CategoryTrendChart";
 import { TopExpensesList } from "@/components/features/reports/TopExpensesList";
 import { CategoryBreakdownCard } from "@/components/features/reports/CategoryBreakdownCard";
+import { NoPartnerState } from "@/components/shared/NoPartnerState";
 import {
   ReportChartSkeleton,
   ReportHeaderSkeleton,
@@ -26,29 +26,6 @@ const listVariants = {
   hidden: {},
   visible: { transition: { staggerChildren: 0.05 } },
 };
-
-function NoPartnerState() {
-  return (
-    <div className="bg-card rounded-2xl p-6 text-center space-y-3">
-      <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto">
-        <HeartCrack size={20} className="text-muted-foreground" />
-      </div>
-      <div className="space-y-1">
-        <p className="text-sm font-medium text-foreground">
-          Belum punya pasangan
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Hubungkan akun pasangan untuk lihat laporan berdua.
-        </p>
-      </div>
-      <Link href="/profile">
-        <Button variant="outline" size="sm">
-          Hubungkan pasangan
-        </Button>
-      </Link>
-    </div>
-  );
-}
 
 function EmptyCategoryState() {
   return (
@@ -73,6 +50,7 @@ export default function ReportsPage() {
   const { report, isLoading, isError, noPartner, refetch, hasPartner } =
     useReports(scope);
   const trendQuery = useTrend();
+  const categoryTrendQuery = useCategoryTrend();
 
   function handlePrevMonth() {
     setExpandedCategoryId(null);
@@ -138,7 +116,7 @@ export default function ReportsPage() {
         )}
 
         {noPartner && (scope === "partner" || scope === "both") && (
-          <NoPartnerState />
+          <NoPartnerState description="Hubungkan akun pasangan untuk lihat laporan berdua." />
         )}
 
         {isLoading && !report && (
@@ -167,6 +145,13 @@ export default function ReportsPage() {
               <TrendChart
                 trend={trendQuery.data ?? []}
                 isLoading={trendQuery.isLoading}
+              />
+            )}
+
+            {scope === "me" && (
+              <CategoryTrendChart
+                trends={categoryTrendQuery.data}
+                isLoading={categoryTrendQuery.isLoading}
               />
             )}
 

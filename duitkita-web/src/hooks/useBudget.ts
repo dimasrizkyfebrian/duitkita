@@ -2,8 +2,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAppStore } from "@/stores/app.store";
 import { QUERY_KEYS } from "@/lib/constants";
+import { isNotFound } from "@/lib/utils";
 import {
   fetchBudgets,
+  fetchBudgetById,
+  fetchPartnerBudgets,
   fetchCategories,
   createBudget,
   updateBudget,
@@ -17,6 +20,7 @@ import type {
   CreateBudgetRequest,
   UpdateBudgetRequest,
   CreateCategoryRequest,
+  MonthlyBudget,
 } from "@/types";
 
 export function useBudget() {
@@ -151,5 +155,58 @@ export function useBudget() {
     isAddingCategory: addCategoryMutation.isPending,
     isEditingCategory: editCategoryMutation.isPending,
     isDeletingCategory: deleteCategoryMutation.isPending,
+  };
+}
+
+export function useBudgetById(id: string | null) {
+  const query = useQuery({
+    queryKey: QUERY_KEYS.budgetDetail(id ?? ""),
+    queryFn: () => fetchBudgetById(id!),
+    enabled: id !== null,
+  });
+
+  return {
+    budget: query.data ?? null,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    isNotFound: isNotFound(query.error),
+    refetch: () => query.refetch(),
+  };
+}
+
+interface UsePartnerBudgetResult {
+  budgets: MonthlyBudget[];
+  isLoading: boolean;
+  isError: boolean;
+  noPartner: boolean;
+  refetch: () => void;
+  totalBudget: number;
+  totalSpent: number;
+  totalRemaining: number;
+}
+
+export function usePartnerBudget(enabled: boolean): UsePartnerBudgetResult {
+  const { activeYear, activeMonth } = useAppStore();
+
+  const query = useQuery({
+    queryKey: QUERY_KEYS.budgetsPartner(activeYear, activeMonth),
+    queryFn: () => fetchPartnerBudgets(activeYear, activeMonth),
+    enabled,
+    retry: (failureCount, error) =>
+      isNotFound(error) ? false : failureCount < 1,
+  });
+
+  const noPartner = isNotFound(query.error);
+  const budgets = query.data ?? [];
+
+  return {
+    budgets,
+    isLoading: query.isLoading,
+    isError: query.isError && !noPartner,
+    noPartner,
+    refetch: () => query.refetch(),
+    totalBudget: budgets.reduce((s, b) => s + b.totalAmount, 0),
+    totalSpent: budgets.reduce((s, b) => s + b.totalSpent, 0),
+    totalRemaining: budgets.reduce((s, b) => s + b.remaining, 0),
   };
 }
