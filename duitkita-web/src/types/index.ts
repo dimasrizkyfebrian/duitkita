@@ -245,10 +245,5 @@ export interface ChangePasswordRequest {
 }
 
 export interface LinkPartnerRequest {
-  code: string;
-}
-
-export interface LinkPartnerResponse {
-  status: "linked" | "pending";
-  partner?: Partner;
+  partnerEmail: string;
 }

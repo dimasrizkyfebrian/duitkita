@@ -6,7 +6,6 @@ import type {
   Partner,
   UpdateProfileRequest,
   ChangePasswordRequest,
-  LinkPartnerResponse,
 } from "@/types";
 
 export async function fetchProfile(): Promise<User> {
@@ -39,10 +38,8 @@ export async function fetchPartner(): Promise<Partner | null> {
   }
 }
 
-export async function linkPartner(
-  partnerEmail: string,
-): Promise<LinkPartnerResponse> {
-  const res = await api.post<LinkPartnerResponse>(API_ROUTES.couples.link, {
+export async function linkPartner(partnerEmail: string): Promise<Partner> {
+  const res = await api.post<Partner>(API_ROUTES.couples.link, {
     partnerEmail,
   });
   return res.data;

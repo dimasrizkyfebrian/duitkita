@@ -11,7 +11,7 @@ import {
   linkPartner,
   unlinkPartner,
 } from "@/lib/services/profile.service";
-import type { UpdateProfileRequest, ChangePasswordRequest } from "@/types";
+import type { UpdateProfileRequest, ChangePasswordRequest, Partner } from "@/types";
 
 export function useProfile() {
   const qc = useQueryClient();
@@ -60,16 +60,16 @@ export function useProfile() {
   });
 
   const linkPartnerMutation = useMutation({
-    mutationFn: (code: string) => linkPartner(code),
-    onSuccess: (res) => {
-      invalidatePartnerScopedData();
-      if (res.status === "pending") {
-        toast.success("Menunggu pasangan memasukkan kode yang sama");
-      } else {
-        toast.success("Berhasil terhubung dengan pasangan");
-      }
+    mutationFn: (email: string) => linkPartner(email),
+    onSuccess: (partner: Partner) => {
+      qc.setQueryData(QUERY_KEYS.partner(), partner);
+      qc.invalidateQueries({ queryKey: ["budgets"] });
+      qc.invalidateQueries({ queryKey: ["expenses"] });
+      qc.invalidateQueries({ queryKey: ["reports"] });
+      qc.invalidateQueries({ queryKey: ["activity"] });
+      toast.success(`Berhasil terhubung dengan ${partner.name}`);
     },
-    onError: () => toast.error("Kode tidak valid atau gagal menghubungkan"),
+    onError: () => toast.error("Email tidak ditemukan atau gagal menghubungkan"),
   });
 
   const unlinkPartnerMutation = useMutation({
