@@ -14,9 +14,10 @@ export default function AppLayout({
 }) {
   const router = useRouter();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const [hasHydrated, setHasHydrated] = useState(() =>
-    useAuthStore.persist.hasHydrated(),
-  );
+  const [hasHydrated, setHasHydrated] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return useAuthStore.persist?.hasHydrated() ?? false;
+  });
 
   useEffect(() => {
     return useAuthStore.persist.onFinishHydration(() => {
