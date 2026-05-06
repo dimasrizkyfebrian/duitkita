@@ -18,6 +18,21 @@ export async function fetchBudgets(
   return res.data;
 }
 
+export async function fetchBudgetById(id: string): Promise<MonthlyBudget> {
+  const res = await api.get<MonthlyBudget>(API_ROUTES.budgets.detail(id));
+  return res.data;
+}
+
+export async function fetchPartnerBudgets(
+  year: number,
+  month: number,
+): Promise<MonthlyBudget[]> {
+  const res = await api.get<MonthlyBudget[]>(API_ROUTES.budgets.partner, {
+    params: { year, month },
+  });
+  return res.data;
+}
+
 export async function fetchCategories(): Promise<Category[]> {
   const res = await api.get<Category[]>(API_ROUTES.categories.list);
   return res.data;

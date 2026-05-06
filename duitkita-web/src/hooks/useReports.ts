@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import axios from "axios";
 import { useAppStore } from "@/stores/app.store";
 import { APP_CONFIG, QUERY_KEYS } from "@/lib/constants";
+import { isNotFound } from "@/lib/utils";
 import {
   fetchMonthlyReport,
   fetchCoupleReport,
@@ -26,10 +26,6 @@ const STATUS_RANK: Record<AlertStatus, number> = {
 
 function pickWorseStatus(a: AlertStatus, b: AlertStatus): AlertStatus {
   return STATUS_RANK[a] >= STATUS_RANK[b] ? a : b;
-}
-
-function isNotFound(error: unknown): boolean {
-  return axios.isAxiosError(error) && error.response?.status === 404;
 }
 
 export function useMonthlyReport() {

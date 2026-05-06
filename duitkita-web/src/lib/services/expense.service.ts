@@ -12,6 +12,35 @@ export async function fetchCategories(): Promise<Category[]> {
   return response.data;
 }
 
+export async function fetchExpenses(
+  year: number,
+  month: number,
+  categoryId?: string,
+): Promise<Expense[]> {
+  const params: Record<string, string | number> = { year, month };
+  if (categoryId) params.categoryId = categoryId;
+  const res = await api.get<Expense[]>(API_ROUTES.expenses.list, { params });
+  return res.data;
+}
+
+export async function fetchPartnerExpenses(
+  year: number,
+  month: number,
+  categoryId?: string,
+): Promise<Expense[]> {
+  const params: Record<string, string | number> = { year, month };
+  if (categoryId) params.categoryId = categoryId;
+  const res = await api.get<Expense[]>(API_ROUTES.expenses.partner, { params });
+  return res.data;
+}
+
+export async function fetchExpensesByBudget(
+  budgetId: string,
+): Promise<Expense[]> {
+  const res = await api.get<Expense[]>(API_ROUTES.expenses.byBudget(budgetId));
+  return res.data;
+}
+
 export async function createExpense(
   data: CreateExpenseRequest,
 ): Promise<Expense> {

@@ -32,6 +32,7 @@ export default function DashboardPage() {
   const [alertDismissed, setAlertDismissed] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAlertDismissed(false);
   }, [activeYear, activeMonth]);
 

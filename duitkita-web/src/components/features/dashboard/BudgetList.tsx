@@ -32,9 +32,14 @@ const itemVariants = {
 export function BudgetList({ budgets, isLoading }: BudgetListProps) {
   return (
     <section>
-      <h2 className="text-base font-semibold text-foreground mb-3">
-        Anggaran Bulan Ini
-      </h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-base font-semibold text-foreground">
+          Anggaran Bulan Ini
+        </h2>
+        <Link href="/expenses" className="text-xs text-primary font-medium">
+          Pengeluaran
+        </Link>
+      </div>
 
       {isLoading ? (
         <BudgetListSkeleton />
