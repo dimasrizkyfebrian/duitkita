@@ -74,11 +74,8 @@ export function BudgetPageHeader({
         >
           <ChevronLeft size={18} />
         </Button>
-        <span className="text-sm font-semibold text-foreground text-center inline-flex items-center justify-center gap-1.5">
+        <span className="text-sm font-semibold text-foreground text-center">
           {getMonthName(month)} {year}
-          {isFinalized && (
-            <Lock size={11} className="text-muted-foreground" />
-          )}
         </span>
         <div className="flex items-center">
           <Button

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Plus, Wallet } from "lucide-react";
+import { Lock, Plus, Wallet } from "lucide-react";
 import { useBudget } from "@/hooks/useBudget";
 import { useAppStore } from "@/stores/app.store";
 import { Button } from "@/components/ui/button";
@@ -157,29 +157,34 @@ export default function BudgetPage() {
       transition={{ duration: 0.25, ease: "easeOut" }}
       className="w-full"
     >
-      <div className="w-full pt-4">
-        <div className="px-4">
-          {/* Header: month nav + summary + finalize */}
-          {isLoading ? (
-            <BudgetHeaderSkeleton />
-          ) : (
-            <BudgetPageHeader
-              year={activeYear}
-              month={activeMonth}
-              totalBudget={totalBudget}
-              totalSpent={totalSpent}
-              isFinalized={isFinalized}
-              hasBudgets={budgets.length > 0}
-              onPrevMonth={handlePrevMonth}
-              onNextMonth={handleNextMonth}
-              onFinalize={finalizeBudgets}
-              isFinalizing={isFinalizing}
-            />
-          )}
-        </div>
+      <div className="px-4 pt-4 pb-2 flex items-center justify-between gap-3">
+        <h1 className="text-xl font-bold text-foreground">Budget</h1>
+        {isFinalized && (
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-muted text-muted-foreground">
+            <Lock size={12} />
+            Bulan dikunci
+          </span>
+        )}
       </div>
 
-      <div className="px-4 pb-6 mt-4 space-y-6">
+      <div className="px-4 pb-6 space-y-4">
+        {/* Header: month nav + summary + finalize */}
+        {isLoading ? (
+          <BudgetHeaderSkeleton />
+        ) : (
+          <BudgetPageHeader
+            year={activeYear}
+            month={activeMonth}
+            totalBudget={totalBudget}
+            totalSpent={totalSpent}
+            isFinalized={isFinalized}
+            hasBudgets={budgets.length > 0}
+            onPrevMonth={handlePrevMonth}
+            onNextMonth={handleNextMonth}
+            onFinalize={finalizeBudgets}
+            isFinalizing={isFinalizing}
+          />
+        )}
 
         {/* Error state */}
         {isError && (
