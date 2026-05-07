@@ -177,19 +177,18 @@ export default function BudgetPage() {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: "easeOut" }}
-      className="w-full"
+      className="w-full pt-safe-top pb-6"
     >
-      <div className="px-4 pt-safe-top pb-2 flex items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-foreground">Budget</h1>
-        {view === "me" && isFinalized && (
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-muted text-muted-foreground">
-            <Lock size={12} />
-            Bulan dikunci
-          </span>
-        )}
-      </div>
-
-      <div className="px-4 pb-2">
+      <div className="px-4 space-y-3 pb-4">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-xl font-bold text-foreground">Budget</h1>
+          {view === "me" && isFinalized && (
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-muted text-muted-foreground">
+              <Lock size={12} />
+              Bulan dikunci
+            </span>
+          )}
+        </div>
         <PartnerBudgetTabs
           view={view}
           onViewChange={setView}
@@ -197,7 +196,7 @@ export default function BudgetPage() {
         />
       </div>
 
-      <div className="px-4 pb-6 space-y-4">
+      <div className="px-4 space-y-4">
         {view === "me" ? (
           <>
             {isLoading ? (
@@ -231,57 +230,57 @@ export default function BudgetPage() {
               </div>
             )}
 
-            <section className="space-y-2">
-              <h2 className="text-sm font-semibold text-foreground px-1">
-                Anggaran per Kategori
-              </h2>
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={`${activeYear}-${activeMonth}`}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                  className="w-full bg-card rounded-2xl overflow-hidden"
-                >
-                  {isLoading ? (
-                    <BudgetListSkeleton />
-                  ) : budgets.length === 0 ? (
-                    <EmptyState onAdd={() => setSheetMode("add")} />
-                  ) : (
-                    <motion.ul
-                      variants={listVariants}
-                      initial="hidden"
-                      animate="visible"
-                      className="divide-y divide-border"
-                    >
-                      {budgets.map((budget, i) => (
-                        <BudgetCard
-                          key={budget.id}
-                          budget={budget}
-                          index={i}
-                          isFinalized={isFinalized}
-                          onEdit={handleEditOpen}
-                          onDelete={(b) => setDeletingBudget(b)}
-                        />
-                      ))}
-                      {!isFinalized && (
-                        <li>
-                          <button
-                            type="button"
-                            onClick={() => setSheetMode("add")}
-                            className="w-full px-3 py-3 flex items-center justify-center gap-2 text-sm font-medium text-primary hover:bg-muted/40 transition-colors"
-                          >
-                            <Plus size={16} />
-                            Tambah Anggaran
-                          </button>
-                        </li>
-                      )}
-                    </motion.ul>
-                  )}
-                </motion.div>
-              </AnimatePresence>
-            </section>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`${activeYear}-${activeMonth}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="w-full bg-card rounded-2xl overflow-hidden"
+              >
+                <div className="px-4 pt-4 pb-2">
+                  <h2 className="text-sm font-semibold text-foreground">
+                    Anggaran per Kategori
+                  </h2>
+                </div>
+                {isLoading ? (
+                  <BudgetListSkeleton />
+                ) : budgets.length === 0 ? (
+                  <EmptyState onAdd={() => setSheetMode("add")} />
+                ) : (
+                  <motion.ul
+                    variants={listVariants}
+                    initial="hidden"
+                    animate="visible"
+                    className="divide-y divide-border"
+                  >
+                    {budgets.map((budget, i) => (
+                      <BudgetCard
+                        key={budget.id}
+                        budget={budget}
+                        index={i}
+                        isFinalized={isFinalized}
+                        onEdit={handleEditOpen}
+                        onDelete={(b) => setDeletingBudget(b)}
+                      />
+                    ))}
+                    {!isFinalized && (
+                      <li>
+                        <button
+                          type="button"
+                          onClick={() => setSheetMode("add")}
+                          className="w-full px-4 py-3 flex items-center justify-center gap-2 text-sm font-medium text-primary hover:bg-muted/40 transition-colors"
+                        >
+                          <Plus size={16} />
+                          Tambah Anggaran
+                        </button>
+                      </li>
+                    )}
+                  </motion.ul>
+                )}
+              </motion.div>
+            </AnimatePresence>
 
             {!isLoading && (
               <CategoryManager
@@ -329,42 +328,42 @@ export default function BudgetPage() {
                   />
                 )}
 
-                <section className="space-y-2">
-                  <h2 className="text-sm font-semibold text-foreground px-1">
-                    Anggaran per Kategori
-                  </h2>
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={`partner-${activeYear}-${activeMonth}`}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.15 }}
-                      className="w-full bg-card rounded-2xl overflow-hidden"
-                    >
-                      {partner.isLoading ? (
-                        <BudgetListSkeleton />
-                      ) : partner.budgets.length === 0 ? (
-                        <PartnerEmptyMonth />
-                      ) : (
-                        <motion.ul
-                          variants={listVariants}
-                          initial="hidden"
-                          animate="visible"
-                          className="divide-y divide-border"
-                        >
-                          {partner.budgets.map((budget, i) => (
-                            <PartnerBudgetCard
-                              key={budget.id}
-                              budget={budget}
-                              index={i}
-                            />
-                          ))}
-                        </motion.ul>
-                      )}
-                    </motion.div>
-                  </AnimatePresence>
-                </section>
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={`partner-${activeYear}-${activeMonth}`}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="w-full bg-card rounded-2xl overflow-hidden"
+                  >
+                    <div className="px-4 pt-4 pb-2">
+                      <h2 className="text-sm font-semibold text-foreground">
+                        Anggaran per Kategori
+                      </h2>
+                    </div>
+                    {partner.isLoading ? (
+                      <BudgetListSkeleton />
+                    ) : partner.budgets.length === 0 ? (
+                      <PartnerEmptyMonth />
+                    ) : (
+                      <motion.ul
+                        variants={listVariants}
+                        initial="hidden"
+                        animate="visible"
+                        className="divide-y divide-border"
+                      >
+                        {partner.budgets.map((budget, i) => (
+                          <PartnerBudgetCard
+                            key={budget.id}
+                            budget={budget}
+                            index={i}
+                          />
+                        ))}
+                      </motion.ul>
+                    )}
+                  </motion.div>
+                </AnimatePresence>
               </>
             )}
           </>
