@@ -56,6 +56,7 @@ function NavItem({
       <span className={cn("text-[10px] font-medium", isActive && "font-semibold")}>
         {label}
       </span>
+      <span className={cn("w-1 h-1 rounded-full transition-all duration-150", isActive ? "bg-primary" : "bg-transparent")} />
     </Link>
   );
 }

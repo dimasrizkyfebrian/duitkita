@@ -77,7 +77,9 @@ export function TrendChart({ trend, isLoading }: TrendChartProps) {
                 <ChartTooltipContent
                   formatter={(value, name) => (
                     <div className="flex w-full items-center justify-between gap-4">
-                      <span className="text-muted-foreground">{name}</span>
+                      <span className="text-muted-foreground">
+                        {config[name as keyof typeof config]?.label ?? name}
+                      </span>
                       <span className="font-mono font-medium tabular-nums">
                         {formatCurrency(Number(value))}
                       </span>

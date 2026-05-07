@@ -113,7 +113,7 @@ export default function ProfilePage() {
       transition={{ duration: 0.25, ease: "easeOut" }}
       className="w-full"
     >
-      <div className="px-4 pt-4 pb-2">
+      <div className="px-4 pt-safe-top pb-2">
         <h1 className="text-xl font-bold text-foreground">Profil</h1>
       </div>
 

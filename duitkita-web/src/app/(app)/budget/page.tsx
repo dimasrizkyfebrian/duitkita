@@ -179,7 +179,7 @@ export default function BudgetPage() {
       transition={{ duration: 0.25, ease: "easeOut" }}
       className="w-full"
     >
-      <div className="px-4 pt-4 pb-2 flex items-center justify-between gap-3">
+      <div className="px-4 pt-safe-top pb-2 flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-foreground">Budget</h1>
         {view === "me" && isFinalized && (
           <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-muted text-muted-foreground">
