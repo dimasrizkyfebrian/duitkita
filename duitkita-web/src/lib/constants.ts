@@ -20,6 +20,7 @@ export const API_ROUTES = {
   budgets: {
     list: "/budgets",
     create: "/budgets",
+    detail: (id: string) => `/budgets/${id}`,
     update: (id: string) => `/budgets/${id}`,
     delete: (id: string) => `/budgets/${id}`,
     partner: "/budgets/partner",
@@ -38,7 +39,7 @@ export const API_ROUTES = {
     couple: "/reports/couple",
     trend: "/reports/trend",
     categoryTrend: "/reports/trend/category",
-    rollover: "/reports/rollover",
+    rollover: (categoryId: string) => `/reports/rollover/${categoryId}`,
   },
   activity: {
     list: "/activity",
@@ -59,11 +60,16 @@ export const QUERY_KEYS = {
     year,
     month,
   ],
+  budgetDetail: (id: string) => ["budgets", "detail", id],
   expenses: (year: number, month: number, categoryId?: string) =>
     ["expenses", year, month, categoryId].filter(Boolean),
+  expensesPartner: (year: number, month: number, categoryId?: string) =>
+    ["expenses", "partner", year, month, categoryId].filter(Boolean),
+  expensesByBudget: (budgetId: string) => ["expenses", "by-budget", budgetId],
   categories: () => ["categories"],
   activity: () => ["activity"],
   activityRecent: () => ["activity", "recent"],
+  activityFeed: () => ["activity", "feed"],
   reports: {
     monthly: (year: number, month: number) => [
       "reports",
@@ -82,6 +88,12 @@ export const QUERY_KEYS = {
       "reports",
       "trend",
       "category",
+      monthsBack,
+    ],
+    rollover: (categoryId: string, monthsBack: number) => [
+      "reports",
+      "rollover",
+      categoryId,
       monthsBack,
     ],
   },

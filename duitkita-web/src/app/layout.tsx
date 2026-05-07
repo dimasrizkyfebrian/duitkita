@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { QueryProvider } from "@/components/shared/QueryProvider";
+import { ServiceWorkerRegister } from "@/components/shared/ServiceWorkerRegister";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -14,24 +15,26 @@ const plusJakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "DuitKita",
   description: "Aplikasi pencatatan keuangan untuk pasangan",
-  icons: {
-    apple: "/apple-touch-icon.png",
-    icon: [
-      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" },
-    ],
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "DuitKita",
   },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
+  manifest: "/manifest.json",
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#F59E0B" },
     { media: "(prefers-color-scheme: dark)", color: "#FBBF24" },
@@ -57,6 +60,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <QueryProvider>
+            <ServiceWorkerRegister />
             {children}
             <Toaster
               position="top-center"

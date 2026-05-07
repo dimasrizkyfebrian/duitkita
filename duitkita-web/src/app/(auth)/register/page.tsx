@@ -38,6 +38,18 @@ const fieldVariants: Variants = {
   }),
 };
 
+function translateRegisterError(raw: string): string {
+  const lower = raw.toLowerCase();
+  if (
+    lower.includes("email") &&
+    (lower.includes("exist") ||
+      lower.includes("taken") ||
+      lower.includes("already"))
+  )
+    return "Email sudah terdaftar. Gunakan email lain.";
+  return "Pendaftaran gagal. Coba lagi.";
+}
+
 export default function RegisterPage() {
   const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
@@ -61,12 +73,13 @@ export default function RegisterPage() {
         password: data.password,
       });
       setAuth(result.user, result.accessToken);
+      toast.success("Akun berhasil dibuat. Selamat datang!");
       router.push("/dashboard");
     } catch (err: unknown) {
-      const message =
+      const raw =
         (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message ?? "Pendaftaran gagal. Coba lagi.";
-      toast.error(message);
+          ?.message ?? "";
+      toast.error(translateRegisterError(raw));
     } finally {
       setIsPending(false);
     }

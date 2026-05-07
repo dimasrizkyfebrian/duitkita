@@ -1,9 +1,14 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import axios from "axios";
 import type { AlertStatus } from "@/types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+export function isNotFound(error: unknown): boolean {
+  return axios.isAxiosError(error) && error.response?.status === 404;
 }
 
 export function formatCurrency(amount: number): string {
@@ -141,4 +146,13 @@ export function getInitials(name: string): string {
     .map((n) => n[0])
     .join("")
     .toUpperCase();
+}
+
+export function getCategoryColor(categoryId: string): string {
+  let hash = 0;
+  for (let i = 0; i < categoryId.length; i++) {
+    hash = (hash * 31 + categoryId.charCodeAt(i)) | 0;
+  }
+  const hue = Math.abs(hash) % 360;
+  return `hsl(${hue} 65% 55%)`;
 }

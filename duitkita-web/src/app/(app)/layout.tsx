@@ -14,13 +14,12 @@ export default function AppLayout({
 }) {
   const router = useRouter();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const [hasHydrated, setHasHydrated] = useState(false);
+  const [hasHydrated, setHasHydrated] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return useAuthStore.persist?.hasHydrated() ?? false;
+  });
 
   useEffect(() => {
-    if (useAuthStore.persist.hasHydrated()) {
-      setHasHydrated(true);
-      return;
-    }
     return useAuthStore.persist.onFinishHydration(() => {
       setHasHydrated(true);
     });
@@ -45,8 +44,8 @@ export default function AppLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col max-w-md mx-auto relative">
-      <main className="flex-1 overflow-y-auto pb-20 scrollbar-hide">
+    <div className="h-dvh overflow-hidden bg-background flex flex-col max-w-md mx-auto relative">
+      <main className="flex-1 overflow-y-auto pb-28 scrollbar-hide overscroll-none">
         {children}
       </main>
 

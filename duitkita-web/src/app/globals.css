@@ -209,10 +209,13 @@
   html {
     @apply font-sans;
     height: -webkit-fill-available;
+    overscroll-behavior: none;
   }
   body {
     min-height: 100vh;
     min-height: -webkit-fill-available;
+    overscroll-behavior: none;
+    overflow: hidden;
   }
 }
 
@@ -229,5 +232,8 @@
   }
   .mb-safe {
     margin-bottom: env(safe-area-inset-bottom);
+  }
+  .pt-safe-top {
+    padding-top: max(env(safe-area-inset-top), 1rem);
   }
 }
