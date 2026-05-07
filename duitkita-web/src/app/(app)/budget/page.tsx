@@ -177,9 +177,9 @@ export default function BudgetPage() {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: "easeOut" }}
-      className="w-full pt-safe-top pb-6"
+      className="w-full pt-safe-top pb-6 space-y-4"
     >
-      <div className="px-4 space-y-3 pb-4">
+      <div className="px-4 space-y-3">
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-xl font-bold text-foreground">Budget</h1>
           {view === "me" && isFinalized && (
@@ -194,28 +194,36 @@ export default function BudgetPage() {
           onViewChange={setView}
           noPartner={partner.noPartner}
         />
+        {view === "me" ? (
+          isLoading ? (
+            <BudgetHeaderSkeleton />
+          ) : (
+            <BudgetPageHeader
+              year={activeYear}
+              month={activeMonth}
+              totalBudget={totalBudget}
+              totalSpent={totalSpent}
+              isFinalized={isFinalized}
+              hasBudgets={budgets.length > 0}
+              onPrevMonth={handlePrevMonth}
+              onNextMonth={handleNextMonth}
+              onFinalize={finalizeBudgets}
+              isFinalizing={isFinalizing}
+            />
+          )
+        ) : (
+          <ReportPageHeader
+            year={activeYear}
+            month={activeMonth}
+            onPrevMonth={handlePrevMonth}
+            onNextMonth={handleNextMonth}
+          />
+        )}
       </div>
 
       <div className="px-4 space-y-4">
         {view === "me" ? (
           <>
-            {isLoading ? (
-              <BudgetHeaderSkeleton />
-            ) : (
-              <BudgetPageHeader
-                year={activeYear}
-                month={activeMonth}
-                totalBudget={totalBudget}
-                totalSpent={totalSpent}
-                isFinalized={isFinalized}
-                hasBudgets={budgets.length > 0}
-                onPrevMonth={handlePrevMonth}
-                onNextMonth={handleNextMonth}
-                onFinalize={finalizeBudgets}
-                isFinalizing={isFinalizing}
-              />
-            )}
-
             {isError && (
               <div className="text-center py-4">
                 <p className="text-sm text-muted-foreground">
@@ -294,13 +302,6 @@ export default function BudgetPage() {
           </>
         ) : (
           <>
-            <ReportPageHeader
-              year={activeYear}
-              month={activeMonth}
-              onPrevMonth={handlePrevMonth}
-              onNextMonth={handleNextMonth}
-            />
-
             {partner.noPartner ? (
               <NoPartnerState description="Hubungkan akun pasangan untuk lihat anggaran berdua." />
             ) : partner.isError ? (
