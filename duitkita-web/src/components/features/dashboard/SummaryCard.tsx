@@ -34,7 +34,7 @@ export function SummaryCard({
       key="summary-card"
       initial={{ opacity: 0, y: 16, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+      transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] }}
       className="bg-card rounded-2xl shadow-lg p-4"
     >
       <div className="flex items-center">

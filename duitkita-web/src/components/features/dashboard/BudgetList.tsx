@@ -26,7 +26,7 @@ const listVariants = {
 
 const itemVariants = {
   hidden: { opacity: 0, y: 10 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] } },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } },
 };
 
 export function BudgetList({ budgets, isLoading }: BudgetListProps) {
@@ -101,7 +101,7 @@ export function BudgetList({ budgets, isLoading }: BudgetListProps) {
                     animate={{ width: `${Math.min(pct, 100)}%` }}
                     transition={{
                       duration: 0.7,
-                      ease: [0.25, 0.46, 0.45, 0.94],
+                      ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number],
                       delay: 0.15 + index * 0.07,
                     }}
                   />
