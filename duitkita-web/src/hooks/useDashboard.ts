@@ -49,7 +49,7 @@ export function useDashboard() {
     isActivityLoading: activityQuery.isLoading,
     isBudgetsError: budgetsQuery.isError,
     isActivityError: activityQuery.isError,
-    isFetching: budgetsQuery.isFetching || activityQuery.isFetching,
+    isFetching: budgetsQuery.isRefetching || activityQuery.isRefetching,
     refetch: () => {
       budgetsQuery.refetch();
       activityQuery.refetch();

@@ -18,7 +18,15 @@ interface ActivitySectionProps {
   isLoading: boolean;
 }
 
-function getActionLabel(action: Activity["action"]): string {
+function getActionLabel(
+  action: Activity["action"],
+  entityType: Activity["entityType"],
+): string {
+  if (entityType === "budget") {
+    if (action === "created") return "membuat anggaran";
+    if (action === "updated") return "mengubah anggaran";
+    return "menghapus anggaran";
+  }
   if (action === "created") return "mencatat";
   if (action === "updated") return "mengubah";
   return "menghapus";
@@ -26,12 +34,12 @@ function getActionLabel(action: Activity["action"]): string {
 
 const listVariants = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.05 } },
+  visible: { transition: { staggerChildren: 0.06, delayChildren: 0.05 } },
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 6 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.2 } },
+  hidden: { opacity: 0, y: 8 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] } },
 };
 
 export function ActivitySection({
@@ -92,7 +100,7 @@ export function ActivitySection({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-foreground leading-snug truncate">
                     <span className="font-medium">{actorLabel}</span>{" "}
-                    {getActionLabel(activity.action)}{" "}
+                    {getActionLabel(activity.action, activity.entityType)}{" "}
                     <span className="font-medium">{categoryName}</span>
                     {amount != null && (
                       <span className="text-muted-foreground">

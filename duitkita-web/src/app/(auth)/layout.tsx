@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth.store";
@@ -22,10 +23,15 @@ export default function AuthLayout({
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-primary rounded-2xl mb-4">
-            <span className="text-primary-foreground font-bold text-xl">
-              DK
-            </span>
+          <div className="mb-4">
+            <Image
+              src="/icons/icon-192x192.png"
+              alt="DuitKita"
+              width={56}
+              height={56}
+              className="rounded-2xl mx-auto"
+              priority
+            />
           </div>
           <h1 className="text-2xl font-bold text-foreground">DuitKita</h1>
           <p className="text-muted-foreground text-sm mt-1">

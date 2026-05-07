@@ -21,12 +21,12 @@ interface BudgetListProps {
 
 const listVariants = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.05 } },
+  visible: { transition: { staggerChildren: 0.07, delayChildren: 0.1 } },
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 6 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.2 } },
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] } },
 };
 
 export function BudgetList({ budgets, isLoading }: BudgetListProps) {
@@ -100,9 +100,9 @@ export function BudgetList({ budgets, isLoading }: BudgetListProps) {
                     initial={{ width: "0%" }}
                     animate={{ width: `${Math.min(pct, 100)}%` }}
                     transition={{
-                      duration: 0.6,
-                      ease: "easeOut",
-                      delay: index * 0.05,
+                      duration: 0.7,
+                      ease: [0.25, 0.46, 0.45, 0.94],
+                      delay: 0.15 + index * 0.07,
                     }}
                   />
                 </div>
