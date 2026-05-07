@@ -15,8 +15,11 @@ export async function fetchBudgets(
 
 export async function fetchRecentActivity(): Promise<Activity[]> {
   try {
-    const response = await api.get<Activity[]>(API_ROUTES.activity.recent);
-    return response.data;
+    // The endpoint returns a paginated wrapper { data: Activity[], total, ... }
+    const response = await api.get<{ data: Activity[] }>(
+      API_ROUTES.activity.recent,
+    );
+    return response.data.data ?? [];
   } catch (err) {
     // 404 = no partner linked yet — treat as empty, not an error
     if (axios.isAxiosError(err) && err.response?.status === 404) {
