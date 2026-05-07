@@ -7,6 +7,7 @@ import { useReports, useTrend, useCategoryTrend } from "@/hooks/useReports";
 import { useAppStore } from "@/stores/app.store";
 import { ReportPageHeader } from "@/components/features/reports/ReportPageHeader";
 import { ScopeTabs } from "@/components/features/reports/ScopeTabs";
+import { PageTitle } from "@/components/layout/PageTitle";
 import { ReportSummaryCard } from "@/components/features/reports/ReportSummaryCard";
 import { CategoryDistributionChart } from "@/components/features/reports/CategoryDistributionChart";
 import { TrendChart } from "@/components/features/reports/TrendChart";
@@ -78,9 +79,10 @@ export default function ReportsPage() {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: "easeOut" }}
-      className="w-full pt-4 pb-6 space-y-4"
+      className="w-full pt-safe-top pb-6 space-y-4"
     >
       <div className="px-4 space-y-3">
+        <PageTitle title="Laporan" />
         {isLoading && !report ? (
           <ReportHeaderSkeleton />
         ) : (

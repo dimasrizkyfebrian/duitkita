@@ -69,7 +69,7 @@ export default function ExpensesPage() {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: "easeOut" }}
-      className="w-full pt-4 pb-6 space-y-4"
+      className="w-full pt-safe-top pb-6 space-y-4"
     >
       <div className="px-4 space-y-3">
         <ExpenseListPageHeader />

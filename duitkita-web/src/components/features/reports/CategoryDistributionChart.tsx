@@ -25,17 +25,25 @@ export function CategoryDistributionChart({
   categories,
   totalSpent,
 }: CategoryDistributionChartProps) {
-  const data = useMemo(
-    () =>
-      categories
-        .filter((c) => c.totalSpent > 0)
-        .map((c) => ({
-          name: c.categoryName,
+  const data = useMemo(() => {
+    const merged = new Map<string, { value: number; fill: string }>();
+    for (const c of categories.filter((c) => c.totalSpent > 0)) {
+      const existing = merged.get(c.categoryName);
+      if (existing) {
+        existing.value += c.totalSpent;
+      } else {
+        merged.set(c.categoryName, {
           value: c.totalSpent,
           fill: getCategoryColor(c.categoryId),
-        })),
-    [categories],
-  );
+        });
+      }
+    }
+    return Array.from(merged.entries()).map(([name, { value, fill }]) => ({
+      name,
+      value,
+      fill,
+    }));
+  }, [categories]);
 
   const config = useMemo<ChartConfig>(() => {
     const out: ChartConfig = {};
@@ -86,10 +94,12 @@ export function CategoryDistributionChart({
                 nameKey="name"
                 cx="50%"
                 cy="50%"
-                innerRadius={60}
-                outerRadius={90}
-                paddingAngle={2}
+                innerRadius={64}
+                outerRadius={84}
+                paddingAngle={data.length > 1 ? 2 : 0}
                 strokeWidth={0}
+                startAngle={90}
+                endAngle={-270}
               >
                 {data.map((entry) => (
                   <Cell key={entry.name} fill={entry.fill} />

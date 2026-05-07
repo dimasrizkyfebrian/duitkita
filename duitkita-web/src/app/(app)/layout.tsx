@@ -45,7 +45,7 @@ export default function AppLayout({
 
   return (
     <div className="min-h-screen bg-background flex flex-col max-w-md mx-auto relative">
-      <main className="flex-1 overflow-y-auto pb-20 scrollbar-hide">
+      <main className="flex-1 overflow-y-auto pb-28 scrollbar-hide overscroll-none">
         {children}
       </main>
 
