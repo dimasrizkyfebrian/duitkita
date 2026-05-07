@@ -1,4 +1,4 @@
-const CACHE_NAME = 'duitkita-v1';
+const CACHE_NAME = 'duitkita-v2';
 const OFFLINE_URL = '/offline';
 
 const PRECACHE_ASSETS = [OFFLINE_URL];
@@ -24,6 +24,13 @@ self.addEventListener('fetch', (event) => {
 
   if (request.method !== 'GET') return;
 
+  const url = new URL(request.url);
+
+  // Skip cross-origin requests (API calls to Railway and other external origins).
+  // The service worker CSP only allows 'self', so attempting to fetch these would
+  // be blocked and cause net::ERR_FAILED for every API call in the app.
+  if (url.origin !== self.location.origin) return;
+
   // Navigation: network-first, fallback to offline page
   if (request.mode === 'navigate') {
     event.respondWith(
@@ -33,7 +40,6 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Static assets (_next/static, icons): cache-first
-  const url = new URL(request.url);
   const isStatic =
     url.pathname.startsWith('/_next/static/') ||
     url.pathname.startsWith('/icons/') ||
@@ -54,10 +60,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Everything else: network-first
-  event.respondWith(
-    fetch(request).catch(() => caches.match(request))
-  );
+  // All other same-origin requests (RSC payloads, etc.): pass through without
+  // intercepting to avoid serving stale data or causing TypeError on empty cache.
 });
 
 self.addEventListener('push', (event) => {
