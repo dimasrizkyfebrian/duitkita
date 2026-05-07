@@ -15,7 +15,15 @@ interface ActivityListItemProps {
   currentUserId: string;
 }
 
-function getActionLabel(action: Activity["action"]): string {
+function getActionLabel(
+  action: Activity["action"],
+  entityType: Activity["entityType"],
+): string {
+  if (entityType === "budget") {
+    if (action === "created") return "membuat anggaran";
+    if (action === "updated") return "mengubah anggaran";
+    return "menghapus anggaran";
+  }
   if (action === "created") return "mencatat";
   if (action === "updated") return "mengubah";
   return "menghapus";
@@ -56,7 +64,7 @@ export function ActivityListItem({
       <div className="flex-1 min-w-0">
         <p className="text-sm text-foreground leading-snug">
           <span className="font-medium">{actorLabel}</span>{" "}
-          {getActionLabel(activity.action)}{" "}
+          {getActionLabel(activity.action, activity.entityType)}{" "}
           <span className="font-medium">{categoryName}</span>
           {activity.meta.note ? (
             <span className="text-muted-foreground"> · {activity.meta.note}</span>
