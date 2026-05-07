@@ -137,7 +137,6 @@ export interface CoupleReport {
   partner: MonthlyReport | null;
   combinedTotalSpent: number;
   combinedTotalBudget: number;
-  combinedPercentageUsed: number;
 }
 
 export interface CategoryTrend {

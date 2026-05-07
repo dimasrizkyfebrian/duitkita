@@ -128,7 +128,10 @@ function mergeReports(couple: CoupleReport): MonthlyReport {
       me.totalEffectiveBudget + partner.totalEffectiveBudget,
     totalSpent: couple.combinedTotalSpent,
     totalRemaining: me.totalRemaining + partner.totalRemaining,
-    overallPercentageUsed: couple.combinedPercentageUsed,
+    overallPercentageUsed:
+      couple.combinedTotalBudget > 0
+        ? (couple.combinedTotalSpent / couple.combinedTotalBudget) * 100
+        : 0,
     categories: mergeCategories(me.categories, partner.categories),
   };
 }
