@@ -111,9 +111,9 @@ export default function ProfilePage() {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: "easeOut" }}
-      className="w-full pt-safe-top pb-6"
+      className="w-full pt-safe-top pb-6 space-y-4"
     >
-      <div className="px-4 pb-3">
+      <div className="px-4">
         <h1 className="text-xl font-bold text-foreground">Profil</h1>
       </div>
 
