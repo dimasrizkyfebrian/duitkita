@@ -49,7 +49,7 @@ export async function updateBudget(
   id: string,
   payload: UpdateBudgetRequest,
 ): Promise<MonthlyBudget> {
-  const res = await api.put<MonthlyBudget>(
+  const res = await api.patch<MonthlyBudget>(
     API_ROUTES.budgets.update(id),
     payload,
   );
@@ -78,7 +78,7 @@ export async function updateCategory(
   id: string,
   payload: CreateCategoryRequest,
 ): Promise<Category> {
-  const res = await api.put<Category>(
+  const res = await api.patch<Category>(
     API_ROUTES.categories.update(id),
     payload,
   );

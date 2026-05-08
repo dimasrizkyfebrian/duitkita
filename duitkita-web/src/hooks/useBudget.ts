@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAppStore } from "@/stores/app.store";
 import { QUERY_KEYS } from "@/lib/constants";
-import { isNotFound } from "@/lib/utils";
+import { isNotFound, getApiStatus } from "@/lib/utils";
 import {
   fetchBudgets,
   fetchBudgetById,
@@ -54,7 +54,13 @@ export function useBudget() {
       invalidateBudgets();
       toast.success("Anggaran berhasil ditambahkan");
     },
-    onError: () => toast.error("Gagal menambahkan anggaran"),
+    onError: (err: unknown) => {
+      const status = getApiStatus(err);
+      if (status === 409) toast.error("Anggaran untuk kategori ini di bulan ini sudah ada");
+      else if (status === 404) toast.error("Kategori tidak ditemukan atau bukan milikmu");
+      else if (status === 400) toast.error("Data anggaran tidak valid, periksa kembali isian kamu");
+      else toast.error("Gagal menambahkan anggaran, coba beberapa saat lagi");
+    },
   });
 
   const updateMutation = useMutation({
@@ -69,7 +75,13 @@ export function useBudget() {
       invalidateBudgets();
       toast.success("Anggaran berhasil diperbarui");
     },
-    onError: () => toast.error("Gagal memperbarui anggaran"),
+    onError: (err: unknown) => {
+      const status = getApiStatus(err);
+      if (status === 403) toast.error("Anggaran yang sudah dikunci tidak dapat diubah");
+      else if (status === 404) toast.error("Anggaran tidak ditemukan");
+      else if (status === 400) toast.error("Nominal anggaran tidak valid");
+      else toast.error("Gagal memperbarui anggaran, coba beberapa saat lagi");
+    },
   });
 
   const deleteMutation = useMutation({
@@ -78,7 +90,12 @@ export function useBudget() {
       invalidateBudgets();
       toast.success("Anggaran berhasil dihapus");
     },
-    onError: () => toast.error("Gagal menghapus anggaran"),
+    onError: (err: unknown) => {
+      const status = getApiStatus(err);
+      if (status === 403) toast.error("Anggaran tidak dapat dihapus karena sudah ada pengeluaran yang tercatat");
+      else if (status === 404) toast.error("Anggaran tidak ditemukan");
+      else toast.error("Gagal menghapus anggaran, coba beberapa saat lagi");
+    },
   });
 
   const finalizeMutation = useMutation({
@@ -87,7 +104,11 @@ export function useBudget() {
       invalidateBudgets();
       toast.success("Anggaran bulan ini telah dikunci");
     },
-    onError: () => toast.error("Gagal mengunci anggaran"),
+    onError: (err: unknown) => {
+      const status = getApiStatus(err);
+      if (status === 400) toast.error("Anggaran bulan ini sudah pernah dikunci sebelumnya");
+      else toast.error("Gagal mengunci anggaran, coba beberapa saat lagi");
+    },
   });
 
   // ── Category mutations ──────────────────────────────────────────────
@@ -98,7 +119,11 @@ export function useBudget() {
       invalidateCategories();
       toast.success("Kategori berhasil ditambahkan");
     },
-    onError: () => toast.error("Gagal menambahkan kategori"),
+    onError: (err: unknown) => {
+      const status = getApiStatus(err);
+      if (status === 400) toast.error("Nama kategori tidak valid atau terlalu panjang");
+      else toast.error("Gagal menambahkan kategori, coba beberapa saat lagi");
+    },
   });
 
   const editCategoryMutation = useMutation({
@@ -110,7 +135,12 @@ export function useBudget() {
       invalidateBudgets();
       toast.success("Kategori berhasil diperbarui");
     },
-    onError: () => toast.error("Gagal memperbarui kategori"),
+    onError: (err: unknown) => {
+      const status = getApiStatus(err);
+      if (status === 404) toast.error("Kategori tidak ditemukan");
+      else if (status === 400) toast.error("Nama kategori tidak valid atau terlalu panjang");
+      else toast.error("Gagal memperbarui kategori, coba beberapa saat lagi");
+    },
   });
 
   const deleteCategoryMutation = useMutation({
@@ -119,7 +149,12 @@ export function useBudget() {
       invalidateCategories();
       toast.success("Kategori berhasil dihapus");
     },
-    onError: () => toast.error("Gagal menghapus kategori"),
+    onError: (err: unknown) => {
+      const status = getApiStatus(err);
+      if (status === 409) toast.error("Kategori tidak dapat dihapus karena sudah digunakan oleh anggaran atau pengeluaran");
+      else if (status === 404) toast.error("Kategori tidak ditemukan");
+      else toast.error("Gagal menghapus kategori, coba beberapa saat lagi");
+    },
   });
 
   const budgets = budgetsQuery.data ?? [];

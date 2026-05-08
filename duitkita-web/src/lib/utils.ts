@@ -11,6 +11,10 @@ export function isNotFound(error: unknown): boolean {
   return axios.isAxiosError(error) && error.response?.status === 404;
 }
 
+export function getApiStatus(err: unknown): number | undefined {
+  return axios.isAxiosError(err) ? err.response?.status : undefined;
+}
+
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
