@@ -64,7 +64,7 @@ export async function finalizeBudgets(
   year: number,
   month: number,
 ): Promise<void> {
-  await api.post(API_ROUTES.budgets.finalize, { year, month });
+  await api.post(API_ROUTES.budgets.finalize, undefined, { params: { year, month } });
 }
 
 export async function createCategory(
