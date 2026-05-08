@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAppStore } from "@/stores/app.store";
 import { QUERY_KEYS } from "@/lib/constants";
-import { isNotFound } from "@/lib/utils";
+import { isNotFound, getApiStatus } from "@/lib/utils";
 import {
   createExpense,
   deleteExpense,
@@ -37,8 +37,11 @@ export function useCreateExpense() {
       toast.success("Pengeluaran tercatat!");
       closeExpenseSheet();
     },
-    onError: () => {
-      toast.error("Gagal mencatat pengeluaran");
+    onError: (err: unknown) => {
+      const status = getApiStatus(err);
+      if (status === 404) toast.error("Anggaran atau kategori tidak ditemukan");
+      else if (status === 400) toast.error("Data pengeluaran tidak valid, periksa kembali isian kamu");
+      else toast.error("Gagal mencatat pengeluaran, coba beberapa saat lagi");
     },
   });
 }
@@ -116,8 +119,11 @@ export function useUpdateExpense() {
       invalidateAfterMutation(queryClient);
       toast.success("Pengeluaran diperbarui");
     },
-    onError: () => {
-      toast.error("Gagal memperbarui pengeluaran");
+    onError: (err: unknown) => {
+      const status = getApiStatus(err);
+      if (status === 404) toast.error("Pengeluaran tidak ditemukan");
+      else if (status === 400) toast.error("Data pengeluaran tidak valid, periksa kembali isian kamu");
+      else toast.error("Gagal memperbarui pengeluaran, coba beberapa saat lagi");
     },
   });
 }
@@ -131,8 +137,10 @@ export function useDeleteExpense() {
       invalidateAfterMutation(queryClient);
       toast.success("Pengeluaran dihapus");
     },
-    onError: () => {
-      toast.error("Gagal menghapus pengeluaran");
+    onError: (err: unknown) => {
+      const status = getApiStatus(err);
+      if (status === 404) toast.error("Pengeluaran tidak ditemukan");
+      else toast.error("Gagal menghapus pengeluaran, coba beberapa saat lagi");
     },
   });
 }

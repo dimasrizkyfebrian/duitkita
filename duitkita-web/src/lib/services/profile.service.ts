@@ -16,7 +16,7 @@ export async function fetchProfile(): Promise<User> {
 export async function updateProfile(
   payload: UpdateProfileRequest,
 ): Promise<User> {
-  const res = await api.patch<User>(API_ROUTES.users.updateMe, payload);
+  const res = await api.patch<User>(API_ROUTES.users.updateMe, { name: payload.name });
   return res.data;
 }
 
