@@ -4,6 +4,8 @@ import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { UsersService } from './users.service';
 import { User } from '../../database/entities/user.entity';
+import { AuthService } from '../auth/auth.service';
+import { SecurityAuditService } from '../security-audit/security-audit.service';
 
 const USER_ID = 'user-uuid';
 
@@ -24,12 +26,21 @@ describe('UsersService', () => {
     findOne: jest.fn(),
     save: jest.fn(),
   };
+  const authService = {
+    revokeAllSessions: jest.fn(),
+  };
+  const securityAuditService = {
+    log: jest.fn().mockResolvedValue(undefined),
+    listForUser: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
         { provide: getRepositoryToken(User), useValue: userRepo },
+        { provide: AuthService, useValue: authService },
+        { provide: SecurityAuditService, useValue: securityAuditService },
       ],
     }).compile();
 
@@ -96,6 +107,8 @@ describe('UsersService', () => {
       ).resolves.toBeUndefined();
 
       expect(userRepo.save).toHaveBeenCalled();
+      expect(authService.revokeAllSessions).toHaveBeenCalledWith(USER_ID);
+      expect(securityAuditService.log).toHaveBeenCalled();
     });
 
     it('throws UnauthorizedException when current password does not match', async () => {

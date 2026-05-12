@@ -9,6 +9,10 @@ import * as bcrypt from 'bcryptjs';
 import { User } from '../../database/entities/user.entity';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { AuthService } from '../auth/auth.service';
+import { SecurityAuditEventType } from '../../database/entities/security-audit-log.entity';
+import { SecurityAuditService } from '../security-audit/security-audit.service';
+import type { RequestAuditContext } from '../../common/utils/request-audit-context.util';
 
 export type ProfileInfo = {
   id: string;
@@ -22,6 +26,8 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    private readonly authService: AuthService,
+    private readonly securityAuditService: SecurityAuditService,
   ) {}
 
   async getProfile(userId: string): Promise<ProfileInfo> {
@@ -40,7 +46,11 @@ export class UsersService {
     return { id: saved.id, name: saved.name, email: saved.email, createdAt: saved.createdAt };
   }
 
-  async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+    audit?: RequestAuditContext,
+  ): Promise<void> {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
@@ -49,5 +59,17 @@ export class UsersService {
 
     user.passwordHash = await bcrypt.hash(dto.newPassword, 10);
     await this.userRepo.save(user);
+    await this.authService.revokeAllSessions(userId);
+    void this.securityAuditService.log({
+      userId,
+      eventType: SecurityAuditEventType.PASSWORD_CHANGED,
+      ipAddress: audit?.ipAddress ?? null,
+      userAgent: audit?.userAgent ?? null,
+      meta: {},
+    });
+  }
+
+  getSecurityAuditLog(userId: string, limit: number, offset: number) {
+    return this.securityAuditService.listForUser(userId, limit, offset);
   }
 }

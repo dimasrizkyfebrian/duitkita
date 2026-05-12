@@ -1,4 +1,5 @@
 import {
+  Param,
   Body,
   Controller,
   Delete,
@@ -49,5 +50,50 @@ export class CouplesController {
   @ApiResponse({ status: 404, description: 'No partner to unlink' })
   unlink(@CurrentUser() user: { id: string }) {
     return this.couplesService.unlink(user.id);
+  }
+
+  @Post('invitations')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Send a partner invitation by email' })
+  @ApiResponse({ status: 201, description: 'Invitation sent successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Partner email not found' })
+  sendInvitation(@CurrentUser() user: { id: string }, @Body() dto: LinkPartnerDto) {
+    return this.couplesService.sendInvitation(user.id, dto);
+  }
+
+  @Get('invitations/incoming')
+  @ApiOperation({ summary: 'Get incoming pending partner invitations' })
+  @ApiResponse({ status: 200, description: 'Incoming invitations returned' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  getIncomingInvitations(@CurrentUser() user: { id: string }) {
+    return this.couplesService.getIncomingInvitations(user.id);
+  }
+
+  @Post('invitations/:id/accept')
+  @ApiOperation({ summary: 'Accept a partner invitation' })
+  @ApiResponse({ status: 200, description: 'Invitation accepted and partner linked' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Invitation not found' })
+  acceptInvitation(@CurrentUser() user: { id: string }, @Param('id') id: string) {
+    return this.couplesService.acceptInvitation(user.id, id);
+  }
+
+  @Post('invitations/:id/reject')
+  @ApiOperation({ summary: 'Reject a partner invitation' })
+  @ApiResponse({ status: 200, description: 'Invitation rejected' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Invitation not found' })
+  rejectInvitation(@CurrentUser() user: { id: string }, @Param('id') id: string) {
+    return this.couplesService.rejectInvitation(user.id, id);
+  }
+
+  @Post('invitations/:id/cancel')
+  @ApiOperation({ summary: 'Cancel a sent partner invitation' })
+  @ApiResponse({ status: 200, description: 'Invitation cancelled' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Invitation not found' })
+  cancelInvitation(@CurrentUser() user: { id: string }, @Param('id') id: string) {
+    return this.couplesService.cancelInvitation(user.id, id);
   }
 }
