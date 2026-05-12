@@ -8,7 +8,12 @@ import {
 import { CouplesService } from './couples.service';
 import { Couple } from '../../database/entities/couple.entity';
 import { User } from '../../database/entities/user.entity';
+import {
+  CoupleInvitation,
+  CoupleInvitationStatus,
+} from '../../database/entities/couple-invitation.entity';
 import { CoupleMessages } from '../../common/constants/couple.messages';
+import { SecurityAuditService } from '../security-audit/security-audit.service';
 
 const USER_ID = 'user-uuid';
 const PARTNER_ID = 'partner-uuid';
@@ -36,6 +41,23 @@ const makeCouple = (user1Id = USER_ID, user2Id = PARTNER_ID): Couple =>
     linkedAt: new Date('2025-01-01'),
   }) as Couple;
 
+const makeInvitation = (
+  overrides: Partial<CoupleInvitation> = {},
+): CoupleInvitation =>
+  ({
+    id: 'invitation-uuid',
+    senderUserId: USER_ID,
+    receiverUserId: PARTNER_ID,
+    senderUser: makeUser(),
+    receiverUser: makePartner(),
+    status: CoupleInvitationStatus.PENDING,
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    respondedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  }) as CoupleInvitation;
+
 describe('CouplesService', () => {
   let service: CouplesService;
 
@@ -50,17 +72,104 @@ describe('CouplesService', () => {
     findOne: jest.fn(),
   };
 
+  const invitationRepo = {
+    findOne: jest.fn(),
+    findOneOrFail: jest.fn(),
+    find: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    update: jest.fn(),
+  };
+
+  const securityAuditService = {
+    log: jest.fn().mockResolvedValue(undefined),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CouplesService,
         { provide: getRepositoryToken(Couple), useValue: coupleRepo },
+        { provide: getRepositoryToken(CoupleInvitation), useValue: invitationRepo },
         { provide: getRepositoryToken(User), useValue: userRepo },
+        { provide: SecurityAuditService, useValue: securityAuditService },
       ],
     }).compile();
 
     service = module.get(CouplesService);
     jest.clearAllMocks();
+  });
+
+  describe('sendInvitation', () => {
+    const dto = { partnerEmail: 'partner@example.com' };
+
+    it('creates invitation when both users are available', async () => {
+      userRepo.findOne.mockResolvedValue(makePartner());
+      coupleRepo.findOne.mockResolvedValue(null);
+      invitationRepo.findOne.mockResolvedValue(null);
+      invitationRepo.create.mockReturnValue(makeInvitation());
+      invitationRepo.save.mockResolvedValue(makeInvitation());
+      invitationRepo.findOneOrFail.mockResolvedValue(makeInvitation());
+
+      const result = await service.sendInvitation(USER_ID, dto);
+
+      expect(invitationRepo.create).toHaveBeenCalled();
+      expect(result.status).toBe(CoupleInvitationStatus.PENDING);
+      expect(result.senderUserId).toBe(USER_ID);
+      expect(result.receiverUserId).toBe(PARTNER_ID);
+    });
+
+    it('throws conflict when pending invitation already exists', async () => {
+      userRepo.findOne.mockResolvedValue(makePartner());
+      coupleRepo.findOne.mockResolvedValue(null);
+      invitationRepo.findOne.mockResolvedValue(makeInvitation());
+
+      await expect(service.sendInvitation(USER_ID, dto)).rejects.toThrow(
+        new ConflictException(CoupleMessages.INVITATION_ALREADY_PENDING),
+      );
+    });
+  });
+
+  describe('acceptInvitation', () => {
+    it('accepts invitation and creates a couple', async () => {
+      const invitation = makeInvitation({
+        receiverUserId: USER_ID,
+        senderUserId: PARTNER_ID,
+        senderUser: makeUser({ id: PARTNER_ID, name: 'Partner', email: 'partner@example.com' }),
+      });
+      invitationRepo.findOne.mockResolvedValue(invitation);
+      coupleRepo.findOne.mockResolvedValue(null);
+      const savedCouple = makeCouple(PARTNER_ID, USER_ID);
+      coupleRepo.create.mockReturnValue(savedCouple);
+      coupleRepo.save.mockResolvedValue(savedCouple);
+      invitationRepo.save.mockResolvedValue({
+        ...invitation,
+        status: CoupleInvitationStatus.ACCEPTED,
+      });
+
+      const result = await service.acceptInvitation(USER_ID, invitation.id);
+
+      expect(coupleRepo.create).toHaveBeenCalledWith({
+        user1Id: PARTNER_ID,
+        user2Id: USER_ID,
+      });
+      expect(result.id).toBe(PARTNER_ID);
+    });
+  });
+
+  describe('rejectInvitation', () => {
+    it('rejects pending invitation', async () => {
+      const invitation = makeInvitation({ receiverUserId: USER_ID });
+      invitationRepo.findOne.mockResolvedValue(invitation);
+      invitationRepo.save.mockResolvedValue({
+        ...invitation,
+        status: CoupleInvitationStatus.REJECTED,
+      });
+
+      const result = await service.rejectInvitation(USER_ID, invitation.id);
+
+      expect(result.message).toBe(CoupleMessages.INVITATION_REJECTED);
+    });
   });
 
   // ─── link ───────────────────────────────────────────────────────────────────

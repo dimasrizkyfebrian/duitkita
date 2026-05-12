@@ -5,14 +5,19 @@ import {
   HttpCode,
   HttpStatus,
   Patch,
+  Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { QuerySecurityAuditDto } from './dto/query-security-audit.dto';
+import { extractRequestAuditContext } from '../../common/utils/request-audit-context.util';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -44,7 +49,22 @@ export class UsersController {
   @ApiResponse({ status: 204, description: 'Password changed successfully' })
   @ApiResponse({ status: 400, description: 'Validation error or wrong current password' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  changePassword(@CurrentUser() user: { id: string }, @Body() dto: ChangePasswordDto) {
-    return this.usersService.changePassword(user.id, dto);
+  changePassword(
+    @CurrentUser() user: { id: string },
+    @Body() dto: ChangePasswordDto,
+    @Req() req: Request,
+  ) {
+    return this.usersService.changePassword(user.id, dto, extractRequestAuditContext(req));
+  }
+
+  @Get('me/security-audit')
+  @ApiOperation({ summary: 'Paginated security audit log for the current user' })
+  @ApiResponse({ status: 200, description: 'Audit entries returned' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  getSecurityAudit(
+    @CurrentUser() user: { id: string },
+    @Query() query: QuerySecurityAuditDto,
+  ) {
+    return this.usersService.getSecurityAuditLog(user.id, query.limit, query.offset);
   }
 }
