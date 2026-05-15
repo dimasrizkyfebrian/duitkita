@@ -5,6 +5,7 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { CouplesService } from './couples.service';
 import { Couple } from '../../database/entities/couple.entity';
 import { User } from '../../database/entities/user.entity';
@@ -31,32 +32,34 @@ const makeUser = (overrides: Partial<User> = {}): User =>
 const makePartner = (): User =>
   makeUser({ id: PARTNER_ID, name: 'Partner', email: 'partner@example.com' });
 
-const makeCouple = (user1Id = USER_ID, user2Id = PARTNER_ID): Couple =>
-  ({
-    id: 'couple-uuid',
-    user1Id,
-    user2Id,
-    user1: makeUser({ id: user1Id }),
-    user2: makeUser({ id: user2Id, name: 'Partner', email: 'partner@example.com' }),
-    linkedAt: new Date('2025-01-01'),
-  }) as Couple;
+const makeCouple = (user1Id = USER_ID, user2Id = PARTNER_ID): Couple => ({
+  id: 'couple-uuid',
+  user1Id,
+  user2Id,
+  user1: makeUser({ id: user1Id }),
+  user2: makeUser({
+    id: user2Id,
+    name: 'Partner',
+    email: 'partner@example.com',
+  }),
+  linkedAt: new Date('2025-01-01'),
+});
 
 const makeInvitation = (
   overrides: Partial<CoupleInvitation> = {},
-): CoupleInvitation =>
-  ({
-    id: 'invitation-uuid',
-    senderUserId: USER_ID,
-    receiverUserId: PARTNER_ID,
-    senderUser: makeUser(),
-    receiverUser: makePartner(),
-    status: CoupleInvitationStatus.PENDING,
-    expiresAt: new Date(Date.now() + 60 * 60 * 1000),
-    respondedAt: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    ...overrides,
-  }) as CoupleInvitation;
+): CoupleInvitation => ({
+  id: 'invitation-uuid',
+  senderUserId: USER_ID,
+  receiverUserId: PARTNER_ID,
+  senderUser: makeUser(),
+  receiverUser: makePartner(),
+  status: CoupleInvitationStatus.PENDING,
+  expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+  respondedAt: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  ...overrides,
+});
 
 describe('CouplesService', () => {
   let service: CouplesService;
@@ -84,14 +87,29 @@ describe('CouplesService', () => {
   const securityAuditService = {
     log: jest.fn().mockResolvedValue(undefined),
   };
+  const dataSource = {
+    transaction: jest.fn((callback) =>
+      callback({
+        getRepository: (entity: unknown) => {
+          if (entity === Couple) return coupleRepo;
+          if (entity === CoupleInvitation) return invitationRepo;
+          return userRepo;
+        },
+      }),
+    ),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CouplesService,
         { provide: getRepositoryToken(Couple), useValue: coupleRepo },
-        { provide: getRepositoryToken(CoupleInvitation), useValue: invitationRepo },
+        {
+          provide: getRepositoryToken(CoupleInvitation),
+          useValue: invitationRepo,
+        },
         { provide: getRepositoryToken(User), useValue: userRepo },
+        { provide: DataSource, useValue: dataSource },
         { provide: SecurityAuditService, useValue: securityAuditService },
       ],
     }).compile();
@@ -135,7 +153,11 @@ describe('CouplesService', () => {
       const invitation = makeInvitation({
         receiverUserId: USER_ID,
         senderUserId: PARTNER_ID,
-        senderUser: makeUser({ id: PARTNER_ID, name: 'Partner', email: 'partner@example.com' }),
+        senderUser: makeUser({
+          id: PARTNER_ID,
+          name: 'Partner',
+          email: 'partner@example.com',
+        }),
       });
       invitationRepo.findOne.mockResolvedValue(invitation);
       coupleRepo.findOne.mockResolvedValue(null);
@@ -197,7 +219,9 @@ describe('CouplesService', () => {
 
     it('throws NotFoundException when partner email does not exist', async () => {
       userRepo.findOne.mockResolvedValue(null);
-      await expect(service.link(USER_ID, dto)).rejects.toThrow(NotFoundException);
+      await expect(service.link(USER_ID, dto)).rejects.toThrow(
+        NotFoundException,
+      );
       await expect(service.link(USER_ID, dto)).rejects.toThrow(
         CoupleMessages.PARTNER_NOT_FOUND,
       );
@@ -224,7 +248,7 @@ describe('CouplesService', () => {
     it('throws ConflictException when partner is already linked to someone else', async () => {
       userRepo.findOne.mockResolvedValue(makePartner());
       coupleRepo.findOne
-        .mockResolvedValueOnce(null)                              // user is free
+        .mockResolvedValueOnce(null) // user is free
         .mockResolvedValueOnce(makeCouple(PARTNER_ID, 'third')); // partner is taken
       await expect(service.link(USER_ID, dto)).rejects.toThrow(
         new ConflictException(CoupleMessages.PARTNER_ALREADY_LINKED),
@@ -254,7 +278,9 @@ describe('CouplesService', () => {
 
     it('throws NotFoundException when user is not linked to anyone', async () => {
       coupleRepo.findOne.mockResolvedValue(null);
-      await expect(service.getPartner(USER_ID)).rejects.toThrow(NotFoundException);
+      await expect(service.getPartner(USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
       await expect(service.getPartner(USER_ID)).rejects.toThrow(
         CoupleMessages.NOT_FOUND,
       );

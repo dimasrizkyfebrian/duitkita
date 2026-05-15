@@ -6,7 +6,6 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  ParseIntPipe,
   ParseUUIDPipe,
   Patch,
   Post,
@@ -26,6 +25,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { BudgetsService } from './budgets.service';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
+import { MonthQueryDto } from '../../common/dto/month-query.dto';
 
 @ApiTags('budgets')
 @ApiBearerAuth()
@@ -38,7 +38,10 @@ export class BudgetsController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a monthly budget for a category' })
   @ApiResponse({ status: 201, description: 'Budget created' })
-  @ApiResponse({ status: 400, description: 'Validation error or duplicate budget' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error or duplicate budget',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Category not found' })
   create(@CurrentUser() user: { id: string }, @Body() dto: CreateBudgetDto) {
@@ -54,40 +57,45 @@ export class BudgetsController {
   @ApiResponse({ status: 404, description: 'No partner linked' })
   findPartnerBudgets(
     @CurrentUser() user: { id: string },
-    @Query('year', ParseIntPipe) year: number,
-    @Query('month', ParseIntPipe) month: number,
+    @Query() query: MonthQueryDto,
   ) {
-    return this.budgetsService.findPartnerBudgets(user.id, year, month);
+    return this.budgetsService.findPartnerBudgets(
+      user.id,
+      query.year,
+      query.month,
+    );
   }
 
   @Post('finalize')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Finalize a month — calculates rollovers for the next month' })
+  @ApiOperation({
+    summary: 'Finalize a month — calculates rollovers for the next month',
+  })
   @ApiQuery({ name: 'year', type: Number, example: 2025 })
   @ApiQuery({ name: 'month', type: Number, example: 8 })
-  @ApiResponse({ status: 200, description: 'Month finalized — rollover budgets created' })
+  @ApiResponse({
+    status: 200,
+    description: 'Month finalized — rollover budgets created',
+  })
   @ApiResponse({ status: 400, description: 'Month already finalized' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   finalizeMonth(
     @CurrentUser() user: { id: string },
-    @Query('year', ParseIntPipe) year: number,
-    @Query('month', ParseIntPipe) month: number,
+    @Query() query: MonthQueryDto,
   ) {
-    return this.budgetsService.finalizeMonth(user.id, year, month);
+    return this.budgetsService.finalizeMonth(user.id, query.year, query.month);
   }
 
   @Get()
-  @ApiOperation({ summary: 'List all budgets for the authenticated user in a given month' })
+  @ApiOperation({
+    summary: 'List all budgets for the authenticated user in a given month',
+  })
   @ApiQuery({ name: 'year', type: Number, example: 2025 })
   @ApiQuery({ name: 'month', type: Number, example: 8 })
   @ApiResponse({ status: 200, description: 'List of budgets returned' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  findAll(
-    @CurrentUser() user: { id: string },
-    @Query('year', ParseIntPipe) year: number,
-    @Query('month', ParseIntPipe) month: number,
-  ) {
-    return this.budgetsService.findAllByMonth(user.id, year, month);
+  findAll(@CurrentUser() user: { id: string }, @Query() query: MonthQueryDto) {
+    return this.budgetsService.findAllByMonth(user.id, query.year, query.month);
   }
 
   @Get(':id')

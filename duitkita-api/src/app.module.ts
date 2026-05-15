@@ -22,6 +22,7 @@ import { CouplesModule } from './modules/couples/couples.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { UsersModule } from './modules/users/users.module';
 import { ActivityModule } from './modules/activity/activity.module';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { ActivityModule } from './modules/activity/activity.module';
       isGlobal: true,
       validationSchema: Joi.object({
         DATABASE_URL: Joi.string().required(),
+        TEST_DATABASE_URL: Joi.string().optional(),
         DB_SSL: Joi.boolean().optional(),
         DB_SSL_REJECT_UNAUTHORIZED: Joi.boolean().optional(),
         JWT_SECRET: Joi.string().required(),
@@ -45,7 +47,10 @@ import { ActivityModule } from './modules/activity/activity.module';
         level: process.env.LOG_LEVEL ?? 'info',
         transport:
           process.env.NODE_ENV !== 'production'
-            ? { target: 'pino-pretty', options: { colorize: true, singleLine: true } }
+            ? {
+                target: 'pino-pretty',
+                options: { colorize: true, singleLine: true },
+              }
             : undefined,
         redact: ['req.headers.authorization'],
       },
@@ -99,5 +104,6 @@ import { ActivityModule } from './modules/activity/activity.module';
       useClass: ThrottlerGuard,
     },
   ],
+  controllers: [AppController],
 })
 export class AppModule {}

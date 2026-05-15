@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
 import { User } from '../../database/entities/user.entity';
@@ -57,6 +58,14 @@ describe('AuthService', () => {
   const securityAuditService = {
     log: jest.fn().mockResolvedValue(undefined),
   };
+  const dataSource = {
+    transaction: jest.fn((callback) =>
+      callback({
+        getRepository: (entity: unknown) =>
+          entity === User ? userRepo : sessionRepo,
+      }),
+    ),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -64,6 +73,7 @@ describe('AuthService', () => {
         AuthService,
         { provide: getRepositoryToken(User), useValue: userRepo },
         { provide: getRepositoryToken(UserSession), useValue: sessionRepo },
+        { provide: DataSource, useValue: dataSource },
         { provide: JwtService, useValue: jwtService },
         { provide: SecurityAuditService, useValue: securityAuditService },
       ],
@@ -74,7 +84,11 @@ describe('AuthService', () => {
   });
 
   describe('register', () => {
-    const dto = { name: 'Dimas', email: 'dimas@example.com', password: 'secret' };
+    const dto = {
+      name: 'Dimas',
+      email: 'dimas@example.com',
+      password: 'secret',
+    };
 
     it('creates a user and returns an access token', async () => {
       userRepo.findOne.mockResolvedValue(null);
@@ -150,11 +164,16 @@ describe('AuthService', () => {
       const session = makeSession({ refreshTokenHash: hashedRefresh });
       const nextSession = makeSession({ id: 'session-next-uuid' });
 
-      jwtService.verifyAsync.mockResolvedValue({ sub: 'user-uuid', sid: 'session-uuid' });
+      jwtService.verifyAsync.mockResolvedValue({
+        sub: 'user-uuid',
+        sid: 'session-uuid',
+      });
       sessionRepo.findOne.mockResolvedValue(session);
       userRepo.findOne.mockResolvedValue(makeUser());
       sessionRepo.create.mockReturnValue(nextSession);
-      sessionRepo.save.mockImplementation((entity: UserSession) => Promise.resolve(entity));
+      sessionRepo.save.mockImplementation((entity: UserSession) =>
+        Promise.resolve(entity),
+      );
 
       const result = await service.refresh(plainRefresh);
 
@@ -165,7 +184,9 @@ describe('AuthService', () => {
 
     it('throws unauthorized for invalid refresh token', async () => {
       jwtService.verifyAsync.mockRejectedValue(new Error('bad token'));
-      await expect(service.refresh('invalid')).rejects.toThrow(UnauthorizedException);
+      await expect(service.refresh('invalid')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 });
