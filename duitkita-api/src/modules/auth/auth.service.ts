@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
 import { User } from '../../database/entities/user.entity';
@@ -24,21 +24,33 @@ export class AuthService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(UserSession)
     private readonly sessionRepository: Repository<UserSession>,
+    private readonly dataSource: DataSource,
     private readonly jwtService: JwtService,
     private readonly securityAuditService: SecurityAuditService,
   ) {}
 
   async register(dto: RegisterDto, metadata?: SessionMetadata) {
-    const existing = await this.userRepository.findOne({ where: { email: dto.email } });
-    if (existing) throw new ConflictException(AuthMessages.EMAIL_TAKEN);
-
     const passwordHash = await bcrypt.hash(dto.password, 10);
-    const user = this.userRepository.create({ name: dto.name, email: dto.email, passwordHash });
-    await this.userRepository.save(user);
+    const result = await this.dataSource.transaction(async (manager) => {
+      const userRepository = manager.getRepository(User);
+      const sessionRepository = manager.getRepository(UserSession);
+      const existing = await userRepository.findOne({
+        where: { email: dto.email },
+      });
+      if (existing) throw new ConflictException(AuthMessages.EMAIL_TAKEN);
 
-    const result = await this.buildResponse(user, metadata);
+      const user = userRepository.create({
+        name: dto.name,
+        email: dto.email,
+        passwordHash,
+      });
+      await userRepository.save(user);
+
+      return this.buildResponse(user, metadata, sessionRepository);
+    });
+
     void this.securityAuditService.log({
-      userId: user.id,
+      userId: result.user.id,
       eventType: SecurityAuditEventType.REGISTER_SUCCESS,
       ipAddress: metadata?.ipAddress ?? null,
       userAgent: metadata?.userAgent ?? null,
@@ -48,7 +60,9 @@ export class AuthService {
   }
 
   async login(dto: LoginDto, metadata?: SessionMetadata) {
-    const user = await this.userRepository.findOne({ where: { email: dto.email } });
+    const user = await this.userRepository.findOne({
+      where: { email: dto.email },
+    });
     if (!user) {
       void this.securityAuditService.log({
         userId: null,
@@ -93,33 +107,54 @@ export class AuthService {
       throw new UnauthorizedException(AuthMessages.INVALID_REFRESH_TOKEN);
     }
 
-    const session = await this.sessionRepository.findOne({
-      where: { id: payload.sid, userId: payload.sub },
+    const rotation = await this.dataSource.transaction(async (manager) => {
+      const sessionRepository = manager.getRepository(UserSession);
+      const userRepository = manager.getRepository(User);
+      const session = await sessionRepository.findOne({
+        where: { id: payload.sid, userId: payload.sub },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!session || session.revokedAt) {
+        return { error: new UnauthorizedException(AuthMessages.SESSION_REVOKED) };
+      }
+
+      if (session.expiresAt <= new Date()) {
+        session.revokedAt = new Date();
+        await sessionRepository.save(session);
+        return { error: new UnauthorizedException(AuthMessages.INVALID_REFRESH_TOKEN) };
+      }
+
+      const isTokenValid = await bcrypt.compare(
+        refreshToken,
+        session.refreshTokenHash,
+      );
+      if (!isTokenValid) {
+        session.revokedAt = new Date();
+        await sessionRepository.save(session);
+        return { error: new UnauthorizedException(AuthMessages.INVALID_REFRESH_TOKEN) };
+      }
+
+      const user = await userRepository.findOne({ where: { id: payload.sub } });
+      if (!user) {
+        return { error: new UnauthorizedException(AuthMessages.INVALID_REFRESH_TOKEN) };
+      }
+
+      return {
+        result: await this.rotateSessionAndBuildResponse(
+          user,
+          session,
+          metadata,
+          sessionRepository,
+        ),
+      };
     });
 
-    if (!session || session.revokedAt) {
-      throw new UnauthorizedException(AuthMessages.SESSION_REVOKED);
+    if ('error' in rotation) {
+      throw rotation.error;
     }
 
-    if (session.expiresAt <= new Date()) {
-      session.revokedAt = new Date();
-      await this.sessionRepository.save(session);
-      throw new UnauthorizedException(AuthMessages.INVALID_REFRESH_TOKEN);
-    }
-
-    const isTokenValid = await bcrypt.compare(refreshToken, session.refreshTokenHash);
-    if (!isTokenValid) {
-      session.revokedAt = new Date();
-      await this.sessionRepository.save(session);
-      throw new UnauthorizedException(AuthMessages.INVALID_REFRESH_TOKEN);
-    }
-
-    const user = await this.userRepository.findOne({ where: { id: payload.sub } });
-    if (!user) {
-      throw new UnauthorizedException(AuthMessages.INVALID_REFRESH_TOKEN);
-    }
-
-    return this.rotateSessionAndBuildResponse(user, session, metadata);
+    return rotation.result;
   }
 
   async listSessions(userId: string) {
@@ -193,8 +228,11 @@ export class AuthService {
     });
   }
 
-  async revokeAllSessions(userId: string): Promise<void> {
-    await this.sessionRepository
+  async revokeAllSessions(
+    userId: string,
+    sessionRepository: Repository<UserSession> = this.sessionRepository,
+  ): Promise<void> {
+    await sessionRepository
       .createQueryBuilder()
       .update(UserSession)
       .set({ revokedAt: new Date() })
@@ -203,18 +241,31 @@ export class AuthService {
       .execute();
   }
 
-  private async buildResponse(user: User, metadata?: SessionMetadata) {
-    const session = await this.createSession(user.id, metadata);
+  private async buildResponse(
+    user: User,
+    metadata?: SessionMetadata,
+    sessionRepository: Repository<UserSession> = this.sessionRepository,
+  ) {
+    const session = await this.createSession(
+      user.id,
+      metadata,
+      sessionRepository,
+    );
     const refreshToken = await this.signRefreshToken(user.id, session.id);
     session.refreshTokenHash = await bcrypt.hash(refreshToken, 10);
-    await this.sessionRepository.save(session);
+    await sessionRepository.save(session);
 
     const accessToken = this.signAccessToken(user, session.id);
     return {
       accessToken,
       refreshToken,
       sessionId: session.id,
-      user: { id: user.id, name: user.name, email: user.email, createdAt: user.createdAt },
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        createdAt: user.createdAt,
+      },
     };
   }
 
@@ -231,39 +282,56 @@ export class AuthService {
     user: User,
     currentSession: UserSession,
     metadata?: SessionMetadata,
+    sessionRepository: Repository<UserSession> = this.sessionRepository,
   ) {
     // Rotate to a brand new session id so old refresh token payload (sid)
     // is guaranteed to be invalid after a successful refresh.
     currentSession.revokedAt = new Date();
-    await this.sessionRepository.save(currentSession);
+    await sessionRepository.save(currentSession);
 
-    const nextSession = await this.createSession(user.id, metadata);
+    const nextSession = await this.createSession(
+      user.id,
+      metadata,
+      sessionRepository,
+    );
     const refreshToken = await this.signRefreshToken(user.id, nextSession.id);
     nextSession.refreshTokenHash = await bcrypt.hash(refreshToken, 10);
-    await this.sessionRepository.save(nextSession);
+    await sessionRepository.save(nextSession);
 
     const accessToken = this.signAccessToken(user, nextSession.id);
     return {
       accessToken,
       refreshToken,
       sessionId: nextSession.id,
-      user: { id: user.id, name: user.name, email: user.email, createdAt: user.createdAt },
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        createdAt: user.createdAt,
+      },
     };
   }
 
-  private async signRefreshToken(userId: string, sessionId: string): Promise<string> {
+  private async signRefreshToken(
+    userId: string,
+    sessionId: string,
+  ): Promise<string> {
     return this.jwtService.signAsync(
       { sub: userId, sid: sessionId, jti: randomUUID() },
       {
         secret: process.env.JWT_REFRESH_SECRET ?? process.env.JWT_SECRET,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN || '30d') as any,
       },
     );
   }
 
-  private async createSession(userId: string, metadata?: SessionMetadata): Promise<UserSession> {
-    const session = this.sessionRepository.create({
+  private async createSession(
+    userId: string,
+    metadata?: SessionMetadata,
+    sessionRepository: Repository<UserSession> = this.sessionRepository,
+  ): Promise<UserSession> {
+    const session = sessionRepository.create({
       userId,
       refreshTokenHash: 'pending',
       deviceName: metadata?.deviceName ?? null,
@@ -274,7 +342,7 @@ export class AuthService {
       revokedAt: null,
     });
 
-    return this.sessionRepository.save(session);
+    return sessionRepository.save(session);
   }
 
   private calculateRefreshExpiryDate(): Date {

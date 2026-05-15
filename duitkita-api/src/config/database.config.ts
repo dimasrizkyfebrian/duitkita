@@ -1,7 +1,7 @@
 import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const databaseUrl = process.env.DATABASE_URL ?? '';
 const isLocalDatabase = /localhost|127\.0\.0\.1/.test(databaseUrl);

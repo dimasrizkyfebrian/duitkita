@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { UsersService } from './users.service';
 import { User } from '../../database/entities/user.entity';
@@ -29,6 +30,15 @@ describe('UsersService', () => {
   const authService = {
     revokeAllSessions: jest.fn(),
   };
+  const sessionRepo = {};
+  const dataSource = {
+    transaction: jest.fn((callback) =>
+      callback({
+        getRepository: (entity: unknown) =>
+          entity === User ? userRepo : sessionRepo,
+      }),
+    ),
+  };
   const securityAuditService = {
     log: jest.fn().mockResolvedValue(undefined),
     listForUser: jest.fn(),
@@ -39,6 +49,7 @@ describe('UsersService', () => {
       providers: [
         UsersService,
         { provide: getRepositoryToken(User), useValue: userRepo },
+        { provide: DataSource, useValue: dataSource },
         { provide: AuthService, useValue: authService },
         { provide: SecurityAuditService, useValue: securityAuditService },
       ],
@@ -62,7 +73,9 @@ describe('UsersService', () => {
 
     it('throws NotFoundException when user does not exist', async () => {
       userRepo.findOne.mockResolvedValue(null);
-      await expect(service.getProfile('bad-id')).rejects.toThrow(NotFoundException);
+      await expect(service.getProfile('bad-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -90,9 +103,9 @@ describe('UsersService', () => {
 
     it('throws NotFoundException when user does not exist', async () => {
       userRepo.findOne.mockResolvedValue(null);
-      await expect(service.updateProfile('bad-id', { name: 'X' })).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.updateProfile('bad-id', { name: 'X' }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -103,27 +116,41 @@ describe('UsersService', () => {
       userRepo.save.mockResolvedValue(user);
 
       await expect(
-        service.changePassword(USER_ID, { currentPassword: 'oldpass', newPassword: 'newpass123' }),
+        service.changePassword(USER_ID, {
+          currentPassword: 'oldpass',
+          newPassword: 'newpass123',
+        }),
       ).resolves.toBeUndefined();
 
       expect(userRepo.save).toHaveBeenCalled();
-      expect(authService.revokeAllSessions).toHaveBeenCalledWith(USER_ID);
+      expect(authService.revokeAllSessions).toHaveBeenCalledWith(
+        USER_ID,
+        sessionRepo,
+      );
       expect(securityAuditService.log).toHaveBeenCalled();
     });
 
     it('throws UnauthorizedException when current password does not match', async () => {
-      const user = makeUser({ passwordHash: await bcrypt.hash('correctpass', 10) });
+      const user = makeUser({
+        passwordHash: await bcrypt.hash('correctpass', 10),
+      });
       userRepo.findOne.mockResolvedValue(user);
 
       await expect(
-        service.changePassword(USER_ID, { currentPassword: 'wrongpass', newPassword: 'newpass123' }),
+        service.changePassword(USER_ID, {
+          currentPassword: 'wrongpass',
+          newPassword: 'newpass123',
+        }),
       ).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws NotFoundException when user does not exist', async () => {
       userRepo.findOne.mockResolvedValue(null);
       await expect(
-        service.changePassword('bad-id', { currentPassword: 'x', newPassword: 'yyyyyyyy' }),
+        service.changePassword('bad-id', {
+          currentPassword: 'x',
+          newPassword: 'yyyyyyyy',
+        }),
       ).rejects.toThrow(NotFoundException);
     });
   });

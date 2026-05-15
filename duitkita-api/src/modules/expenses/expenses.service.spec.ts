@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { ExpensesService } from './expenses.service';
 import { ActivityService } from '../activity/activity.service';
 import { Expense } from '../../database/entities/expense.entity';
@@ -19,7 +20,13 @@ const BUDGET_ID = 'budget-uuid';
 const EXPENSE_ID = 'expense-uuid';
 
 const makeCategory = (overrides: Partial<Category> = {}): Category =>
-  ({ id: CAT_ID, userId: USER_ID, name: 'Food', icon: '🍔', ...overrides }) as Category;
+  ({
+    id: CAT_ID,
+    userId: USER_ID,
+    name: 'Food',
+    icon: '🍔',
+    ...overrides,
+  }) as Category;
 
 const makeBudget = (overrides: Partial<MonthlyBudget> = {}): MonthlyBudget =>
   ({
@@ -88,6 +95,18 @@ describe('ExpensesService', () => {
   };
 
   const activityService = { log: jest.fn().mockResolvedValue(undefined) };
+  const dataSource = {
+    transaction: jest.fn((callback) =>
+      callback({
+        getRepository: (entity: unknown) => {
+          if (entity === Expense) return expenseRepo;
+          if (entity === MonthlyBudget) return budgetRepo;
+          if (entity === Couple) return coupleRepo;
+          return categoryRepo;
+        },
+      }),
+    ),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -97,6 +116,7 @@ describe('ExpensesService', () => {
         { provide: getRepositoryToken(MonthlyBudget), useValue: budgetRepo },
         { provide: getRepositoryToken(Couple), useValue: coupleRepo },
         { provide: getRepositoryToken(Category), useValue: categoryRepo },
+        { provide: DataSource, useValue: dataSource },
         { provide: ActivityService, useValue: activityService },
       ],
     }).compile();
@@ -106,6 +126,7 @@ describe('ExpensesService', () => {
     coupleRepo.createQueryBuilder.mockReturnValue(mockQb);
     mockQb.leftJoinAndSelect.mockReturnThis();
     mockQb.where.mockReturnThis();
+    budgetRepo.findOne.mockResolvedValue(makeBudget());
   });
 
   describe('create', () => {
@@ -138,19 +159,25 @@ describe('ExpensesService', () => {
 
     it('throws NotFoundException when category does not belong to user', async () => {
       categoryRepo.findOne.mockResolvedValue(null);
-      await expect(service.create(USER_ID, dto)).rejects.toThrow(NotFoundException);
+      await expect(service.create(USER_ID, dto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('throws BadRequestException when no budget exists for the category/month', async () => {
       categoryRepo.findOne.mockResolvedValue(makeCategory());
       budgetRepo.findOne.mockResolvedValue(null);
-      await expect(service.create(USER_ID, dto)).rejects.toThrow(BadRequestException);
+      await expect(service.create(USER_ID, dto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('throws ForbiddenException when the budget is finalized', async () => {
       categoryRepo.findOne.mockResolvedValue(makeCategory());
       budgetRepo.findOne.mockResolvedValue(makeBudget({ isFinalized: true }));
-      await expect(service.create(USER_ID, dto)).rejects.toThrow(ForbiddenException);
+      await expect(service.create(USER_ID, dto)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('derives year and month from expenseDate to find the budget', async () => {
@@ -168,7 +195,10 @@ describe('ExpensesService', () => {
 
   describe('findAllByMonth', () => {
     it('returns expenses for the given month ordered by date descending', async () => {
-      const expenses = [makeExpense(), makeExpense({ id: 'e2', amount: 25000 })];
+      const expenses = [
+        makeExpense(),
+        makeExpense({ id: 'e2', amount: 25000 }),
+      ];
       expenseRepo.find.mockResolvedValue(expenses);
 
       const result = await service.findAllByMonth(USER_ID, 2025, 5);
@@ -212,7 +242,9 @@ describe('ExpensesService', () => {
 
     it('throws NotFoundException when budget does not belong to user', async () => {
       budgetRepo.findOne.mockResolvedValue(null);
-      await expect(service.findAllByBudget(USER_ID, 'bad-id')).rejects.toThrow(NotFoundException);
+      await expect(service.findAllByBudget(USER_ID, 'bad-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -227,13 +259,15 @@ describe('ExpensesService', () => {
 
     it('throws NotFoundException when expense does not exist', async () => {
       expenseRepo.findOne.mockResolvedValue(null);
-      await expect(service.findOne(USER_ID, 'bad-id')).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(USER_ID, 'bad-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
   describe('update', () => {
     it('updates amount, note, and date within the same month', async () => {
-      const expense = makeExpense({ monthlyBudget: makeBudget() as any });
+      const expense = makeExpense({ monthlyBudget: makeBudget() });
       expenseRepo.findOne.mockResolvedValue(expense);
       expenseRepo.save.mockImplementation((e) => Promise.resolve(e));
 
@@ -249,21 +283,24 @@ describe('ExpensesService', () => {
 
     it('throws NotFoundException when expense does not exist', async () => {
       expenseRepo.findOne.mockResolvedValue(null);
-      await expect(service.update(USER_ID, 'bad-id', { amount: 100 })).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.update(USER_ID, 'bad-id', { amount: 100 }),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('throws ForbiddenException when the budget is finalized', async () => {
-      const expense = makeExpense({ monthlyBudget: makeBudget({ isFinalized: true }) as any });
+      const expense = makeExpense({
+        monthlyBudget: makeBudget({ isFinalized: true }),
+      });
       expenseRepo.findOne.mockResolvedValue(expense);
-      await expect(service.update(USER_ID, EXPENSE_ID, { amount: 100 })).rejects.toThrow(
-        ForbiddenException,
-      );
+      budgetRepo.findOne.mockResolvedValue(makeBudget({ isFinalized: true }));
+      await expect(
+        service.update(USER_ID, EXPENSE_ID, { amount: 100 }),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it('throws BadRequestException when new date is in a different month', async () => {
-      const expense = makeExpense({ monthlyBudget: makeBudget() as any });
+      const expense = makeExpense({ monthlyBudget: makeBudget() });
       expenseRepo.findOne.mockResolvedValue(expense);
 
       await expect(
@@ -272,7 +309,7 @@ describe('ExpensesService', () => {
     });
 
     it('throws BadRequestException when new date is in a different year', async () => {
-      const expense = makeExpense({ monthlyBudget: makeBudget() as any });
+      const expense = makeExpense({ monthlyBudget: makeBudget() });
       expenseRepo.findOne.mockResolvedValue(expense);
 
       await expect(
@@ -281,7 +318,7 @@ describe('ExpensesService', () => {
     });
 
     it('does not overwrite fields that are not provided', async () => {
-      const expense = makeExpense({ monthlyBudget: makeBudget() as any });
+      const expense = makeExpense({ monthlyBudget: makeBudget() });
       expenseRepo.findOne.mockResolvedValue(expense);
       expenseRepo.save.mockImplementation((e) => Promise.resolve(e));
 
@@ -294,7 +331,7 @@ describe('ExpensesService', () => {
 
   describe('remove', () => {
     it('removes an expense from a non-finalized budget', async () => {
-      const expense = makeExpense({ monthlyBudget: makeBudget() as any });
+      const expense = makeExpense({ monthlyBudget: makeBudget() });
       expenseRepo.findOne.mockResolvedValue(expense);
       expenseRepo.remove.mockResolvedValue(undefined);
 
@@ -305,13 +342,20 @@ describe('ExpensesService', () => {
 
     it('throws NotFoundException when expense does not exist', async () => {
       expenseRepo.findOne.mockResolvedValue(null);
-      await expect(service.remove(USER_ID, 'bad-id')).rejects.toThrow(NotFoundException);
+      await expect(service.remove(USER_ID, 'bad-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('throws ForbiddenException when the budget is finalized', async () => {
-      const expense = makeExpense({ monthlyBudget: makeBudget({ isFinalized: true }) as any });
+      const expense = makeExpense({
+        monthlyBudget: makeBudget({ isFinalized: true }),
+      });
       expenseRepo.findOne.mockResolvedValue(expense);
-      await expect(service.remove(USER_ID, EXPENSE_ID)).rejects.toThrow(ForbiddenException);
+      budgetRepo.findOne.mockResolvedValue(makeBudget({ isFinalized: true }));
+      await expect(service.remove(USER_ID, EXPENSE_ID)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 
@@ -339,9 +383,9 @@ describe('ExpensesService', () => {
 
     it('throws NotFoundException when user has no partner', async () => {
       mockQb.getOne.mockResolvedValue(null);
-      await expect(service.findPartnerExpenses(USER_ID, 2025, 5)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.findPartnerExpenses(USER_ID, 2025, 5),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('passes categoryId filter through to findAllByMonth', async () => {
