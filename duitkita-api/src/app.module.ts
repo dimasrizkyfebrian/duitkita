@@ -14,6 +14,11 @@ import { Activity } from './database/entities/activity.entity';
 import { CoupleInvitation } from './database/entities/couple-invitation.entity';
 import { UserSession } from './database/entities/user-session.entity';
 import { SecurityAuditLog } from './database/entities/security-audit-log.entity';
+import { RecurringExpense } from './database/entities/recurring-expense.entity';
+import { BillReminder } from './database/entities/bill-reminder.entity';
+import { Notification } from './database/entities/notification.entity';
+import { NotificationPreference } from './database/entities/notification-preference.entity';
+import { ReportExport } from './database/entities/report-export.entity';
 import { AuthModule } from './modules/auth/auth.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { BudgetsModule } from './modules/budgets/budgets.module';
@@ -22,6 +27,9 @@ import { CouplesModule } from './modules/couples/couples.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { UsersModule } from './modules/users/users.module';
 import { ActivityModule } from './modules/activity/activity.module';
+import { RecurringExpensesModule } from './modules/recurring-expenses/recurring-expenses.module';
+import { RemindersModule } from './modules/reminders/reminders.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -40,6 +48,15 @@ import { AppController } from './app.controller';
         PORT: Joi.number().default(3000),
         NODE_ENV: Joi.string().default('development'),
         LOG_LEVEL: Joi.string().default('info'),
+        REPORT_STORAGE_DRIVER: Joi.string().valid('local', 'supabase').optional(),
+        REPORT_EXPORT_DIR: Joi.string().optional(),
+        REPORT_EXPORT_TTL_DAYS: Joi.number().optional(),
+        SUPABASE_URL: Joi.string().uri().optional(),
+        SUPABASE_SERVICE_ROLE_KEY: Joi.string().optional(),
+        SUPABASE_EXPORT_BUCKET: Joi.string().default('report-exports'),
+        AVATAR_STORAGE_DRIVER: Joi.string().valid('local', 'supabase').optional(),
+        AVATAR_STORAGE_DIR: Joi.string().optional(),
+        SUPABASE_AVATAR_BUCKET: Joi.string().default('avatars'),
       }),
     }),
     LoggerModule.forRoot({
@@ -83,6 +100,11 @@ import { AppController } from './app.controller';
             CoupleInvitation,
             UserSession,
             SecurityAuditLog,
+            RecurringExpense,
+            BillReminder,
+            Notification,
+            NotificationPreference,
+            ReportExport,
           ],
           migrations: ['dist/migrations/*.js'],
           synchronize: false,
@@ -97,6 +119,9 @@ import { AppController } from './app.controller';
     ReportsModule,
     UsersModule,
     ActivityModule,
+    RecurringExpensesModule,
+    RemindersModule,
+    NotificationsModule,
   ],
   providers: [
     {

@@ -5,8 +5,10 @@ import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { UsersService } from './users.service';
 import { User } from '../../database/entities/user.entity';
+import { Couple } from '../../database/entities/couple.entity';
 import { AuthService } from '../auth/auth.service';
 import { SecurityAuditService } from '../security-audit/security-audit.service';
+import { AVATAR_STORAGE } from './storage/avatar-storage.interface';
 
 const USER_ID = 'user-uuid';
 
@@ -26,6 +28,16 @@ describe('UsersService', () => {
   const userRepo = {
     findOne: jest.fn(),
     save: jest.fn(),
+  };
+  const coupleRepo = {
+    createQueryBuilder: jest.fn(),
+  };
+  const avatarStorage = {
+    save: jest.fn(),
+    delete: jest.fn(),
+    openReadStream: jest.fn(),
+    exists: jest.fn(),
+    getContentType: jest.fn(),
   };
   const authService = {
     revokeAllSessions: jest.fn(),
@@ -49,9 +61,11 @@ describe('UsersService', () => {
       providers: [
         UsersService,
         { provide: getRepositoryToken(User), useValue: userRepo },
+        { provide: getRepositoryToken(Couple), useValue: coupleRepo },
         { provide: DataSource, useValue: dataSource },
         { provide: AuthService, useValue: authService },
         { provide: SecurityAuditService, useValue: securityAuditService },
+        { provide: AVATAR_STORAGE, useValue: avatarStorage },
       ],
     }).compile();
 
@@ -68,6 +82,7 @@ describe('UsersService', () => {
       expect(result.id).toBe(USER_ID);
       expect(result.name).toBe('Dimas');
       expect(result.email).toBe('dimas@example.com');
+      expect(result.hasAvatar).toBe(false);
       expect(result).not.toHaveProperty('passwordHash');
     });
 

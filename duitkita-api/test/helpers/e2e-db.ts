@@ -6,6 +6,11 @@ dotenv.config({ quiet: true });
 const ORIGINAL_DATABASE_URL = process.env.DATABASE_URL;
 
 const TRUNCATE_TABLES = [
+  'report_exports',
+  'notifications',
+  'notification_preferences',
+  'recurring_expenses',
+  'bill_reminders',
   'security_audit_logs',
   'user_sessions',
   'couple_invitations',
@@ -32,6 +37,8 @@ export function setupE2eEnvironment(): void {
   process.env.JWT_EXPIRES_IN ??= '15m';
   process.env.JWT_REFRESH_EXPIRES_IN ??= '1d';
   process.env.LOG_LEVEL ??= 'silent';
+  process.env.REPORT_STORAGE_DRIVER ??= 'local';
+  process.env.AVATAR_STORAGE_DRIVER ??= 'local';
 }
 
 export async function runE2eMigrations(): Promise<void> {

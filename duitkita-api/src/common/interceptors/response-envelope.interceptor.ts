@@ -3,6 +3,7 @@ import {
   ExecutionContext,
   Injectable,
   NestInterceptor,
+  StreamableFile,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { map, Observable } from 'rxjs';
@@ -25,8 +26,8 @@ export class ResponseEnvelopeInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       map((data: unknown) => {
-        if (response.statusCode === 204) {
-          return undefined;
+        if (response.statusCode === 204 || data instanceof StreamableFile) {
+          return data;
         }
 
         return {
