@@ -22,6 +22,7 @@ export type PartnerInfo = {
   name: string;
   email: string;
   linkedAt: Date;
+  hasAvatar: boolean;
 };
 
 export type InvitationInfo = {
@@ -83,6 +84,7 @@ export class CouplesService {
           name: partner.name,
           email: partner.email,
           linkedAt: saved.linkedAt,
+          hasAvatar: !!partner.avatarStorageKey,
         },
         auditMeta: { partnerId: partner.id, coupleId: saved.id },
       };
@@ -110,6 +112,7 @@ export class CouplesService {
       name: partner.name,
       email: partner.email,
       linkedAt: couple.linkedAt,
+      hasAvatar: !!partner.avatarStorageKey,
     };
   }
 
@@ -285,6 +288,7 @@ export class CouplesService {
           name: invitation.senderUser.name,
           email: invitation.senderUser.email,
           linkedAt: savedCouple.linkedAt,
+          hasAvatar: !!invitation.senderUser.avatarStorageKey,
         },
         auditMeta: {
           invitationId: invitation.id,

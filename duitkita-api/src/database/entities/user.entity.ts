@@ -27,6 +27,9 @@ export class User {
   @Column({ name: 'password_hash' })
   passwordHash: string;
 
+  @Column({ name: 'avatar_storage_key', type: 'varchar', length: 512, nullable: true })
+  avatarStorageKey?: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

@@ -10,6 +10,15 @@ import {
   validateYearMonth,
 } from '../../common/utils/validate-period.util';
 import { ReportMessages } from '../../common/constants/report.messages';
+import { ReportScope } from './dto/forecast-query.dto';
+
+export interface ReportTopExpense {
+  id: string;
+  amount: number;
+  note: string | null;
+  expenseDate: Date;
+  categoryName: string;
+}
 
 export interface CategoryReportItem {
   categoryId: string;
@@ -42,6 +51,9 @@ export interface MonthlyReport {
   totalSpent: number;
   totalRemaining: number;
   overallPercentageUsed: number;
+  totalExpenseCount: number;
+  averageExpenseAmount: number;
+  topExpenses: ReportTopExpense[];
   categories: CategoryReportItem[];
 }
 
@@ -84,6 +96,35 @@ export interface CategoryRolloverHistory {
   categoryName: string;
   categoryIcon: string | null;
   history: RolloverHistoryItem[];
+}
+
+export interface ForecastKeyDriver {
+  categoryId: string;
+  categoryName: string;
+  shareOfSpend: number;
+  totalSpent: number;
+}
+
+export interface SpendingForecast {
+  year: number;
+  month: number;
+  scope: ReportScope;
+  projectedSpent: number;
+  projectedRemaining: number;
+  burnRatePerDay: number;
+  confidenceLevel: 'low' | 'medium' | 'high';
+  keyDrivers: ForecastKeyDriver[];
+}
+
+export interface FinancialHealthScore {
+  year: number;
+  month: number;
+  scope: ReportScope.ME | ReportScope.BOTH;
+  score: number;
+  savingRate: number;
+  budgetAdherence: number;
+  expenseVolatility: number;
+  insights: string[];
 }
 
 @Injectable()
@@ -147,6 +188,18 @@ export class ReportsService {
         ? Math.round((totalSpent / totalEffectiveBudget) * 100)
         : 0;
 
+    const budgetById = new Map(budgets.map((b) => [b.id, b]));
+    const topExpenses = allExpenses.slice(0, 5).map((e) => ({
+      id: e.id,
+      amount: Number(e.amount),
+      note: e.note,
+      expenseDate: e.expenseDate,
+      categoryName: budgetById.get(e.monthlyBudgetId)?.category.name ?? '—',
+    }));
+    const totalExpenseCount = allExpenses.length;
+    const averageExpenseAmount =
+      totalExpenseCount > 0 ? Math.round(totalSpent / totalExpenseCount) : 0;
+
     return {
       userId,
       userName: user.name,
@@ -158,6 +211,9 @@ export class ReportsService {
       totalSpent,
       totalRemaining,
       overallPercentageUsed,
+      totalExpenseCount,
+      averageExpenseAmount,
+      topExpenses,
       categories,
     };
   }
@@ -249,6 +305,120 @@ export class ReportsService {
     }
 
     return result;
+  }
+
+  async getForecast(
+    requestingUserId: string,
+    year: number,
+    month: number,
+    scope: ReportScope = ReportScope.ME,
+  ): Promise<SpendingForecast> {
+    validateYearMonth(year, month);
+    const reports = await this.resolveScopedMonthlyReports(
+      requestingUserId,
+      year,
+      month,
+      scope,
+    );
+
+    const totalEffectiveBudget = reports.reduce(
+      (s, r) => s + r.totalEffectiveBudget,
+      0,
+    );
+    const totalSpent = reports.reduce((s, r) => s + r.totalSpent, 0);
+
+    const { daysElapsed, daysInMonth, daysRemaining } = this.getMonthProgress(
+      year,
+      month,
+    );
+    const burnRatePerDay =
+      daysElapsed > 0 ? Math.round(totalSpent / daysElapsed) : 0;
+    const projectedSpent = totalSpent + burnRatePerDay * daysRemaining;
+    const projectedRemaining = Math.round(totalEffectiveBudget - projectedSpent);
+
+    const mergedCategories = reports.flatMap((r) => r.categories);
+    const keyDrivers = this.buildKeyDrivers(mergedCategories, totalSpent);
+
+    const confidenceLevel =
+      daysElapsed >= 20 ? 'high' : daysElapsed >= 10 ? 'medium' : 'low';
+
+    return {
+      year,
+      month,
+      scope,
+      projectedSpent: Math.round(projectedSpent),
+      projectedRemaining,
+      burnRatePerDay,
+      confidenceLevel,
+      keyDrivers,
+    };
+  }
+
+  async getHealthScore(
+    requestingUserId: string,
+    year: number,
+    month: number,
+    scope: ReportScope.ME | ReportScope.BOTH = ReportScope.ME,
+  ): Promise<FinancialHealthScore> {
+    validateYearMonth(year, month);
+    const reports = await this.resolveScopedMonthlyReports(
+      requestingUserId,
+      year,
+      month,
+      scope,
+    );
+
+    const totalEffectiveBudget = reports.reduce(
+      (s, r) => s + r.totalEffectiveBudget,
+      0,
+    );
+    const totalSpent = reports.reduce((s, r) => s + r.totalSpent, 0);
+    const totalRemaining = totalEffectiveBudget - totalSpent;
+
+    const savingRate =
+      totalEffectiveBudget > 0
+        ? Math.round((totalRemaining / totalEffectiveBudget) * 100)
+        : 0;
+    const overallUsed =
+      totalEffectiveBudget > 0
+        ? Math.round((totalSpent / totalEffectiveBudget) * 100)
+        : 0;
+    const budgetAdherence = Math.max(0, 100 - overallUsed);
+
+    const trend = await Promise.all(
+      reports.map((r) => this.getSpendingTrend(r.userId, 3)),
+    );
+    const volatility = this.computeVolatility(
+      trend.flat().map((t) => t.percentageUsed),
+    );
+
+    const score = Math.round(
+      savingRate * 0.4 + budgetAdherence * 0.4 + (100 - volatility) * 0.2,
+    );
+    const clampedScore = Math.min(100, Math.max(0, score));
+
+    const insights: string[] = [];
+    if (overallUsed >= 90) {
+      insights.push('Spending is near or above budget for the selected period.');
+    } else if (savingRate >= 25) {
+      insights.push('Strong savings rate relative to effective budget.');
+    }
+    if (volatility >= 35) {
+      insights.push('Expense volatility is elevated across recent months.');
+    } else {
+      insights.push('Spending pattern is relatively stable month over month.');
+    }
+
+    return {
+      year,
+      month,
+      scope,
+      score: clampedScore,
+      savingRate,
+      budgetAdherence,
+      expenseVolatility: volatility,
+      insights,
+    };
   }
 
   async getRolloverHistory(
@@ -383,6 +553,75 @@ export class ReportsService {
     }
 
     return result;
+  }
+
+  private async resolveScopedMonthlyReports(
+    requestingUserId: string,
+    year: number,
+    month: number,
+    scope: ReportScope,
+  ): Promise<MonthlyReport[]> {
+    if (scope === ReportScope.ME) {
+      return [await this.getMonthlyReport(requestingUserId, year, month)];
+    }
+    const partnerId = await this.getPartnerId(requestingUserId);
+    if (scope === ReportScope.PARTNER) {
+      return [await this.getMonthlyReport(partnerId, year, month)];
+    }
+    return Promise.all([
+      this.getMonthlyReport(requestingUserId, year, month),
+      this.getMonthlyReport(partnerId, year, month),
+    ]);
+  }
+
+  private getMonthProgress(year: number, month: number) {
+    const now = new Date();
+    const isCurrentMonth =
+      now.getFullYear() === year && now.getMonth() + 1 === month;
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const daysElapsed = isCurrentMonth
+      ? now.getDate()
+      : now > new Date(year, month - 1, daysInMonth)
+        ? daysInMonth
+        : 0;
+    const daysRemaining = Math.max(0, daysInMonth - daysElapsed);
+    return { daysElapsed, daysInMonth, daysRemaining };
+  }
+
+  private buildKeyDrivers(
+    categories: CategoryReportItem[],
+    totalSpent: number,
+  ): ForecastKeyDriver[] {
+    if (totalSpent <= 0) return [];
+    const byCategory = new Map<string, ForecastKeyDriver>();
+    for (const c of categories) {
+      const existing = byCategory.get(c.categoryId);
+      if (existing) {
+        existing.totalSpent += c.totalSpent;
+      } else {
+        byCategory.set(c.categoryId, {
+          categoryId: c.categoryId,
+          categoryName: c.categoryName,
+          totalSpent: c.totalSpent,
+          shareOfSpend: 0,
+        });
+      }
+    }
+    return [...byCategory.values()]
+      .map((d) => ({
+        ...d,
+        shareOfSpend: Math.round((d.totalSpent / totalSpent) * 100),
+      }))
+      .sort((a, b) => b.totalSpent - a.totalSpent)
+      .slice(0, 5);
+  }
+
+  private computeVolatility(values: number[]): number {
+    if (values.length === 0) return 0;
+    const mean = values.reduce((s, v) => s + v, 0) / values.length;
+    const variance =
+      values.reduce((s, v) => s + (v - mean) ** 2, 0) / values.length;
+    return Math.round(Math.sqrt(variance));
   }
 
   private async getPartnerId(userId: string): Promise<string> {

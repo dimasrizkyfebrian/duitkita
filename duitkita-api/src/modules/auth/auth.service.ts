@@ -260,12 +260,17 @@ export class AuthService {
       accessToken,
       refreshToken,
       sessionId: session.id,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        createdAt: user.createdAt,
-      },
+      user: this.toAuthUser(user),
+    };
+  }
+
+  private toAuthUser(user: User) {
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      createdAt: user.createdAt,
+      hasAvatar: !!user.avatarStorageKey,
     };
   }
 
@@ -303,12 +308,7 @@ export class AuthService {
       accessToken,
       refreshToken,
       sessionId: nextSession.id,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        createdAt: user.createdAt,
-      },
+      user: this.toAuthUser(user),
     };
   }
 

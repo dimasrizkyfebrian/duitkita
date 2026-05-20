@@ -1,8 +1,13 @@
 import {
+  Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
+  Post,
   Query,
+  StreamableFile,
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
@@ -17,17 +22,26 @@ import {
 import { JwtAuthGuard } from '../../common/guards/jwt.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ReportsService } from './reports.service';
+import { ReportExportsService } from './report-exports.service';
+import { CreateReportExportDto } from './dto/create-report-export.dto';
 import {
   MonthQueryDto,
   MonthsBackQueryDto,
 } from '../../common/dto/month-query.dto';
+import {
+  ForecastQueryDto,
+  HealthScoreQueryDto,
+} from './dto/forecast-query.dto';
 
 @ApiTags('reports')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('reports')
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) {}
+  constructor(
+    private readonly reportsService: ReportsService,
+    private readonly reportExportsService: ReportExportsService,
+  ) {}
 
   @Get('monthly')
   @ApiOperation({
@@ -104,6 +118,87 @@ export class ReportsController {
     @Query() query: MonthsBackQueryDto,
   ) {
     return this.reportsService.getCategoryTrend(user.id, query.monthsBack);
+  }
+
+  @Get('forecast')
+  @ApiOperation({ summary: 'Projected spending for a month' })
+  @ApiQuery({ name: 'year', type: Number, example: 2025 })
+  @ApiQuery({ name: 'month', type: Number, example: 5 })
+  @ApiQuery({ name: 'scope', enum: ['me', 'partner', 'both'], required: false })
+  @ApiResponse({ status: 200, description: 'Forecast returned' })
+  getForecast(
+    @CurrentUser() user: { id: string },
+    @Query() query: ForecastQueryDto,
+  ) {
+    return this.reportsService.getForecast(
+      user.id,
+      query.year,
+      query.month,
+      query.scope,
+    );
+  }
+
+  @Get('health-score')
+  @ApiOperation({ summary: 'Financial health score for a month' })
+  @ApiQuery({ name: 'year', type: Number, example: 2025 })
+  @ApiQuery({ name: 'month', type: Number, example: 5 })
+  @ApiQuery({ name: 'scope', enum: ['me', 'both'], required: false })
+  @ApiResponse({ status: 200, description: 'Health score returned' })
+  getHealthScore(
+    @CurrentUser() user: { id: string },
+    @Query() query: HealthScoreQueryDto,
+  ) {
+    return this.reportsService.getHealthScore(
+      user.id,
+      query.year,
+      query.month,
+      query.scope,
+    );
+  }
+
+  @Post('exports')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Request a PDF monthly report export' })
+  @ApiResponse({ status: 201, description: 'Export job created and processed' })
+  createExport(
+    @CurrentUser() user: { id: string },
+    @Body() dto: CreateReportExportDto,
+  ) {
+    return this.reportExportsService.create(user.id, dto);
+  }
+
+  @Get('exports')
+  @ApiOperation({ summary: 'List report export jobs for current user' })
+  listExports(@CurrentUser() user: { id: string }) {
+    return this.reportExportsService.list(user.id);
+  }
+
+  @Get('exports/:id/download')
+  @ApiOperation({ summary: 'Download a completed PDF export' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'PDF file stream' })
+  async downloadExport(
+    @CurrentUser() user: { id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<StreamableFile> {
+    const { stream, fileName } = await this.reportExportsService.getDownloadStream(
+      user.id,
+      id,
+    );
+    return new StreamableFile(stream, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="${fileName}"`,
+    });
+  }
+
+  @Get('exports/:id')
+  @ApiOperation({ summary: 'Get report export job status' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  getExport(
+    @CurrentUser() user: { id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.reportExportsService.findOne(user.id, id);
   }
 
   @Get('rollover/:categoryId')
