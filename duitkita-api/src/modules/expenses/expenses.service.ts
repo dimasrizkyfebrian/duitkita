@@ -5,12 +5,15 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, DataSource } from 'typeorm';
 import { Expense } from '../../database/entities/expense.entity';
 import { MonthlyBudget } from '../../database/entities/monthly-budget.entity';
 import { Couple } from '../../database/entities/couple.entity';
 import { Category } from '../../database/entities/category.entity';
-import { ActivityAction, ActivityEntityType } from '../../database/entities/activity.entity';
+import {
+  ActivityAction,
+  ActivityEntityType,
+} from '../../database/entities/activity.entity';
 import { ActivityService } from '../activity/activity.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
@@ -32,60 +35,73 @@ export class ExpensesService {
     @InjectRepository(Category)
     private readonly categoryRepo: Repository<Category>,
 
+    private readonly dataSource: DataSource,
     private readonly activityService: ActivityService,
   ) {}
 
   async create(userId: string, dto: CreateExpenseDto): Promise<Expense> {
-    const category = await this.categoryRepo.findOne({
-      where: { id: dto.categoryId, userId },
+    const result = await this.dataSource.transaction(async (manager) => {
+      const expenseRepo = manager.getRepository(Expense);
+      const budgetRepo = manager.getRepository(MonthlyBudget);
+      const categoryRepo = manager.getRepository(Category);
+      const category = await categoryRepo.findOne({
+        where: { id: dto.categoryId, userId },
+      });
+      if (!category) {
+        throw new NotFoundException(
+          ExpenseMessages.CATEGORY_NOT_BELONG_TO_USER,
+        );
+      }
+
+      const date = new Date(dto.expenseDate);
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+
+      const budget = await budgetRepo.findOne({
+        where: { userId, categoryId: dto.categoryId, year, month },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!budget) {
+        throw new BadRequestException(
+          ExpenseMessages.BUDGET_NOT_FOUND_FOR_MONTH(month, year),
+        );
+      }
+
+      if (budget.isFinalized) {
+        throw new ForbiddenException(ExpenseMessages.FINALIZED_CREATE);
+      }
+
+      const expense = expenseRepo.create({
+        userId,
+        categoryId: dto.categoryId,
+        monthlyBudgetId: budget.id,
+        amount: dto.amount,
+        note: dto.note,
+        expenseDate: new Date(dto.expenseDate),
+      });
+
+      return { saved: await expenseRepo.save(expense), category };
     });
-    if (!category) {
-      throw new NotFoundException(ExpenseMessages.CATEGORY_NOT_BELONG_TO_USER);
-    }
-
-    const date = new Date(dto.expenseDate);
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1;
-
-    const budget = await this.budgetRepo.findOne({
-      where: { userId, categoryId: dto.categoryId, year, month },
-    });
-    if (!budget) {
-      throw new BadRequestException(ExpenseMessages.BUDGET_NOT_FOUND_FOR_MONTH(month, year));
-    }
-
-    if (budget.isFinalized) {
-      throw new ForbiddenException(ExpenseMessages.FINALIZED_CREATE);
-    }
-
-    const expense = this.expenseRepo.create({
-      userId,
-      categoryId: dto.categoryId,
-      monthlyBudgetId: budget.id,
-      amount: dto.amount,
-      note: dto.note,
-      expenseDate: new Date(dto.expenseDate),
-    });
-
-    const saved = await this.expenseRepo.save(expense);
 
     try {
       await this.activityService.log({
         userId,
         action: ActivityAction.CREATED,
         entityType: ActivityEntityType.EXPENSE,
-        entityId: saved.id,
+        entityId: result.saved.id,
         meta: {
-          amount: Number(saved.amount),
-          note: saved.note ?? null,
-          categoryName: category.name,
-          categoryIcon: category.icon ?? null,
+          amount: Number(result.saved.amount),
+          note: result.saved.note ?? null,
+          categoryName: result.category.name,
+          categoryIcon: result.category.icon ?? null,
           expenseDate: dto.expenseDate,
         },
       });
-    } catch { /* activity log failure must not break the main operation */ }
+    } catch {
+      /* activity log failure must not break the main operation */
+    }
 
-    return saved;
+    return result.saved;
   }
 
   async findAllByMonth(
@@ -148,94 +164,129 @@ export class ExpensesService {
     expenseId: string,
     dto: UpdateExpenseDto,
   ): Promise<Expense> {
-    const expense = await this.expenseRepo.findOne({
-      where: { id: expenseId, userId },
-      relations: ['monthlyBudget', 'category'],
-    });
-    if (!expense) {
-      throw new NotFoundException(ExpenseMessages.NOT_FOUND);
-    }
-
-    if (expense.monthlyBudget.isFinalized) {
-      throw new ForbiddenException(ExpenseMessages.FINALIZED_EDIT);
-    }
-
-    if (dto.expenseDate) {
-      const newDate = new Date(dto.expenseDate);
-      const newYear = newDate.getFullYear();
-      const newMonth = newDate.getMonth() + 1;
-
-      if (
-        newYear !== expense.monthlyBudget.year ||
-        newMonth !== expense.monthlyBudget.month
-      ) {
-        throw new BadRequestException(ExpenseMessages.CROSS_MONTH);
+    const result = await this.dataSource.transaction(async (manager) => {
+      const expenseRepo = manager.getRepository(Expense);
+      const budgetRepo = manager.getRepository(MonthlyBudget);
+      const expense = await expenseRepo.findOne({
+        where: { id: expenseId, userId },
+        relations: ['monthlyBudget', 'category'],
+      });
+      if (!expense) {
+        throw new NotFoundException(ExpenseMessages.NOT_FOUND);
       }
 
-      expense.expenseDate = newDate;
-    }
+      const lockedBudget = await budgetRepo.findOne({
+        where: { id: expense.monthlyBudgetId, userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedBudget) {
+        throw new NotFoundException(ExpenseMessages.BUDGET_NOT_FOUND);
+      }
 
-    if (dto.amount !== undefined) expense.amount = dto.amount;
-    if (dto.note !== undefined) expense.note = dto.note;
+      if (lockedBudget.isFinalized) {
+        throw new ForbiddenException(ExpenseMessages.FINALIZED_EDIT);
+      }
 
-    const saved = await this.expenseRepo.save(expense);
+      if (dto.expenseDate) {
+        const newDate = new Date(dto.expenseDate);
+        const newYear = newDate.getFullYear();
+        const newMonth = newDate.getMonth() + 1;
+
+        if (
+          newYear !== lockedBudget.year ||
+          newMonth !== lockedBudget.month
+        ) {
+          throw new BadRequestException(ExpenseMessages.CROSS_MONTH);
+        }
+
+        expense.expenseDate = newDate;
+      }
+
+      if (dto.amount !== undefined) expense.amount = dto.amount;
+      if (dto.note !== undefined) expense.note = dto.note;
+
+      return {
+        saved: await expenseRepo.save(expense),
+        categoryName: expense.category.name,
+        categoryIcon: expense.category.icon ?? null,
+      };
+    });
 
     try {
       await this.activityService.log({
         userId,
         action: ActivityAction.UPDATED,
         entityType: ActivityEntityType.EXPENSE,
-        entityId: saved.id,
+        entityId: result.saved.id,
         meta: {
-          amount: Number(saved.amount),
-          note: saved.note ?? null,
-          categoryName: expense.category.name,
-          categoryIcon: expense.category.icon ?? null,
-          expenseDate: saved.expenseDate instanceof Date
-            ? saved.expenseDate.toISOString().split('T')[0]
-            : String(saved.expenseDate),
+          amount: Number(result.saved.amount),
+          note: result.saved.note ?? null,
+          categoryName: result.categoryName,
+          categoryIcon: result.categoryIcon,
+          expenseDate:
+            result.saved.expenseDate instanceof Date
+              ? result.saved.expenseDate.toISOString().split('T')[0]
+              : String(result.saved.expenseDate),
         },
       });
-    } catch { /* activity log failure must not break the main operation */ }
+    } catch {
+      /* activity log failure must not break the main operation */
+    }
 
-    return saved;
+    return result.saved;
   }
 
   async remove(userId: string, expenseId: string): Promise<void> {
-    const expense = await this.expenseRepo.findOne({
-      where: { id: expenseId, userId },
-      relations: ['monthlyBudget', 'category'],
+    const result = await this.dataSource.transaction(async (manager) => {
+      const expenseRepo = manager.getRepository(Expense);
+      const budgetRepo = manager.getRepository(MonthlyBudget);
+      const expense = await expenseRepo.findOne({
+        where: { id: expenseId, userId },
+        relations: ['monthlyBudget', 'category'],
+      });
+      if (!expense) {
+        throw new NotFoundException(ExpenseMessages.NOT_FOUND);
+      }
+
+      const lockedBudget = await budgetRepo.findOne({
+        where: { id: expense.monthlyBudgetId, userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedBudget) {
+        throw new NotFoundException(ExpenseMessages.BUDGET_NOT_FOUND);
+      }
+
+      if (lockedBudget.isFinalized) {
+        throw new ForbiddenException(ExpenseMessages.FINALIZED_DELETE);
+      }
+
+      const meta = {
+        amount: Number(expense.amount),
+        note: expense.note ?? null,
+        categoryName: expense.category.name,
+        categoryIcon: expense.category.icon ?? null,
+        expenseDate:
+          expense.expenseDate instanceof Date
+            ? expense.expenseDate.toISOString().split('T')[0]
+            : String(expense.expenseDate),
+      };
+      const entityId = expense.id;
+
+      await expenseRepo.remove(expense);
+      return { meta, entityId };
     });
-    if (!expense) {
-      throw new NotFoundException(ExpenseMessages.NOT_FOUND);
-    }
-
-    if (expense.monthlyBudget.isFinalized) {
-      throw new ForbiddenException(ExpenseMessages.FINALIZED_DELETE);
-    }
-
-    const meta = {
-      amount: Number(expense.amount),
-      note: expense.note ?? null,
-      categoryName: expense.category.name,
-      categoryIcon: expense.category.icon ?? null,
-      expenseDate: expense.expenseDate instanceof Date
-        ? expense.expenseDate.toISOString().split('T')[0]
-        : String(expense.expenseDate),
-    };
-    const entityId = expense.id;
-
-    await this.expenseRepo.remove(expense);
 
     try {
       await this.activityService.log({
         userId,
         action: ActivityAction.DELETED,
         entityType: ActivityEntityType.EXPENSE,
-        entityId,
-        meta,
+        entityId: result.entityId,
+        meta: result.meta,
       });
-    } catch { /* activity log failure must not break the main operation */ }
+    } catch {
+      /* activity log failure must not break the main operation */
+    }
   }
 
   async findPartnerExpenses(
@@ -253,7 +304,9 @@ export class ExpensesService {
       .createQueryBuilder('couple')
       .leftJoinAndSelect('couple.user1', 'user1')
       .leftJoinAndSelect('couple.user2', 'user2')
-      .where('couple.user1_id = :userId OR couple.user2_id = :userId', { userId })
+      .where('couple.user1_id = :userId OR couple.user2_id = :userId', {
+        userId,
+      })
       .getOne();
 
     if (!couple) {

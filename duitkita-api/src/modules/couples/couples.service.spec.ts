@@ -5,10 +5,16 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { CouplesService } from './couples.service';
 import { Couple } from '../../database/entities/couple.entity';
 import { User } from '../../database/entities/user.entity';
+import {
+  CoupleInvitation,
+  CoupleInvitationStatus,
+} from '../../database/entities/couple-invitation.entity';
 import { CoupleMessages } from '../../common/constants/couple.messages';
+import { SecurityAuditService } from '../security-audit/security-audit.service';
 
 const USER_ID = 'user-uuid';
 const PARTNER_ID = 'partner-uuid';
@@ -26,15 +32,34 @@ const makeUser = (overrides: Partial<User> = {}): User =>
 const makePartner = (): User =>
   makeUser({ id: PARTNER_ID, name: 'Partner', email: 'partner@example.com' });
 
-const makeCouple = (user1Id = USER_ID, user2Id = PARTNER_ID): Couple =>
-  ({
-    id: 'couple-uuid',
-    user1Id,
-    user2Id,
-    user1: makeUser({ id: user1Id }),
-    user2: makeUser({ id: user2Id, name: 'Partner', email: 'partner@example.com' }),
-    linkedAt: new Date('2025-01-01'),
-  }) as Couple;
+const makeCouple = (user1Id = USER_ID, user2Id = PARTNER_ID): Couple => ({
+  id: 'couple-uuid',
+  user1Id,
+  user2Id,
+  user1: makeUser({ id: user1Id }),
+  user2: makeUser({
+    id: user2Id,
+    name: 'Partner',
+    email: 'partner@example.com',
+  }),
+  linkedAt: new Date('2025-01-01'),
+});
+
+const makeInvitation = (
+  overrides: Partial<CoupleInvitation> = {},
+): CoupleInvitation => ({
+  id: 'invitation-uuid',
+  senderUserId: USER_ID,
+  receiverUserId: PARTNER_ID,
+  senderUser: makeUser(),
+  receiverUser: makePartner(),
+  status: CoupleInvitationStatus.PENDING,
+  expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+  respondedAt: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  ...overrides,
+});
 
 describe('CouplesService', () => {
   let service: CouplesService;
@@ -50,17 +75,123 @@ describe('CouplesService', () => {
     findOne: jest.fn(),
   };
 
+  const invitationRepo = {
+    findOne: jest.fn(),
+    findOneOrFail: jest.fn(),
+    find: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    update: jest.fn(),
+  };
+
+  const securityAuditService = {
+    log: jest.fn().mockResolvedValue(undefined),
+  };
+  const dataSource = {
+    transaction: jest.fn((callback) =>
+      callback({
+        getRepository: (entity: unknown) => {
+          if (entity === Couple) return coupleRepo;
+          if (entity === CoupleInvitation) return invitationRepo;
+          return userRepo;
+        },
+      }),
+    ),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CouplesService,
         { provide: getRepositoryToken(Couple), useValue: coupleRepo },
+        {
+          provide: getRepositoryToken(CoupleInvitation),
+          useValue: invitationRepo,
+        },
         { provide: getRepositoryToken(User), useValue: userRepo },
+        { provide: DataSource, useValue: dataSource },
+        { provide: SecurityAuditService, useValue: securityAuditService },
       ],
     }).compile();
 
     service = module.get(CouplesService);
     jest.clearAllMocks();
+  });
+
+  describe('sendInvitation', () => {
+    const dto = { partnerEmail: 'partner@example.com' };
+
+    it('creates invitation when both users are available', async () => {
+      userRepo.findOne.mockResolvedValue(makePartner());
+      coupleRepo.findOne.mockResolvedValue(null);
+      invitationRepo.findOne.mockResolvedValue(null);
+      invitationRepo.create.mockReturnValue(makeInvitation());
+      invitationRepo.save.mockResolvedValue(makeInvitation());
+      invitationRepo.findOneOrFail.mockResolvedValue(makeInvitation());
+
+      const result = await service.sendInvitation(USER_ID, dto);
+
+      expect(invitationRepo.create).toHaveBeenCalled();
+      expect(result.status).toBe(CoupleInvitationStatus.PENDING);
+      expect(result.senderUserId).toBe(USER_ID);
+      expect(result.receiverUserId).toBe(PARTNER_ID);
+    });
+
+    it('throws conflict when pending invitation already exists', async () => {
+      userRepo.findOne.mockResolvedValue(makePartner());
+      coupleRepo.findOne.mockResolvedValue(null);
+      invitationRepo.findOne.mockResolvedValue(makeInvitation());
+
+      await expect(service.sendInvitation(USER_ID, dto)).rejects.toThrow(
+        new ConflictException(CoupleMessages.INVITATION_ALREADY_PENDING),
+      );
+    });
+  });
+
+  describe('acceptInvitation', () => {
+    it('accepts invitation and creates a couple', async () => {
+      const invitation = makeInvitation({
+        receiverUserId: USER_ID,
+        senderUserId: PARTNER_ID,
+        senderUser: makeUser({
+          id: PARTNER_ID,
+          name: 'Partner',
+          email: 'partner@example.com',
+        }),
+      });
+      invitationRepo.findOne.mockResolvedValue(invitation);
+      coupleRepo.findOne.mockResolvedValue(null);
+      const savedCouple = makeCouple(PARTNER_ID, USER_ID);
+      coupleRepo.create.mockReturnValue(savedCouple);
+      coupleRepo.save.mockResolvedValue(savedCouple);
+      invitationRepo.save.mockResolvedValue({
+        ...invitation,
+        status: CoupleInvitationStatus.ACCEPTED,
+      });
+
+      const result = await service.acceptInvitation(USER_ID, invitation.id);
+
+      expect(coupleRepo.create).toHaveBeenCalledWith({
+        user1Id: PARTNER_ID,
+        user2Id: USER_ID,
+      });
+      expect(result.id).toBe(PARTNER_ID);
+    });
+  });
+
+  describe('rejectInvitation', () => {
+    it('rejects pending invitation', async () => {
+      const invitation = makeInvitation({ receiverUserId: USER_ID });
+      invitationRepo.findOne.mockResolvedValue(invitation);
+      invitationRepo.save.mockResolvedValue({
+        ...invitation,
+        status: CoupleInvitationStatus.REJECTED,
+      });
+
+      const result = await service.rejectInvitation(USER_ID, invitation.id);
+
+      expect(result.message).toBe(CoupleMessages.INVITATION_REJECTED);
+    });
   });
 
   // ─── link ───────────────────────────────────────────────────────────────────
@@ -88,7 +219,9 @@ describe('CouplesService', () => {
 
     it('throws NotFoundException when partner email does not exist', async () => {
       userRepo.findOne.mockResolvedValue(null);
-      await expect(service.link(USER_ID, dto)).rejects.toThrow(NotFoundException);
+      await expect(service.link(USER_ID, dto)).rejects.toThrow(
+        NotFoundException,
+      );
       await expect(service.link(USER_ID, dto)).rejects.toThrow(
         CoupleMessages.PARTNER_NOT_FOUND,
       );
@@ -115,7 +248,7 @@ describe('CouplesService', () => {
     it('throws ConflictException when partner is already linked to someone else', async () => {
       userRepo.findOne.mockResolvedValue(makePartner());
       coupleRepo.findOne
-        .mockResolvedValueOnce(null)                              // user is free
+        .mockResolvedValueOnce(null) // user is free
         .mockResolvedValueOnce(makeCouple(PARTNER_ID, 'third')); // partner is taken
       await expect(service.link(USER_ID, dto)).rejects.toThrow(
         new ConflictException(CoupleMessages.PARTNER_ALREADY_LINKED),
@@ -145,7 +278,9 @@ describe('CouplesService', () => {
 
     it('throws NotFoundException when user is not linked to anyone', async () => {
       coupleRepo.findOne.mockResolvedValue(null);
-      await expect(service.getPartner(USER_ID)).rejects.toThrow(NotFoundException);
+      await expect(service.getPartner(USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
       await expect(service.getPartner(USER_ID)).rejects.toThrow(
         CoupleMessages.NOT_FOUND,
       );

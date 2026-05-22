@@ -1,0 +1,34 @@
+# Dependencies — akan diinstall ulang di Dockerfile
+node_modules/
+
+# Build output lama
+dist/
+
+# Environment files — JANGAN masuk ke image
+.env
+.env.local
+.env.*.local
+
+# Git
+.git/
+.gitignore
+
+# Editor
+.vscode/
+.idea/
+*.suo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test files
+coverage/
+test/
+
+# Documentation files
+*.md
