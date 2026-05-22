@@ -7,6 +7,7 @@ export interface User {
   name: string;
   email: string;
   createdAt: string;
+  hasAvatar: boolean;
 }
 
 export interface Category {
@@ -231,6 +232,7 @@ export interface Partner {
   name: string;
   email: string;
   linkedAt: string;
+  hasAvatar: boolean;
 }
 
 export interface UpdateProfileRequest {
