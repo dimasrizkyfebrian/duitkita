@@ -2,7 +2,7 @@
 # Stage 1: Builder
 # Install semua dependency dan build TypeScript → JavaScript
 # ─────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM --platform=linux/amd64 node:20-alpine AS builder
 
 # Install pnpm (karena project pakai pnpm)
 RUN npm install -g pnpm
