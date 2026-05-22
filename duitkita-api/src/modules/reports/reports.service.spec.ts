@@ -156,6 +156,9 @@ describe('ReportsService', () => {
       expect(result.categories).toHaveLength(0);
       expect(result.totalSpent).toBe(0);
       expect(result.overallPercentageUsed).toBe(0);
+      expect(result.topExpenses).toHaveLength(0);
+      expect(result.totalExpenseCount).toBe(0);
+      expect(result.averageExpenseAmount).toBe(0);
     });
 
     it('throws NotFoundException when user does not exist', async () => {
@@ -230,6 +233,28 @@ describe('ReportsService', () => {
       expect(result.categories[0].expenseCount).toBe(4);
       expect(result.categories[0].topExpenses).toHaveLength(3);
       expect(result.categories[0].topExpenses[0].id).toBe('e1');
+    });
+
+    it('returns global top 5 expenses with category names', async () => {
+      userRepo.findOne.mockResolvedValue(makeUser());
+      budgetRepo.find.mockResolvedValue([makeBudget()]);
+      expenseRepo.find.mockResolvedValue([
+        makeExpense({ id: 'e1', amount: 200000, note: 'Belanja mingguan' }),
+        makeExpense({ id: 'e2', amount: 150000 }),
+        makeExpense({ id: 'e3', amount: 100000 }),
+        makeExpense({ id: 'e4', amount: 50000 }),
+        makeExpense({ id: 'e5', amount: 40000 }),
+        makeExpense({ id: 'e6', amount: 30000 }),
+      ]);
+
+      const result = await service.getMonthlyReport(USER_ID, 2025, 5);
+
+      expect(result.topExpenses).toHaveLength(5);
+      expect(result.topExpenses[0].id).toBe('e1');
+      expect(result.topExpenses[0].categoryName).toBe('Food');
+      expect(result.topExpenses[0].note).toBe('Belanja mingguan');
+      expect(result.totalExpenseCount).toBe(6);
+      expect(result.averageExpenseAmount).toBe(Math.round(570000 / 6));
     });
 
     it('includes rolloverAmount in category report', async () => {

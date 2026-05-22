@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { BudgetsService } from './budgets.service';
 import { ActivityService } from '../activity/activity.service';
 import { MonthlyBudget } from '../../database/entities/monthly-budget.entity';
@@ -18,7 +19,13 @@ const CAT_ID = 'cat-uuid';
 const BUDGET_ID = 'budget-uuid';
 
 const makeCategory = (overrides: Partial<Category> = {}): Category =>
-  ({ id: CAT_ID, userId: USER_ID, name: 'Food', icon: '🍔', ...overrides }) as Category;
+  ({
+    id: CAT_ID,
+    userId: USER_ID,
+    name: 'Food',
+    icon: '🍔',
+    ...overrides,
+  }) as Category;
 
 const makeBudget = (overrides: Partial<MonthlyBudget> = {}): MonthlyBudget =>
   ({
@@ -80,6 +87,18 @@ describe('BudgetsService', () => {
   };
 
   const activityService = { log: jest.fn().mockResolvedValue(undefined) };
+  const dataSource = {
+    transaction: jest.fn((callback) =>
+      callback({
+        getRepository: (entity: unknown) => {
+          if (entity === MonthlyBudget) return budgetRepo;
+          if (entity === Expense) return expenseRepo;
+          if (entity === Couple) return coupleRepo;
+          return categoryRepo;
+        },
+      }),
+    ),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -89,6 +108,7 @@ describe('BudgetsService', () => {
         { provide: getRepositoryToken(Expense), useValue: expenseRepo },
         { provide: getRepositoryToken(Couple), useValue: coupleRepo },
         { provide: getRepositoryToken(Category), useValue: categoryRepo },
+        { provide: DataSource, useValue: dataSource },
         { provide: ActivityService, useValue: activityService },
       ],
     }).compile();
@@ -111,7 +131,12 @@ describe('BudgetsService', () => {
   });
 
   describe('create', () => {
-    const dto = { categoryId: CAT_ID, year: 2025, month: 5, baseAmount: 500000 };
+    const dto = {
+      categoryId: CAT_ID,
+      year: 2025,
+      month: 5,
+      baseAmount: 500000,
+    };
 
     it('creates a budget with zero rollover when no previous month exists', async () => {
       categoryRepo.findOne.mockResolvedValue(makeCategory());
@@ -124,7 +149,11 @@ describe('BudgetsService', () => {
       const result = await service.create(USER_ID, dto);
 
       expect(budgetRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ baseAmount: 500000, rolloverAmount: 0, totalAmount: 500000 }),
+        expect.objectContaining({
+          baseAmount: 500000,
+          rolloverAmount: 0,
+          totalAmount: 500000,
+        }),
       );
       expect(result).toEqual(budget);
     });
@@ -135,14 +164,20 @@ describe('BudgetsService', () => {
       const prevBudget = makeBudget({ month: 4, totalAmount: 500000 });
       budgetRepo.findOne.mockResolvedValueOnce(prevBudget); // prev month budget
       singleQb.getRawOne.mockResolvedValue({ total: '300000' }); // spent 300k
-      const budget = makeBudget({ rolloverAmount: 200000, totalAmount: 700000 });
+      const budget = makeBudget({
+        rolloverAmount: 200000,
+        totalAmount: 700000,
+      });
       budgetRepo.create.mockReturnValue(budget);
       budgetRepo.save.mockResolvedValue(budget);
 
       const result = await service.create(USER_ID, dto);
 
       expect(budgetRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ rolloverAmount: 200000, totalAmount: 700000 }),
+        expect.objectContaining({
+          rolloverAmount: 200000,
+          totalAmount: 700000,
+        }),
       );
       expect(result.rolloverAmount).toBe(200000);
     });
@@ -166,22 +201,34 @@ describe('BudgetsService', () => {
 
     it('throws NotFoundException when category does not belong to user', async () => {
       categoryRepo.findOne.mockResolvedValue(null);
-      await expect(service.create(USER_ID, dto)).rejects.toThrow(NotFoundException);
+      await expect(service.create(USER_ID, dto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('throws ConflictException when a budget already exists for that month', async () => {
       categoryRepo.findOne.mockResolvedValue(makeCategory());
       budgetRepo.findOne.mockResolvedValueOnce(makeBudget()); // existing budget
-      await expect(service.create(USER_ID, dto)).rejects.toThrow(ConflictException);
+      await expect(service.create(USER_ID, dto)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('wraps rollover correctly across January boundary (month=1 → prev is Dec of prev year)', async () => {
       categoryRepo.findOne.mockResolvedValue(makeCategory());
       budgetRepo.findOne.mockResolvedValueOnce(null);
-      const prevBudget = makeBudget({ year: 2024, month: 12, totalAmount: 500000 });
+      const prevBudget = makeBudget({
+        year: 2024,
+        month: 12,
+        totalAmount: 500000,
+      });
       budgetRepo.findOne.mockResolvedValueOnce(prevBudget);
       singleQb.getRawOne.mockResolvedValue({ total: '100000' });
-      const budget = makeBudget({ month: 1, rolloverAmount: 400000, totalAmount: 900000 });
+      const budget = makeBudget({
+        month: 1,
+        rolloverAmount: 400000,
+        totalAmount: 900000,
+      });
       budgetRepo.create.mockReturnValue(budget);
       budgetRepo.save.mockResolvedValue(budget);
 
@@ -197,7 +244,9 @@ describe('BudgetsService', () => {
       const budgets = [makeBudget()];
       budgetRepo.find.mockResolvedValue(budgets);
       expenseRepo.createQueryBuilder.mockReturnValue(batchQb);
-      batchQb.getRawMany.mockResolvedValue([{ budgetId: BUDGET_ID, total: '100000' }]);
+      batchQb.getRawMany.mockResolvedValue([
+        { budgetId: BUDGET_ID, total: '100000' },
+      ]);
 
       const result = await service.findAllByMonth(USER_ID, 2025, 5);
 
@@ -222,7 +271,9 @@ describe('BudgetsService', () => {
 
     it('throws NotFoundException when budget does not exist', async () => {
       budgetRepo.findOne.mockResolvedValue(null);
-      await expect(service.findOne(USER_ID, 'bad-id')).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(USER_ID, 'bad-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -232,7 +283,9 @@ describe('BudgetsService', () => {
       budgetRepo.findOne.mockResolvedValue(budget);
       budgetRepo.save.mockImplementation((b) => Promise.resolve(b));
 
-      const result = await service.update(USER_ID, BUDGET_ID, { baseAmount: 600000 });
+      const result = await service.update(USER_ID, BUDGET_ID, {
+        baseAmount: 600000,
+      });
 
       expect(result.baseAmount).toBe(600000);
       expect(result.totalAmount).toBe(650000);
@@ -240,16 +293,16 @@ describe('BudgetsService', () => {
 
     it('throws NotFoundException when budget does not exist', async () => {
       budgetRepo.findOne.mockResolvedValue(null);
-      await expect(service.update(USER_ID, 'bad-id', { baseAmount: 100 })).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.update(USER_ID, 'bad-id', { baseAmount: 100 }),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('throws ForbiddenException when budget is finalized', async () => {
       budgetRepo.findOne.mockResolvedValue(makeBudget({ isFinalized: true }));
-      await expect(service.update(USER_ID, BUDGET_ID, { baseAmount: 100 })).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(
+        service.update(USER_ID, BUDGET_ID, { baseAmount: 100 }),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -267,13 +320,17 @@ describe('BudgetsService', () => {
 
     it('throws NotFoundException when budget does not exist', async () => {
       budgetRepo.findOne.mockResolvedValue(null);
-      await expect(service.remove(USER_ID, 'bad-id')).rejects.toThrow(NotFoundException);
+      await expect(service.remove(USER_ID, 'bad-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('throws ForbiddenException when budget has expenses', async () => {
       budgetRepo.findOne.mockResolvedValue(makeBudget());
       expenseRepo.count.mockResolvedValue(3);
-      await expect(service.remove(USER_ID, BUDGET_ID)).rejects.toThrow(ForbiddenException);
+      await expect(service.remove(USER_ID, BUDGET_ID)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 
@@ -301,7 +358,9 @@ describe('BudgetsService', () => {
       coupleRepo.findOne.mockResolvedValue(makeCouple());
       budgetRepo.find.mockResolvedValue([makeBudget({ userId: PARTNER_ID })]);
       expenseRepo.createQueryBuilder.mockReturnValue(batchQb);
-      batchQb.getRawMany.mockResolvedValue([{ budgetId: BUDGET_ID, total: '0' }]);
+      batchQb.getRawMany.mockResolvedValue([
+        { budgetId: BUDGET_ID, total: '0' },
+      ]);
 
       const result = await service.findPartnerBudgets(USER_ID, 2025, 5);
 
@@ -310,9 +369,9 @@ describe('BudgetsService', () => {
 
     it('throws NotFoundException when user has no partner', async () => {
       coupleRepo.findOne.mockResolvedValue(null);
-      await expect(service.findPartnerBudgets(USER_ID, 2025, 5)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.findPartnerBudgets(USER_ID, 2025, 5),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

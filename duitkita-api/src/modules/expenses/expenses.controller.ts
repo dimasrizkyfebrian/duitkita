@@ -8,7 +8,6 @@ import {
   Param,
   Query,
   UseGuards,
-  ParseIntPipe,
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
@@ -26,6 +25,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ExpensesService } from './expenses.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
+import { QueryExpensesDto } from './dto/query-expenses.dto';
 
 @ApiTags('expenses')
 @ApiBearerAuth()
@@ -38,7 +38,10 @@ export class ExpensesController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Record a new expense' })
   @ApiResponse({ status: 201, description: 'Expense created' })
-  @ApiResponse({ status: 400, description: 'Validation error or no active budget for the category' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validation error or no active budget for the category',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Category or budget not found' })
   create(@CurrentUser() user: { id: string }, @Body() dto: CreateExpenseDto) {
@@ -62,38 +65,51 @@ export class ExpensesController {
   @ApiOperation({ summary: "List the partner's expenses for a given month" })
   @ApiQuery({ name: 'year', type: Number, example: 2025 })
   @ApiQuery({ name: 'month', type: Number, example: 8 })
-  @ApiQuery({ name: 'categoryId', required: false, format: 'uuid', description: 'Filter by category' })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    format: 'uuid',
+    description: 'Filter by category',
+  })
   @ApiResponse({ status: 200, description: "Partner's expenses returned" })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'No partner linked' })
   findPartnerExpenses(
     @CurrentUser() user: { id: string },
-    @Query('year', ParseIntPipe) year: number,
-    @Query('month', ParseIntPipe) month: number,
-    @Query('categoryId') categoryId?: string,
+    @Query() query: QueryExpensesDto,
   ) {
     return this.expensesService.findPartnerExpenses(
       user.id,
-      year,
-      month,
-      categoryId,
+      query.year,
+      query.month,
+      query.categoryId,
     );
   }
 
   @Get()
-  @ApiOperation({ summary: 'List all expenses for the authenticated user in a given month' })
+  @ApiOperation({
+    summary: 'List all expenses for the authenticated user in a given month',
+  })
   @ApiQuery({ name: 'year', type: Number, example: 2025 })
   @ApiQuery({ name: 'month', type: Number, example: 8 })
-  @ApiQuery({ name: 'categoryId', required: false, format: 'uuid', description: 'Filter by category' })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    format: 'uuid',
+    description: 'Filter by category',
+  })
   @ApiResponse({ status: 200, description: 'List of expenses returned' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   findAll(
     @CurrentUser() user: { id: string },
-    @Query('year', ParseIntPipe) year: number,
-    @Query('month', ParseIntPipe) month: number,
-    @Query('categoryId') categoryId?: string,
+    @Query() query: QueryExpensesDto,
   ) {
-    return this.expensesService.findAllByMonth(user.id, year, month, categoryId);
+    return this.expensesService.findAllByMonth(
+      user.id,
+      query.year,
+      query.month,
+      query.categoryId,
+    );
   }
 
   @Get(':id')

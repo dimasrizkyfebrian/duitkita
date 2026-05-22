@@ -5,12 +5,15 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { MonthlyBudget } from '../../database/entities/monthly-budget.entity';
 import { Expense } from '../../database/entities/expense.entity';
 import { Couple } from '../../database/entities/couple.entity';
 import { Category } from '../../database/entities/category.entity';
-import { ActivityAction, ActivityEntityType } from '../../database/entities/activity.entity';
+import {
+  ActivityAction,
+  ActivityEntityType,
+} from '../../database/entities/activity.entity';
 import { ActivityService } from '../activity/activity.service';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
@@ -52,60 +55,75 @@ export class BudgetsService {
     @InjectRepository(Category)
     private readonly categoryRepo: Repository<Category>,
 
+    private readonly dataSource: DataSource,
     private readonly activityService: ActivityService,
   ) {}
 
   async create(userId: string, dto: CreateBudgetDto): Promise<MonthlyBudget> {
-    const category = await this.categoryRepo.findOne({
-      where: { id: dto.categoryId, userId },
+    const result = await this.dataSource.transaction(async (manager) => {
+      const budgetRepo = manager.getRepository(MonthlyBudget);
+      const expenseRepo = manager.getRepository(Expense);
+      const categoryRepo = manager.getRepository(Category);
+      const category = await categoryRepo.findOne({
+        where: { id: dto.categoryId, userId },
+      });
+      if (!category) {
+        throw new NotFoundException(CategoryMessages.NOT_BELONG_TO_USER);
+      }
+
+      const existing = await budgetRepo.findOne({
+        where: {
+          userId,
+          categoryId: dto.categoryId,
+          year: dto.year,
+          month: dto.month,
+        },
+      });
+      if (existing) {
+        throw new ConflictException(BudgetMessages.ALREADY_EXISTS);
+      }
+
+      const rolloverAmount = await this.calculateRollover(
+        userId,
+        dto.categoryId,
+        dto.year,
+        dto.month,
+        budgetRepo,
+        expenseRepo,
+      );
+
+      const budget = budgetRepo.create({
+        userId,
+        categoryId: dto.categoryId,
+        year: dto.year,
+        month: dto.month,
+        baseAmount: dto.baseAmount,
+        rolloverAmount,
+        totalAmount: dto.baseAmount + rolloverAmount,
+      });
+
+      return { saved: await budgetRepo.save(budget), category };
     });
-    if (!category) {
-      throw new NotFoundException(CategoryMessages.NOT_BELONG_TO_USER);
-    }
-
-    const existing = await this.budgetRepo.findOne({
-      where: { userId, categoryId: dto.categoryId, year: dto.year, month: dto.month },
-    });
-    if (existing) {
-      throw new ConflictException(BudgetMessages.ALREADY_EXISTS);
-    }
-
-    const rolloverAmount = await this.calculateRollover(
-      userId,
-      dto.categoryId,
-      dto.year,
-      dto.month,
-    );
-
-    const budget = this.budgetRepo.create({
-      userId,
-      categoryId: dto.categoryId,
-      year: dto.year,
-      month: dto.month,
-      baseAmount: dto.baseAmount,
-      rolloverAmount,
-      totalAmount: dto.baseAmount + rolloverAmount,
-    });
-
-    const saved = await this.budgetRepo.save(budget);
 
     try {
       await this.activityService.log({
         userId,
         action: ActivityAction.CREATED,
         entityType: ActivityEntityType.BUDGET,
-        entityId: saved.id,
+        entityId: result.saved.id,
         meta: {
-          categoryName: category.name,
-          categoryIcon: category.icon ?? null,
+          categoryName: result.category.name,
+          categoryIcon: result.category.icon ?? null,
           baseAmount: dto.baseAmount,
           year: dto.year,
           month: dto.month,
         },
       });
-    } catch { /* activity log failure must not break the main operation */ }
+    } catch {
+      /* activity log failure must not break the main operation */
+    }
 
-    return saved;
+    return result.saved;
   }
 
   async findAllByMonth(
@@ -138,53 +156,71 @@ export class BudgetsService {
     budgetId: string,
     dto: UpdateBudgetDto,
   ): Promise<MonthlyBudget> {
-    const budget = await this.budgetRepo.findOne({
-      where: { id: budgetId, userId },
-      relations: ['category'],
+    const result = await this.dataSource.transaction(async (manager) => {
+      const budgetRepo = manager.getRepository(MonthlyBudget);
+      const budget = await budgetRepo.findOne({
+        where: { id: budgetId, userId },
+        relations: ['category'],
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!budget) throw new NotFoundException(BudgetMessages.NOT_FOUND);
+      if (budget.isFinalized) {
+        throw new ForbiddenException(BudgetMessages.FINALIZED_EDIT);
+      }
+
+      if (dto.baseAmount !== undefined) {
+        budget.baseAmount = dto.baseAmount;
+        budget.totalAmount =
+          dto.baseAmount + Number(budget.rolloverAmount ?? 0);
+      }
+
+      return {
+        saved: await budgetRepo.save(budget),
+        categoryName: budget.category.name,
+        categoryIcon: budget.category.icon ?? null,
+      };
     });
-    if (!budget) throw new NotFoundException(BudgetMessages.NOT_FOUND);
-    if (budget.isFinalized) {
-      throw new ForbiddenException(BudgetMessages.FINALIZED_EDIT);
-    }
-
-    if (dto.baseAmount !== undefined) {
-      budget.baseAmount = dto.baseAmount;
-      budget.totalAmount = dto.baseAmount + Number(budget.rolloverAmount ?? 0);
-    }
-
-    const saved = await this.budgetRepo.save(budget);
 
     try {
       await this.activityService.log({
         userId,
         action: ActivityAction.UPDATED,
         entityType: ActivityEntityType.BUDGET,
-        entityId: saved.id,
+        entityId: result.saved.id,
         meta: {
-          categoryName: budget.category.name,
-          categoryIcon: budget.category.icon ?? null,
-          baseAmount: Number(saved.baseAmount),
-          year: saved.year,
-          month: saved.month,
+          categoryName: result.categoryName,
+          categoryIcon: result.categoryIcon,
+          baseAmount: Number(result.saved.baseAmount),
+          year: result.saved.year,
+          month: result.saved.month,
         },
       });
-    } catch { /* activity log failure must not break the main operation */ }
+    } catch {
+      /* activity log failure must not break the main operation */
+    }
 
-    return saved;
+    return result.saved;
   }
 
   async remove(userId: string, budgetId: string): Promise<{ id: string }> {
-    const budget = await this.budgetRepo.findOne({ where: { id: budgetId, userId } });
-    if (!budget) throw new NotFoundException(BudgetMessages.NOT_FOUND);
+    await this.dataSource.transaction(async (manager) => {
+      const budgetRepo = manager.getRepository(MonthlyBudget);
+      const expenseRepo = manager.getRepository(Expense);
+      const budget = await budgetRepo.findOne({
+        where: { id: budgetId, userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!budget) throw new NotFoundException(BudgetMessages.NOT_FOUND);
 
-    const expenseCount = await this.expenseRepo.count({
-      where: { monthlyBudgetId: budgetId },
+      const expenseCount = await expenseRepo.count({
+        where: { monthlyBudgetId: budgetId },
+      });
+      if (expenseCount > 0) {
+        throw new ForbiddenException(BudgetMessages.HAS_EXPENSES);
+      }
+
+      await budgetRepo.remove(budget);
     });
-    if (expenseCount > 0) {
-      throw new ForbiddenException(BudgetMessages.HAS_EXPENSES);
-    }
-
-    await this.budgetRepo.remove(budget);
     return { id: budgetId };
   }
 
@@ -212,20 +248,22 @@ export class BudgetsService {
     month: number,
   ): Promise<{ finalized: number }> {
     validateYearMonth(year, month);
-    const budgets = await this.budgetRepo.find({
-      where: { userId, year, month, isFinalized: false },
-    });
+    return this.dataSource.transaction(async (manager) => {
+      const budgetRepo = manager.getRepository(MonthlyBudget);
+      const budgets = await budgetRepo.find({
+        where: { userId, year, month, isFinalized: false },
+        lock: { mode: 'pessimistic_write' },
+      });
 
-    if (budgets.length === 0) return { finalized: 0 };
+      if (budgets.length === 0) return { finalized: 0 };
 
-    await Promise.all(
-      budgets.map((b) => {
+      for (const b of budgets) {
         b.isFinalized = true;
-        return this.budgetRepo.save(b);
-      }),
-    );
+        await budgetRepo.save(b);
+      }
 
-    return { finalized: budgets.length };
+      return { finalized: budgets.length };
+    });
   }
 
   private async calculateRollover(
@@ -233,22 +271,27 @@ export class BudgetsService {
     categoryId: string,
     year: number,
     month: number,
+    budgetRepo: Repository<MonthlyBudget> = this.budgetRepo,
+    expenseRepo: Repository<Expense> = this.expenseRepo,
   ): Promise<number> {
     const prevMonth = month === 1 ? 12 : month - 1;
     const prevYear = month === 1 ? year - 1 : year;
 
-    const prevBudget = await this.budgetRepo.findOne({
+    const prevBudget = await budgetRepo.findOne({
       where: { userId, categoryId, year: prevYear, month: prevMonth },
     });
     if (!prevBudget) return 0;
 
-    const totalSpent = await this.getTotalSpent(prevBudget.id);
+    const totalSpent = await this.getTotalSpent(prevBudget.id, expenseRepo);
     const leftover = Number(prevBudget.totalAmount ?? 0) - totalSpent;
     return leftover > 0 ? leftover : 0;
   }
 
-  private async getTotalSpent(monthlyBudgetId: string): Promise<number> {
-    const result = await this.expenseRepo
+  private async getTotalSpent(
+    monthlyBudgetId: string,
+    expenseRepo: Repository<Expense> = this.expenseRepo,
+  ): Promise<number> {
+    const result = await expenseRepo
       .createQueryBuilder('expense')
       .select('COALESCE(SUM(expense.amount), 0)', 'total')
       .where('expense.monthlyBudgetId = :monthlyBudgetId', { monthlyBudgetId })
@@ -257,7 +300,9 @@ export class BudgetsService {
     return Number(result?.total ?? 0);
   }
 
-  private async getTotalSpentBatch(budgetIds: string[]): Promise<Map<string, number>> {
+  private async getTotalSpentBatch(
+    budgetIds: string[],
+  ): Promise<Map<string, number>> {
     if (budgetIds.length === 0) return new Map();
 
     const rows = await this.expenseRepo
@@ -275,7 +320,10 @@ export class BudgetsService {
     return map;
   }
 
-  private buildStats(budget: MonthlyBudget, totalSpent: number): BudgetWithStats {
+  private buildStats(
+    budget: MonthlyBudget,
+    totalSpent: number,
+  ): BudgetWithStats {
     const totalAmount = Number(budget.totalAmount ?? 0);
     const remaining = totalAmount - totalSpent;
     const percentage = totalAmount > 0 ? totalSpent / totalAmount : 0;
@@ -303,7 +351,9 @@ export class BudgetsService {
     };
   }
 
-  private async attachBudgetStats(budget: MonthlyBudget): Promise<BudgetWithStats> {
+  private async attachBudgetStats(
+    budget: MonthlyBudget,
+  ): Promise<BudgetWithStats> {
     const totalSpent = await this.getTotalSpent(budget.id);
     return this.buildStats(budget, totalSpent);
   }

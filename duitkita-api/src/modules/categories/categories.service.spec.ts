@@ -3,6 +3,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { Category } from '../../database/entities/category.entity';
+import { MonthlyBudget } from '../../database/entities/monthly-budget.entity';
+import { Expense } from '../../database/entities/expense.entity';
 
 const USER_ID = 'user-uuid';
 const CAT_ID = 'cat-uuid';
@@ -27,17 +29,27 @@ describe('CategoriesService', () => {
     findOne: jest.fn(),
     remove: jest.fn(),
   };
+  const budgetRepo = {
+    count: jest.fn(),
+  };
+  const expenseRepo = {
+    count: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CategoriesService,
         { provide: getRepositoryToken(Category), useValue: categoryRepo },
+        { provide: getRepositoryToken(MonthlyBudget), useValue: budgetRepo },
+        { provide: getRepositoryToken(Expense), useValue: expenseRepo },
       ],
     }).compile();
 
     service = module.get(CategoriesService);
     jest.clearAllMocks();
+    budgetRepo.count.mockResolvedValue(0);
+    expenseRepo.count.mockResolvedValue(0);
   });
 
   describe('create', () => {
@@ -49,14 +61,20 @@ describe('CategoriesService', () => {
 
       const result = await service.create(USER_ID, dto);
 
-      expect(categoryRepo.create).toHaveBeenCalledWith({ ...dto, userId: USER_ID });
+      expect(categoryRepo.create).toHaveBeenCalledWith({
+        ...dto,
+        userId: USER_ID,
+      });
       expect(result).toEqual(category);
     });
   });
 
   describe('findAll', () => {
     it('returns all categories for the user', async () => {
-      const categories = [makeCategory(), makeCategory({ id: 'cat-2', name: 'Transport' })];
+      const categories = [
+        makeCategory(),
+        makeCategory({ id: 'cat-2', name: 'Transport' }),
+      ];
       categoryRepo.find.mockResolvedValue(categories);
 
       const result = await service.findAll(USER_ID);
@@ -81,7 +99,9 @@ describe('CategoriesService', () => {
 
     it('throws NotFoundException when category does not exist', async () => {
       categoryRepo.findOne.mockResolvedValue(null);
-      await expect(service.findOne(USER_ID, 'wrong-id')).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(USER_ID, 'wrong-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -99,9 +119,9 @@ describe('CategoriesService', () => {
 
     it('throws NotFoundException when category does not exist', async () => {
       categoryRepo.findOne.mockResolvedValue(null);
-      await expect(service.update(USER_ID, 'bad-id', { name: 'X' })).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.update(USER_ID, 'bad-id', { name: 'X' }),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('ignores undefined fields and does not overwrite them', async () => {
@@ -130,7 +150,9 @@ describe('CategoriesService', () => {
 
     it('throws NotFoundException when category does not exist', async () => {
       categoryRepo.findOne.mockResolvedValue(null);
-      await expect(service.remove(USER_ID, 'bad-id')).rejects.toThrow(NotFoundException);
+      await expect(service.remove(USER_ID, 'bad-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });
