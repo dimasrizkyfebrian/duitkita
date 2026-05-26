@@ -7,6 +7,8 @@ import { getApiStatus } from "@/lib/utils";
 import {
   fetchProfile,
   updateProfile,
+  uploadAvatar,
+  deleteAvatar,
   changePassword,
   fetchPartner,
   linkPartner,
@@ -54,6 +56,32 @@ export function useProfile() {
       const status = getApiStatus(err);
       if (status === 400) toast.error("Nama tidak valid, pastikan tidak kosong dan maksimal 100 karakter");
       else toast.error("Gagal memperbarui profil, coba beberapa saat lagi");
+    },
+  });
+
+  const uploadAvatarMutation = useMutation({
+    mutationFn: (file: File) => uploadAvatar(file),
+    onSuccess: (user) => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.profile() });
+      qc.invalidateQueries({ queryKey: ["avatar", user.id] });
+      updateAuthUser(user);
+      toast.success("Foto profil berhasil diperbarui");
+    },
+    onError: () => {
+      toast.error("Gagal mengunggah foto. Gunakan JPEG, PNG, atau WebP (maks. 2 MB).");
+    },
+  });
+
+  const deleteAvatarMutation = useMutation({
+    mutationFn: () => deleteAvatar(),
+    onSuccess: (user) => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.profile() });
+      qc.invalidateQueries({ queryKey: ["avatar", user.id] });
+      updateAuthUser(user);
+      toast.success("Foto profil dihapus");
+    },
+    onError: () => {
+      toast.error("Gagal menghapus foto profil");
     },
   });
 
@@ -110,10 +138,14 @@ export function useProfile() {
     isProfileError: profileQuery.isError,
     // mutations
     updateProfile: updateProfileMutation.mutateAsync,
+    uploadAvatar: uploadAvatarMutation.mutateAsync,
+    deleteAvatar: deleteAvatarMutation.mutateAsync,
     changePassword: changePasswordMutation.mutateAsync,
     linkPartner: linkPartnerMutation.mutateAsync,
     unlinkPartner: unlinkPartnerMutation.mutateAsync,
     isUpdatingProfile: updateProfileMutation.isPending,
+    isUploadingAvatar: uploadAvatarMutation.isPending,
+    isRemovingAvatar: deleteAvatarMutation.isPending,
     isChangingPassword: changePasswordMutation.isPending,
     isLinkingPartner: linkPartnerMutation.isPending,
     isUnlinkingPartner: unlinkPartnerMutation.isPending,

@@ -7,17 +7,18 @@ import {
 } from './avatar-storage.interface';
 import { LocalAvatarStorage } from './local-avatar.storage';
 import { SupabaseAvatarStorage } from './supabase-avatar.storage';
+import { GcsAvatarStorage } from './gcs-avatar.storage';
 
 export function resolveAvatarStorageDriver(
   configService: ConfigService,
 ): AvatarStorageDriver {
   const explicit = configService.get<string>('AVATAR_STORAGE_DRIVER');
-  if (explicit === 'local' || explicit === 'supabase') {
+  if (explicit === 'local' || explicit === 'supabase' || explicit === 'gcs') {
     return explicit;
   }
 
   const reportDriver = configService.get<string>('REPORT_STORAGE_DRIVER');
-  if (reportDriver === 'local' || reportDriver === 'supabase') {
+  if (reportDriver === 'local' || reportDriver === 'supabase' || reportDriver === 'gcs') {
     return reportDriver;
   }
 
@@ -35,9 +36,13 @@ export const avatarStorageProvider: Provider = {
   inject: [ConfigService],
   useFactory: (configService: ConfigService): AvatarStorage => {
     const driver = resolveAvatarStorageDriver(configService);
-    if (driver === 'supabase') {
-      return new SupabaseAvatarStorage(configService);
+    switch (driver) {
+      case 'gcs':
+        return new GcsAvatarStorage(configService);
+      case 'supabase':
+        return new SupabaseAvatarStorage(configService);
+      default:
+        return new LocalAvatarStorage(configService);
     }
-    return new LocalAvatarStorage(configService);
   },
 };
