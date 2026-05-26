@@ -20,7 +20,9 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
   SwaggerModule.setup('api/v1/docs', app, document);
 
-  await app.listen(process.env.PORT ?? 3001);
-  console.log(`DuitKita API running on port ${process.env.PORT ?? 3001}`);
+  const port = Number(process.env.PORT ?? 3001);
+  // Cloud Run / Docker require binding to all interfaces, not localhost only.
+  await app.listen(port, '0.0.0.0');
+  console.log(`DuitKita API running on port ${port}`);
 }
 bootstrap();

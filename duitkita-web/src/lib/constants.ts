@@ -10,6 +10,8 @@ export const API_ROUTES = {
     me: "/users/me",
     updateMe: "/users/me",
     changePassword: "/users/me/password",
+    avatar: "/users/me/avatar",
+    userAvatar: (userId: string) => `/users/${userId}/avatar`,
   },
   categories: {
     list: "/categories",

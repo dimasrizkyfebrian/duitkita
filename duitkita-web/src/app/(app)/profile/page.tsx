@@ -48,10 +48,14 @@ export default function ProfilePage() {
     isPartnerLoading,
     isProfileError,
     updateProfile,
+    uploadAvatar,
+    deleteAvatar,
     changePassword,
     linkPartner,
     unlinkPartner,
     isUpdatingProfile,
+    isUploadingAvatar,
+    isRemovingAvatar,
     isChangingPassword,
     isLinkingPartner,
     isUnlinkingPartner,
@@ -121,7 +125,18 @@ export default function ProfilePage() {
         {isProfileLoading && !user ? (
           <ProfileHeaderSkeleton />
         ) : user ? (
-          <ProfileHeader user={user} onEdit={() => setEditOpen(true)} />
+          <ProfileHeader
+            user={{ ...user, hasAvatar: user.hasAvatar ?? false }}
+            onEdit={() => setEditOpen(true)}
+            onUploadAvatar={async (file) => {
+              await uploadAvatar(file);
+            }}
+            onRemoveAvatar={async () => {
+              await deleteAvatar();
+            }}
+            isUploadingAvatar={isUploadingAvatar}
+            isRemovingAvatar={isRemovingAvatar}
+          />
         ) : null}
 
         {isProfileError && !user && (

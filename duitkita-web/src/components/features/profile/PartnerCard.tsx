@@ -1,9 +1,8 @@
 "use client";
 
 import { Heart, UserPlus, Unlink } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { getInitials } from "@/lib/utils";
+import { UserAvatar } from "@/components/shared/UserAvatar";
 import type { Partner } from "@/types";
 
 interface PartnerCardProps {
@@ -71,11 +70,12 @@ export function PartnerCard({
       </div>
 
       <div className="flex items-center gap-3">
-        <Avatar size="lg">
-          <AvatarFallback className="bg-primary/15 text-primary font-semibold">
-            {getInitials(partner.name)}
-          </AvatarFallback>
-        </Avatar>
+        <UserAvatar
+          userId={partner.id}
+          name={partner.name}
+          hasAvatar={partner.hasAvatar}
+          size="lg"
+        />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-foreground truncate">
             {partner.name}
