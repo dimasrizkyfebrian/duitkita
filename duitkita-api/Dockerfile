@@ -2,7 +2,7 @@
 # Stage 1: Builder
 # Install semua dependency dan build TypeScript → JavaScript
 # ─────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 # Install pnpm (karena project pakai pnpm)
 RUN npm install -g pnpm
@@ -26,7 +26,7 @@ RUN pnpm run build
 # Ambil hanya hasil build + production dependencies
 # Image final jauh lebih kecil
 # ─────────────────────────────────────────
-FROM node:20-alpine AS production
+FROM node:22-alpine AS production
 
 RUN npm install -g pnpm
 
