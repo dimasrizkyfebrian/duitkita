@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAppStore } from "@/stores/app.store";
 import { QUERY_KEYS } from "@/lib/constants";
-import { isNotFound, getApiStatus } from "@/lib/utils";
+import { isNotFound, getApiErrorCode, apiErrorToast } from "@/lib/utils";
 import {
   createExpense,
   deleteExpense,
@@ -38,10 +38,10 @@ export function useCreateExpense() {
       closeExpenseSheet();
     },
     onError: (err: unknown) => {
-      const status = getApiStatus(err);
-      if (status === 404) toast.error("Anggaran atau kategori tidak ditemukan");
-      else if (status === 400) toast.error("Data pengeluaran tidak valid, periksa kembali isian kamu");
-      else toast.error("Gagal mencatat pengeluaran, coba beberapa saat lagi");
+      const code = getApiErrorCode(err);
+      if (code === "NOT_FOUND") toast.error("Anggaran atau kategori tidak ditemukan");
+      else if (code === "VALIDATION_ERROR" || code === "BAD_REQUEST") toast.error("Data pengeluaran tidak valid, periksa kembali isian kamu");
+      else toast.error(...apiErrorToast(err, "Gagal mencatat pengeluaran, coba beberapa saat lagi"));
     },
   });
 }
@@ -120,10 +120,10 @@ export function useUpdateExpense() {
       toast.success("Pengeluaran diperbarui");
     },
     onError: (err: unknown) => {
-      const status = getApiStatus(err);
-      if (status === 404) toast.error("Pengeluaran tidak ditemukan");
-      else if (status === 400) toast.error("Data pengeluaran tidak valid, periksa kembali isian kamu");
-      else toast.error("Gagal memperbarui pengeluaran, coba beberapa saat lagi");
+      const code = getApiErrorCode(err);
+      if (code === "NOT_FOUND") toast.error("Pengeluaran tidak ditemukan");
+      else if (code === "VALIDATION_ERROR" || code === "BAD_REQUEST") toast.error("Data pengeluaran tidak valid, periksa kembali isian kamu");
+      else toast.error(...apiErrorToast(err, "Gagal memperbarui pengeluaran, coba beberapa saat lagi"));
     },
   });
 }
@@ -138,9 +138,9 @@ export function useDeleteExpense() {
       toast.success("Pengeluaran dihapus");
     },
     onError: (err: unknown) => {
-      const status = getApiStatus(err);
-      if (status === 404) toast.error("Pengeluaran tidak ditemukan");
-      else toast.error("Gagal menghapus pengeluaran, coba beberapa saat lagi");
+      const code = getApiErrorCode(err);
+      if (code === "NOT_FOUND") toast.error("Pengeluaran tidak ditemukan");
+      else toast.error(...apiErrorToast(err, "Gagal menghapus pengeluaran, coba beberapa saat lagi"));
     },
   });
 }

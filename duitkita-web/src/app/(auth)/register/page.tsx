@@ -72,14 +72,13 @@ export default function RegisterPage() {
         email: data.email,
         password: data.password,
       });
-      setAuth(result.user, result.accessToken);
+      setAuth(result.user, result.accessToken, result.refreshToken);
       toast.success("Akun berhasil dibuat. Selamat datang!");
       router.push("/dashboard");
     } catch (err: unknown) {
-      const raw =
-        (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message ?? "";
-      toast.error(translateRegisterError(raw));
+      const message =
+        err instanceof Error ? err.message : "";
+      toast.error(translateRegisterError(message));
     } finally {
       setIsPending(false);
     }

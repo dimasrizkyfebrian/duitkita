@@ -1,7 +1,7 @@
 import api from "@/lib/api";
+import { isApiError } from "@/lib/api-envelope";
 import { API_ROUTES } from "@/lib/constants";
 import type { PaginatedActivity } from "@/types";
-import axios from "axios";
 
 export async function fetchActivityFeed(
   limit: number,
@@ -13,8 +13,7 @@ export async function fetchActivityFeed(
     });
     return res.data;
   } catch (err) {
-    // 404 = no partner linked yet — treat as empty, not an error
-    if (axios.isAxiosError(err) && err.response?.status === 404) {
+    if (isApiError(err) && err.code === "NOT_FOUND") {
       return { data: [], total: 0, limit, offset };
     }
     throw err;

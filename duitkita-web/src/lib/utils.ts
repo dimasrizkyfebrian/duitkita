@@ -1,6 +1,8 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import axios from "axios";
+import { isApiError } from "@/lib/api-envelope";
+import type { ErrorCode } from "@/lib/api-envelope";
 import type { AlertStatus } from "@/types";
 
 export function cn(...inputs: ClassValue[]) {
@@ -8,11 +10,43 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function isNotFound(error: unknown): boolean {
+  if (isApiError(error)) return error.code === "NOT_FOUND";
   return axios.isAxiosError(error) && error.response?.status === 404;
 }
 
 export function getApiStatus(err: unknown): number | undefined {
+  if (isApiError(err)) return err.status;
   return axios.isAxiosError(err) ? err.response?.status : undefined;
+}
+
+export function getApiErrorCode(err: unknown): ErrorCode | undefined {
+  return isApiError(err) ? err.code : undefined;
+}
+
+export function getApiErrorMessage(err: unknown): string {
+  if (isApiError(err)) return err.message;
+  if (axios.isAxiosError(err)) return err.response?.data?.message ?? err.message;
+  if (err instanceof Error) return err.message;
+  return "Terjadi kesalahan";
+}
+
+export function getApiRequestId(err: unknown): string | undefined {
+  return isApiError(err) ? err.requestId : undefined;
+}
+
+/**
+ * Builds toast.error args that include the requestId as a description.
+ * Usage: `toast.error(...apiErrorToast(err, "Fallback message"))`
+ */
+export function apiErrorToast(
+  err: unknown,
+  fallbackMessage = "Terjadi kesalahan, coba beberapa saat lagi",
+): [string, { description?: string }] {
+  const requestId = getApiRequestId(err);
+  return [
+    fallbackMessage,
+    { description: requestId ? `Ref: ${requestId.slice(0, 8)}` : undefined },
+  ];
 }
 
 export function formatCurrency(amount: number): string {

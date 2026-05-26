@@ -5,6 +5,10 @@ export const API_ROUTES = {
   auth: {
     login: "/auth/login",
     register: "/auth/register",
+    refresh: "/auth/refresh",
+    sessions: "/auth/sessions",
+    session: (id: string) => `/auth/sessions/${id}`,
+    revokeOthers: "/auth/sessions/others",
   },
   users: {
     me: "/users/me",
@@ -12,6 +16,8 @@ export const API_ROUTES = {
     changePassword: "/users/me/password",
     avatar: "/users/me/avatar",
     userAvatar: (userId: string) => `/users/${userId}/avatar`,
+    notificationPreferences: "/users/me/notification-preferences",
+    securityAudit: "/users/me/security-audit",
   },
   categories: {
     list: "/categories",
@@ -36,12 +42,41 @@ export const API_ROUTES = {
     byBudget: (budgetId: string) => `/expenses/by-budget/${budgetId}`,
     partner: "/expenses/partner",
   },
+  recurringExpenses: {
+    list: "/recurring-expenses",
+    detail: (id: string) => `/recurring-expenses/${id}`,
+    create: "/recurring-expenses",
+    update: (id: string) => `/recurring-expenses/${id}`,
+    delete: (id: string) => `/recurring-expenses/${id}`,
+    pause: (id: string) => `/recurring-expenses/${id}/pause`,
+    resume: (id: string) => `/recurring-expenses/${id}/resume`,
+    runDue: "/recurring-expenses/run-due",
+  },
+  reminders: {
+    list: "/reminders",
+    detail: (id: string) => `/reminders/${id}`,
+    create: "/reminders",
+    update: (id: string) => `/reminders/${id}`,
+    delete: (id: string) => `/reminders/${id}`,
+    markDone: (id: string) => `/reminders/${id}/mark-done`,
+    snooze: (id: string) => `/reminders/${id}/snooze`,
+  },
+  notifications: {
+    list: "/notifications",
+    read: (id: string) => `/notifications/${id}/read`,
+    readAll: "/notifications/read-all",
+  },
   reports: {
     monthly: "/reports/monthly",
     couple: "/reports/couple",
     trend: "/reports/trend",
     categoryTrend: "/reports/trend/category",
     rollover: (categoryId: string) => `/reports/rollover/${categoryId}`,
+    forecast: "/reports/forecast",
+    healthScore: "/reports/health-score",
+    exports: "/reports/exports",
+    exportDetail: (id: string) => `/reports/exports/${id}`,
+    exportDownload: (id: string) => `/reports/exports/${id}/download`,
   },
   activity: {
     list: "/activity",
@@ -51,6 +86,11 @@ export const API_ROUTES = {
     link: "/couples/link",
     partner: "/couples/partner",
     unlink: "/couples/partner",
+    invitations: "/couples/invitations",
+    invitationsIncoming: "/couples/invitations/incoming",
+    invitationAccept: (id: string) => `/couples/invitations/${id}/accept`,
+    invitationReject: (id: string) => `/couples/invitations/${id}/reject`,
+    invitationCancel: (id: string) => `/couples/invitations/${id}/cancel`,
   },
 } as const;
 
@@ -72,6 +112,11 @@ export const QUERY_KEYS = {
   activity: () => ["activity"],
   activityRecent: () => ["activity", "recent"],
   activityFeed: () => ["activity", "feed"],
+  recurring: () => ["recurring-expenses"],
+  reminders: (status?: string) =>
+    ["reminders", status].filter(Boolean) as string[],
+  notifications: () => ["notifications"],
+  notificationPreferences: () => ["notification-preferences"],
   reports: {
     monthly: (year: number, month: number) => [
       "reports",
@@ -99,8 +144,26 @@ export const QUERY_KEYS = {
       monthsBack,
     ],
   },
+  forecast: (year: number, month: number, scope: string) => [
+    "reports",
+    "forecast",
+    year,
+    month,
+    scope,
+  ],
+  healthScore: (year: number, month: number, scope: string) => [
+    "reports",
+    "health-score",
+    year,
+    month,
+    scope,
+  ],
+  reportExports: () => ["report-exports"],
   profile: () => ["profile"],
   partner: () => ["partner"],
+  avatar: (userId: string) => ["avatar", userId],
+  sessions: () => ["auth-sessions"],
+  invitationsIncoming: () => ["couple-invitations", "incoming"],
 } as const;
 
 export const APP_CONFIG = {
