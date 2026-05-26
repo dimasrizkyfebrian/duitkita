@@ -7,12 +7,13 @@ import {
 } from './report-export-storage.interface';
 import { LocalReportExportStorage } from './local-report-export.storage';
 import { SupabaseReportExportStorage } from './supabase-report-export.storage';
+import { GcsReportExportStorage } from './gcs-report-export.storage';
 
 export function resolveReportExportStorageDriver(
   configService: ConfigService,
 ): ReportExportStorageDriver {
   const explicit = configService.get<string>('REPORT_STORAGE_DRIVER');
-  if (explicit === 'local' || explicit === 'supabase') {
+  if (explicit === 'local' || explicit === 'supabase' || explicit === 'gcs') {
     return explicit;
   }
 
@@ -30,9 +31,13 @@ export const reportExportStorageProvider: Provider = {
   inject: [ConfigService],
   useFactory: (configService: ConfigService): ReportExportStorage => {
     const driver = resolveReportExportStorageDriver(configService);
-    if (driver === 'supabase') {
-      return new SupabaseReportExportStorage(configService);
+    switch (driver) {
+      case 'gcs':
+        return new GcsReportExportStorage(configService);
+      case 'supabase':
+        return new SupabaseReportExportStorage(configService);
+      default:
+        return new LocalReportExportStorage(configService);
     }
-    return new LocalReportExportStorage(configService);
   },
 };

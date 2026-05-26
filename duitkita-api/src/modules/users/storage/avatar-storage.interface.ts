@@ -2,7 +2,7 @@ import type { Readable } from 'stream';
 
 export const AVATAR_STORAGE = Symbol('AVATAR_STORAGE');
 
-export type AvatarStorageDriver = 'local' | 'supabase';
+export type AvatarStorageDriver = 'local' | 'supabase' | 'gcs';
 
 export function buildAvatarStorageKey(userId: string, extension: string): string {
   return `${userId}/avatar.${extension}`;
