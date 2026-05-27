@@ -31,7 +31,7 @@ export function useDashboard() {
   });
 
   const budgets = budgetsQuery.data ?? [];
-  const activities = activityQuery.data ?? [];
+  const activities = Array.isArray(activityQuery.data) ? activityQuery.data : [];
 
   const totalBudget = budgets.reduce((s, b) => s + b.totalAmount, 0);
   const totalSpent = budgets.reduce((s, b) => s + b.totalSpent, 0);

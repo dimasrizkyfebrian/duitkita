@@ -1,6 +1,8 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import axios from "axios";
+import { isApiError } from "@/lib/api-envelope";
+import type { ErrorCode } from "@/lib/api-envelope";
 import type { AlertStatus } from "@/types";
 
 export function cn(...inputs: ClassValue[]) {
@@ -8,11 +10,59 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function isNotFound(error: unknown): boolean {
+  if (isApiError(error)) return error.code === "NOT_FOUND";
   return axios.isAxiosError(error) && error.response?.status === 404;
 }
 
 export function getApiStatus(err: unknown): number | undefined {
+  if (isApiError(err)) return err.status;
   return axios.isAxiosError(err) ? err.response?.status : undefined;
+}
+
+export function getApiErrorCode(err: unknown): ErrorCode | undefined {
+  return isApiError(err) ? err.code : undefined;
+}
+
+export function getApiErrorMessage(err: unknown): string {
+  if (isApiError(err)) return err.message;
+  if (axios.isAxiosError(err)) return err.response?.data?.message ?? err.message;
+  if (err instanceof Error) return err.message;
+  return "Terjadi kesalahan";
+}
+
+export function getApiRequestId(err: unknown): string | undefined {
+  return isApiError(err) ? err.requestId : undefined;
+}
+
+/**
+ * Builds toast.error args that include the requestId as a description.
+ * Usage: `toast.error(...apiErrorToast(err, "Fallback message"))`
+ */
+export function apiErrorToast(
+  err: unknown,
+  fallbackMessage = "Terjadi kesalahan, coba beberapa saat lagi",
+): [string, { description?: string }] {
+  const requestId = getApiRequestId(err);
+  return [
+    fallbackMessage,
+    { description: requestId ? `Ref: ${requestId.slice(0, 8)}` : undefined },
+  ];
+}
+
+const MIN_YEAR = 2020;
+
+export function clampYearMonth(
+  year: number,
+  month: number,
+): { year: number; month: number } {
+  const now = new Date();
+  const maxYear = now.getFullYear() + 1;
+  const y = Math.max(MIN_YEAR, Math.min(maxYear, Math.round(year)));
+  const m = Math.max(1, Math.min(12, Math.round(month)));
+  if (y === maxYear && m > now.getMonth() + 1) {
+    return { year: now.getFullYear(), month: now.getMonth() + 1 };
+  }
+  return { year: y, month: m };
 }
 
 export function formatCurrency(amount: number): string {
@@ -56,6 +106,42 @@ export function formatRelativeTime(dateString: string): string {
   if (diffDays === 1) return "Kemarin";
   if (diffDays < 7) return `${diffDays} hari lalu`;
   return formatDate(dateString);
+}
+
+export function formatFutureRelativeTime(dateString: string): string {
+  const now = new Date();
+  const date = new Date(dateString);
+  const diffMs = date.getTime() - now.getTime();
+
+  if (diffMs <= 0) return "Hari ini";
+
+  const diffMins = Math.floor(diffMs / 60_000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 60) return `${diffMins} menit lagi`;
+  if (diffHours < 24) return `${diffHours} jam lagi`;
+  if (diffDays === 1) return "Besok";
+  if (diffDays < 7) return `${diffDays} hari lagi`;
+  return formatDate(dateString);
+}
+
+export const DAY_NAMES = [
+  "Minggu",
+  "Senin",
+  "Selasa",
+  "Rabu",
+  "Kamis",
+  "Jumat",
+  "Sabtu",
+];
+
+export function formatScheduleLabel(
+  type: "weekly" | "monthly",
+  day: number,
+): string {
+  if (type === "weekly") return `Setiap ${DAY_NAMES[day] ?? ""}`;
+  return `Tanggal ${day} setiap bulan`;
 }
 
 export const MONTH_NAMES = [

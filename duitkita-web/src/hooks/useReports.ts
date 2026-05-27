@@ -8,6 +8,8 @@ import {
   fetchTrend,
   fetchCategoryTrend,
   fetchRolloverHistory,
+  fetchForecast,
+  fetchHealthScore,
 } from "@/lib/services/report.service";
 import type {
   MonthlyReport,
@@ -41,8 +43,6 @@ export function useCoupleReport() {
   return useQuery({
     queryKey: QUERY_KEYS.reports.couple(activeYear, activeMonth),
     queryFn: () => fetchCoupleReport(activeYear, activeMonth),
-    retry: (failureCount, error) =>
-      isNotFound(error) ? false : failureCount < 1,
   });
 }
 
@@ -69,6 +69,25 @@ export function useRolloverHistory(categoryId: string | null) {
     queryFn: () => fetchRolloverHistory(categoryId!, APP_CONFIG.trendMonthsBack),
     enabled: categoryId !== null,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useForecast(scope: ReportScope) {
+  const { activeYear, activeMonth } = useAppStore();
+  const forecastScope: "me" | "partner" | "both" =
+    scope === "partner" ? "partner" : scope;
+  return useQuery({
+    queryKey: QUERY_KEYS.forecast(activeYear, activeMonth, forecastScope),
+    queryFn: () => fetchForecast(activeYear, activeMonth, forecastScope),
+  });
+}
+
+export function useHealthScore(scope: ReportScope) {
+  const { activeYear, activeMonth } = useAppStore();
+  const healthScope: "me" | "both" = scope === "both" ? "both" : "me";
+  return useQuery({
+    queryKey: QUERY_KEYS.healthScore(activeYear, activeMonth, healthScope),
+    queryFn: () => fetchHealthScore(activeYear, activeMonth, healthScope),
   });
 }
 

@@ -2,6 +2,8 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { APP_CONFIG, QUERY_KEYS } from "@/lib/constants";
 import { isNotFound } from "@/lib/utils";
 import { fetchActivityFeed } from "@/lib/services/activity.service";
+
+const ACTIVITY_STALE_TIME = 30_000;
 import type { Activity, PaginatedActivity } from "@/types";
 
 interface UseActivityFeedResult {
@@ -28,8 +30,7 @@ export function useActivityFeed(): UseActivityFeedResult {
       const nextOffset = last.offset + last.limit;
       return nextOffset < last.total ? nextOffset : undefined;
     },
-    retry: (failureCount, error) =>
-      isNotFound(error) ? false : failureCount < 1,
+    staleTime: ACTIVITY_STALE_TIME,
   });
 
   const noPartner = isNotFound(query.error);

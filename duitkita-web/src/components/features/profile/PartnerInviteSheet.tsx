@@ -92,7 +92,7 @@ function InviteContent({
           disabled={isSubmitting || !isValidEmail}
         >
           {isSubmitting && <Loader2 size={14} className="animate-spin" />}
-          Hubungkan
+          Kirim Undangan
         </Button>
       </div>
     </>
@@ -118,10 +118,10 @@ export function PartnerInviteSheet({
 
           <div>
             <SheetTitle className="text-base font-semibold text-foreground">
-              Hubungkan dengan Pasangan
+              Undang Pasangan
             </SheetTitle>
             <p className="text-xs text-muted-foreground mt-1">
-              Masukkan email pasanganmu untuk menghubungkan akun kalian.
+              Kirim undangan ke email pasanganmu untuk menghubungkan akun.
             </p>
           </div>
 

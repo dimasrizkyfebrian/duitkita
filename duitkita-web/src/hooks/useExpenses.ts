@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAppStore } from "@/stores/app.store";
 import { QUERY_KEYS } from "@/lib/constants";
-import { isNotFound, getApiStatus } from "@/lib/utils";
+import { isNotFound, getApiErrorCode, apiErrorToast } from "@/lib/utils";
+import { addToOutbox } from "@/lib/outbox";
 import {
   createExpense,
   deleteExpense,
@@ -37,11 +38,17 @@ export function useCreateExpense() {
       toast.success("Pengeluaran tercatat!");
       closeExpenseSheet();
     },
-    onError: (err: unknown) => {
-      const status = getApiStatus(err);
-      if (status === 404) toast.error("Anggaran atau kategori tidak ditemukan");
-      else if (status === 400) toast.error("Data pengeluaran tidak valid, periksa kembali isian kamu");
-      else toast.error("Gagal mencatat pengeluaran, coba beberapa saat lagi");
+    onError: async (err: unknown, variables) => {
+      if (!navigator.onLine) {
+        await addToOutbox("CREATE_EXPENSE", variables as unknown as Record<string, unknown>);
+        toast.info("Pengeluaran disimpan ke antrian — akan disinkronkan saat online");
+        return;
+      }
+      const code = getApiErrorCode(err);
+      if (code === "FORBIDDEN") toast.error("Bulan ini sudah dikunci, tidak dapat menambah pengeluaran");
+      else if (code === "NOT_FOUND") toast.error("Anggaran atau kategori tidak ditemukan");
+      else if (code === "VALIDATION_ERROR" || code === "BAD_REQUEST") toast.error("Data pengeluaran tidak valid, periksa kembali isian kamu");
+      else toast.error(...apiErrorToast(err, "Gagal mencatat pengeluaran, coba beberapa saat lagi"));
     },
   });
 }
@@ -70,8 +77,6 @@ export function useExpensesList(
     queryKey: QUERY_KEYS.expensesPartner(activeYear, activeMonth, categoryId),
     queryFn: () => fetchPartnerExpenses(activeYear, activeMonth, categoryId),
     enabled: scope === "partner",
-    retry: (failureCount, error) =>
-      isNotFound(error) ? false : failureCount < 1,
   });
 
   if (scope === "me") {
@@ -120,10 +125,11 @@ export function useUpdateExpense() {
       toast.success("Pengeluaran diperbarui");
     },
     onError: (err: unknown) => {
-      const status = getApiStatus(err);
-      if (status === 404) toast.error("Pengeluaran tidak ditemukan");
-      else if (status === 400) toast.error("Data pengeluaran tidak valid, periksa kembali isian kamu");
-      else toast.error("Gagal memperbarui pengeluaran, coba beberapa saat lagi");
+      const code = getApiErrorCode(err);
+      if (code === "FORBIDDEN") toast.error("Bulan ini sudah dikunci, tidak dapat mengubah pengeluaran");
+      else if (code === "NOT_FOUND") toast.error("Pengeluaran tidak ditemukan");
+      else if (code === "VALIDATION_ERROR" || code === "BAD_REQUEST") toast.error("Data pengeluaran tidak valid, periksa kembali isian kamu");
+      else toast.error(...apiErrorToast(err, "Gagal memperbarui pengeluaran, coba beberapa saat lagi"));
     },
   });
 }
@@ -138,9 +144,10 @@ export function useDeleteExpense() {
       toast.success("Pengeluaran dihapus");
     },
     onError: (err: unknown) => {
-      const status = getApiStatus(err);
-      if (status === 404) toast.error("Pengeluaran tidak ditemukan");
-      else toast.error("Gagal menghapus pengeluaran, coba beberapa saat lagi");
+      const code = getApiErrorCode(err);
+      if (code === "FORBIDDEN") toast.error("Bulan ini sudah dikunci, tidak dapat menghapus pengeluaran");
+      else if (code === "NOT_FOUND") toast.error("Pengeluaran tidak ditemukan");
+      else toast.error(...apiErrorToast(err, "Gagal menghapus pengeluaran, coba beberapa saat lagi"));
     },
   });
 }

@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAppStore } from "@/stores/app.store";
 import { QUERY_KEYS } from "@/lib/constants";
-import { isNotFound, getApiStatus } from "@/lib/utils";
+import { isNotFound, getApiErrorCode, apiErrorToast } from "@/lib/utils";
 import {
   fetchBudgets,
   fetchBudgetById,
@@ -55,11 +55,12 @@ export function useBudget() {
       toast.success("Anggaran berhasil ditambahkan");
     },
     onError: (err: unknown) => {
-      const status = getApiStatus(err);
-      if (status === 409) toast.error("Anggaran untuk kategori ini di bulan ini sudah ada");
-      else if (status === 404) toast.error("Kategori tidak ditemukan atau bukan milikmu");
-      else if (status === 400) toast.error("Data anggaran tidak valid, periksa kembali isian kamu");
-      else toast.error("Gagal menambahkan anggaran, coba beberapa saat lagi");
+      const code = getApiErrorCode(err);
+      if (code === "FORBIDDEN") toast.error("Bulan ini sudah dikunci, tidak dapat menambah anggaran");
+      else if (code === "CONFLICT") toast.error("Anggaran untuk kategori ini di bulan ini sudah ada");
+      else if (code === "NOT_FOUND") toast.error("Kategori tidak ditemukan atau bukan milikmu");
+      else if (code === "VALIDATION_ERROR" || code === "BAD_REQUEST") toast.error("Data anggaran tidak valid, periksa kembali isian kamu");
+      else toast.error(...apiErrorToast(err, "Gagal menambahkan anggaran, coba beberapa saat lagi"));
     },
   });
 
@@ -76,11 +77,11 @@ export function useBudget() {
       toast.success("Anggaran berhasil diperbarui");
     },
     onError: (err: unknown) => {
-      const status = getApiStatus(err);
-      if (status === 403) toast.error("Anggaran yang sudah dikunci tidak dapat diubah");
-      else if (status === 404) toast.error("Anggaran tidak ditemukan");
-      else if (status === 400) toast.error("Nominal anggaran tidak valid");
-      else toast.error("Gagal memperbarui anggaran, coba beberapa saat lagi");
+      const code = getApiErrorCode(err);
+      if (code === "FORBIDDEN") toast.error("Anggaran yang sudah dikunci tidak dapat diubah");
+      else if (code === "NOT_FOUND") toast.error("Anggaran tidak ditemukan");
+      else if (code === "VALIDATION_ERROR" || code === "BAD_REQUEST") toast.error("Nominal anggaran tidak valid");
+      else toast.error(...apiErrorToast(err, "Gagal memperbarui anggaran, coba beberapa saat lagi"));
     },
   });
 
@@ -91,10 +92,10 @@ export function useBudget() {
       toast.success("Anggaran berhasil dihapus");
     },
     onError: (err: unknown) => {
-      const status = getApiStatus(err);
-      if (status === 403) toast.error("Anggaran tidak dapat dihapus karena sudah ada pengeluaran yang tercatat");
-      else if (status === 404) toast.error("Anggaran tidak ditemukan");
-      else toast.error("Gagal menghapus anggaran, coba beberapa saat lagi");
+      const code = getApiErrorCode(err);
+      if (code === "FORBIDDEN") toast.error("Anggaran tidak dapat dihapus karena sudah ada pengeluaran yang tercatat");
+      else if (code === "NOT_FOUND") toast.error("Anggaran tidak ditemukan");
+      else toast.error(...apiErrorToast(err, "Gagal menghapus anggaran, coba beberapa saat lagi"));
     },
   });
 
@@ -105,9 +106,9 @@ export function useBudget() {
       toast.success("Anggaran bulan ini telah dikunci");
     },
     onError: (err: unknown) => {
-      const status = getApiStatus(err);
-      if (status === 400) toast.error("Anggaran bulan ini sudah pernah dikunci sebelumnya");
-      else toast.error("Gagal mengunci anggaran, coba beberapa saat lagi");
+      const code = getApiErrorCode(err);
+      if (code === "CONFLICT" || code === "BAD_REQUEST") toast.error("Anggaran bulan ini sudah pernah dikunci sebelumnya");
+      else toast.error(...apiErrorToast(err, "Gagal mengunci anggaran, coba beberapa saat lagi"));
     },
   });
 
@@ -120,9 +121,9 @@ export function useBudget() {
       toast.success("Kategori berhasil ditambahkan");
     },
     onError: (err: unknown) => {
-      const status = getApiStatus(err);
-      if (status === 400) toast.error("Nama kategori tidak valid atau terlalu panjang");
-      else toast.error("Gagal menambahkan kategori, coba beberapa saat lagi");
+      const code = getApiErrorCode(err);
+      if (code === "VALIDATION_ERROR" || code === "BAD_REQUEST") toast.error("Nama kategori tidak valid atau terlalu panjang");
+      else toast.error(...apiErrorToast(err, "Gagal menambahkan kategori, coba beberapa saat lagi"));
     },
   });
 
@@ -136,10 +137,10 @@ export function useBudget() {
       toast.success("Kategori berhasil diperbarui");
     },
     onError: (err: unknown) => {
-      const status = getApiStatus(err);
-      if (status === 404) toast.error("Kategori tidak ditemukan");
-      else if (status === 400) toast.error("Nama kategori tidak valid atau terlalu panjang");
-      else toast.error("Gagal memperbarui kategori, coba beberapa saat lagi");
+      const code = getApiErrorCode(err);
+      if (code === "NOT_FOUND") toast.error("Kategori tidak ditemukan");
+      else if (code === "VALIDATION_ERROR" || code === "BAD_REQUEST") toast.error("Nama kategori tidak valid atau terlalu panjang");
+      else toast.error(...apiErrorToast(err, "Gagal memperbarui kategori, coba beberapa saat lagi"));
     },
   });
 
@@ -150,10 +151,10 @@ export function useBudget() {
       toast.success("Kategori berhasil dihapus");
     },
     onError: (err: unknown) => {
-      const status = getApiStatus(err);
-      if (status === 409) toast.error("Kategori tidak dapat dihapus karena sudah digunakan oleh anggaran atau pengeluaran");
-      else if (status === 404) toast.error("Kategori tidak ditemukan");
-      else toast.error("Gagal menghapus kategori, coba beberapa saat lagi");
+      const code = getApiErrorCode(err);
+      if (code === "CONFLICT") toast.error("Kategori tidak dapat dihapus karena sudah digunakan oleh anggaran atau pengeluaran");
+      else if (code === "NOT_FOUND") toast.error("Kategori tidak ditemukan");
+      else toast.error(...apiErrorToast(err, "Gagal menghapus kategori, coba beberapa saat lagi"));
     },
   });
 
@@ -227,8 +228,6 @@ export function usePartnerBudget(enabled: boolean): UsePartnerBudgetResult {
     queryKey: QUERY_KEYS.budgetsPartner(activeYear, activeMonth),
     queryFn: () => fetchPartnerBudgets(activeYear, activeMonth),
     enabled,
-    retry: (failureCount, error) =>
-      isNotFound(error) ? false : failureCount < 1,
   });
 
   const noPartner = isNotFound(query.error);
