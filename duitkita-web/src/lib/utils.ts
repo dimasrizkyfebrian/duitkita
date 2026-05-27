@@ -108,6 +108,42 @@ export function formatRelativeTime(dateString: string): string {
   return formatDate(dateString);
 }
 
+export function formatFutureRelativeTime(dateString: string): string {
+  const now = new Date();
+  const date = new Date(dateString);
+  const diffMs = date.getTime() - now.getTime();
+
+  if (diffMs <= 0) return "Hari ini";
+
+  const diffMins = Math.floor(diffMs / 60_000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 60) return `${diffMins} menit lagi`;
+  if (diffHours < 24) return `${diffHours} jam lagi`;
+  if (diffDays === 1) return "Besok";
+  if (diffDays < 7) return `${diffDays} hari lagi`;
+  return formatDate(dateString);
+}
+
+export const DAY_NAMES = [
+  "Minggu",
+  "Senin",
+  "Selasa",
+  "Rabu",
+  "Kamis",
+  "Jumat",
+  "Sabtu",
+];
+
+export function formatScheduleLabel(
+  type: "weekly" | "monthly",
+  day: number,
+): string {
+  if (type === "weekly") return `Setiap ${DAY_NAMES[day] ?? ""}`;
+  return `Tanggal ${day} setiap bulan`;
+}
+
 export const MONTH_NAMES = [
   "Januari",
   "Februari",

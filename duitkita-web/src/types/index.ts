@@ -286,9 +286,8 @@ export interface PaginatedSecurityAudit {
 
 export interface RecurringExpense {
   id: string;
-  userId: string;
   categoryId: string;
-  category?: Category;
+  categoryName: string;
   amount: number;
   note: string | null;
   scheduleType: RecurringScheduleType;
@@ -297,7 +296,6 @@ export interface RecurringExpense {
   lastRunAt: string | null;
   isActive: boolean;
   createdAt: string;
-  updatedAt: string;
 }
 
 export interface CreateRecurringExpenseRequest {
@@ -306,6 +304,19 @@ export interface CreateRecurringExpenseRequest {
   note?: string;
   scheduleType: RecurringScheduleType;
   scheduleDay: number;
+}
+
+export interface UpdateRecurringExpenseRequest {
+  amount?: number;
+  note?: string;
+  scheduleType?: RecurringScheduleType;
+  scheduleDay?: number;
+}
+
+export interface RunDueResult {
+  processed: number;
+  succeeded: number;
+  failed: number;
 }
 
 // ─────────────────────────────────────────
