@@ -22,6 +22,7 @@ import { TrendChart } from "@/components/features/reports/TrendChart";
 import { CategoryTrendChart } from "@/components/features/reports/CategoryTrendChart";
 import { TopExpensesList } from "@/components/features/reports/TopExpensesList";
 import { CategoryBreakdownCard } from "@/components/features/reports/CategoryBreakdownCard";
+import { ExportPanel } from "@/components/features/reports/ExportPanel";
 import { NoPartnerState } from "@/components/shared/NoPartnerState";
 import {
   ReportChartSkeleton,
@@ -207,6 +208,12 @@ export default function ReportsPage() {
                 </motion.ul>
               )}
             </section>
+
+            <ExportPanel
+              year={activeYear}
+              month={activeMonth}
+              hasPartner={hasPartner}
+            />
           </>
         )}
       </div>

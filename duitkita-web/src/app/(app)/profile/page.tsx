@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { ProfileHeader } from "@/components/features/profile/ProfileHeader";
 import { PartnerCard } from "@/components/features/profile/PartnerCard";
 import { PreferencesCard } from "@/components/features/profile/PreferencesCard";
+import { NotificationPreferencesCard } from "@/components/features/profile/NotificationPreferencesCard";
 import { SecurityCard } from "@/components/features/profile/SecurityCard";
 import { AppVersionFooter } from "@/components/features/profile/AppVersionFooter";
 import {
@@ -209,6 +210,8 @@ export default function ProfilePage() {
         />
 
         <PreferencesCard />
+
+        <NotificationPreferencesCard />
 
         <SecurityCard onChangePassword={() => setPasswordOpen(true)} />
 

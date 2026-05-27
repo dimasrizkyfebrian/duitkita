@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useQueryClient } from "@tanstack/react-query";
+import { UserAvatar } from "@/components/shared/UserAvatar";
+import { useAuthStore } from "@/stores/auth.store";
+import { QUERY_KEYS } from "@/lib/constants";
 import {
-  getInitials,
   formatCurrencyShort,
   formatRelativeTime,
-  cn,
 } from "@/lib/utils";
 import { ActivitySectionSkeleton } from "./DashboardSkeleton";
-import type { Activity } from "@/types";
+import type { Activity, Partner } from "@/types";
 
 interface ActivitySectionProps {
   activities: Activity[];
@@ -42,11 +43,17 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } },
 };
 
-function renderActivityItem(activity: Activity, currentUserId: string) {
+function renderActivityItem(
+  activity: Activity,
+  currentUserId: string,
+  currentUserHasAvatar: boolean,
+  partnerHasAvatar: boolean,
+) {
   const isOwn = activity.actorId === currentUserId;
   const actorLabel = isOwn ? "Kamu" : activity.actorName;
   const amount = activity.meta.amount;
   const categoryName = activity.meta.categoryName ?? activity.entityType;
+  const actorHasAvatar = isOwn ? currentUserHasAvatar : partnerHasAvatar;
 
   return (
     <motion.li
@@ -54,18 +61,12 @@ function renderActivityItem(activity: Activity, currentUserId: string) {
       variants={itemVariants}
       className="flex items-center gap-3"
     >
-      <Avatar className="w-9 h-9 shrink-0">
-        <AvatarFallback
-          className={cn(
-            "text-xs font-semibold",
-            isOwn
-              ? "bg-primary/10 text-primary"
-              : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
-          )}
-        >
-          {getInitials(activity.actorName)}
-        </AvatarFallback>
-      </Avatar>
+      <UserAvatar
+        userId={activity.actorId}
+        name={activity.actorName}
+        hasAvatar={actorHasAvatar}
+        className="w-9 h-9 shrink-0"
+      />
 
       <div className="flex-1 min-w-0">
         <p className="text-sm text-foreground leading-snug truncate">
@@ -92,6 +93,12 @@ export function ActivitySection({
   currentUserId,
   isLoading,
 }: ActivitySectionProps) {
+  const currentUser = useAuthStore((s) => s.user);
+  const qc = useQueryClient();
+  const partner = qc.getQueryData<Partner>(QUERY_KEYS.partner());
+  const currentUserHasAvatar = currentUser?.hasAvatar ?? false;
+  const partnerHasAvatar = partner?.hasAvatar ?? false;
+
   const safeActivities: Activity[] = (() => {
     if (Array.isArray(activities)) return activities;
     if (activities && typeof activities === "object" && "data" in (activities as Record<string, unknown>)) {
@@ -151,7 +158,9 @@ export function ActivitySection({
         animate="visible"
         className="space-y-3"
       >
-        {safeActivities.map((a) => renderActivityItem(a, currentUserId))}
+        {safeActivities.map((a) =>
+          renderActivityItem(a, currentUserId, currentUserHasAvatar, partnerHasAvatar),
+        )}
       </motion.ul>
     </section>
   );
