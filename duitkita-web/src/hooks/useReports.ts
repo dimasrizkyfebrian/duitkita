@@ -43,8 +43,6 @@ export function useCoupleReport() {
   return useQuery({
     queryKey: QUERY_KEYS.reports.couple(activeYear, activeMonth),
     queryFn: () => fetchCoupleReport(activeYear, activeMonth),
-    retry: (failureCount, error) =>
-      isNotFound(error) ? false : failureCount < 1,
   });
 }
 
@@ -81,8 +79,6 @@ export function useForecast(scope: ReportScope) {
   return useQuery({
     queryKey: QUERY_KEYS.forecast(activeYear, activeMonth, forecastScope),
     queryFn: () => fetchForecast(activeYear, activeMonth, forecastScope),
-    retry: (failureCount, error) =>
-      isNotFound(error) ? false : failureCount < 1,
   });
 }
 
@@ -92,8 +88,6 @@ export function useHealthScore(scope: ReportScope) {
   return useQuery({
     queryKey: QUERY_KEYS.healthScore(activeYear, activeMonth, healthScope),
     queryFn: () => fetchHealthScore(activeYear, activeMonth, healthScope),
-    retry: (failureCount, error) =>
-      isNotFound(error) ? false : failureCount < 1,
   });
 }
 

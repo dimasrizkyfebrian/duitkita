@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { QUERY_KEYS } from "@/lib/constants";
 import { apiErrorToast, getApiErrorCode } from "@/lib/utils";
+import { addToOutbox } from "@/lib/outbox";
 import {
   fetchReminders,
   createReminder,
@@ -27,6 +28,7 @@ export function useReminders(status?: ReminderStatusFilter) {
   const query = useQuery({
     queryKey: QUERY_KEYS.reminders(status),
     queryFn: () => fetchReminders(status),
+    staleTime: 2 * 60_000,
   });
 
   const createMutation = useMutation({
@@ -35,7 +37,12 @@ export function useReminders(status?: ReminderStatusFilter) {
       invalidateReminderData();
       toast.success("Pengingat berhasil ditambahkan");
     },
-    onError: (err: unknown) => {
+    onError: async (err: unknown, variables) => {
+      if (!navigator.onLine) {
+        await addToOutbox("CREATE_REMINDER", variables as unknown as Record<string, unknown>);
+        toast.info("Pengingat disimpan ke antrian — akan disinkronkan saat online");
+        return;
+      }
       const code = getApiErrorCode(err);
       if (code === "VALIDATION_ERROR" || code === "BAD_REQUEST") {
         toast.error("Data tidak valid, periksa kembali isianmu");

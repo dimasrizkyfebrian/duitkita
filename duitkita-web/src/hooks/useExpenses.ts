@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { useAppStore } from "@/stores/app.store";
 import { QUERY_KEYS } from "@/lib/constants";
 import { isNotFound, getApiErrorCode, apiErrorToast } from "@/lib/utils";
+import { addToOutbox } from "@/lib/outbox";
 import {
   createExpense,
   deleteExpense,
@@ -37,7 +38,12 @@ export function useCreateExpense() {
       toast.success("Pengeluaran tercatat!");
       closeExpenseSheet();
     },
-    onError: (err: unknown) => {
+    onError: async (err: unknown, variables) => {
+      if (!navigator.onLine) {
+        await addToOutbox("CREATE_EXPENSE", variables as unknown as Record<string, unknown>);
+        toast.info("Pengeluaran disimpan ke antrian — akan disinkronkan saat online");
+        return;
+      }
       const code = getApiErrorCode(err);
       if (code === "FORBIDDEN") toast.error("Bulan ini sudah dikunci, tidak dapat menambah pengeluaran");
       else if (code === "NOT_FOUND") toast.error("Anggaran atau kategori tidak ditemukan");
@@ -71,8 +77,6 @@ export function useExpensesList(
     queryKey: QUERY_KEYS.expensesPartner(activeYear, activeMonth, categoryId),
     queryFn: () => fetchPartnerExpenses(activeYear, activeMonth, categoryId),
     enabled: scope === "partner",
-    retry: (failureCount, error) =>
-      isNotFound(error) ? false : failureCount < 1,
   });
 
   if (scope === "me") {

@@ -228,8 +228,6 @@ export function usePartnerBudget(enabled: boolean): UsePartnerBudgetResult {
     queryKey: QUERY_KEYS.budgetsPartner(activeYear, activeMonth),
     queryFn: () => fetchPartnerBudgets(activeYear, activeMonth),
     enabled,
-    retry: (failureCount, error) =>
-      isNotFound(error) ? false : failureCount < 1,
   });
 
   const noPartner = isNotFound(query.error);

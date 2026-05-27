@@ -30,6 +30,7 @@ export function useRecurringExpenses() {
   const listQuery = useQuery({
     queryKey: QUERY_KEYS.recurring(),
     queryFn: fetchRecurringExpenses,
+    staleTime: 2 * 60_000,
   });
 
   const createMutation = useMutation({

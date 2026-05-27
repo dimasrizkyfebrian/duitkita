@@ -23,6 +23,7 @@ export function useProfile() {
   const profileQuery = useQuery({
     queryKey: QUERY_KEYS.profile(),
     queryFn: fetchProfile,
+    staleTime: 5 * 60_000,
   });
 
   const partnerQuery = useQuery({
