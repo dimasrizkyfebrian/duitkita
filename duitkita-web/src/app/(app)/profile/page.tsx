@@ -5,11 +5,15 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { LogOut } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
+import { useInvitations } from "@/hooks/useInvitations";
+import { useAuthSessions } from "@/hooks/useAuthSessions";
+import { useSecurityAudit } from "@/hooks/useSecurityAudit";
 import { useAuthStore } from "@/stores/auth.store";
 import { Button } from "@/components/ui/button";
 import { ProfileHeader } from "@/components/features/profile/ProfileHeader";
 import { PartnerCard } from "@/components/features/profile/PartnerCard";
 import { PreferencesCard } from "@/components/features/profile/PreferencesCard";
+import { NotificationPreferencesCard } from "@/components/features/profile/NotificationPreferencesCard";
 import { SecurityCard } from "@/components/features/profile/SecurityCard";
 import { AppVersionFooter } from "@/components/features/profile/AppVersionFooter";
 import {
@@ -21,6 +25,9 @@ import {
   type ChangePasswordFormValues,
 } from "@/components/features/profile/ChangePasswordSheet";
 import { PartnerInviteSheet } from "@/components/features/profile/PartnerInviteSheet";
+import { IncomingInvitationsCard } from "@/components/features/profile/IncomingInvitationsCard";
+import { SessionsCard } from "@/components/features/profile/SessionsCard";
+import { SecurityAuditCard } from "@/components/features/profile/SecurityAuditCard";
 import { UnlinkPartnerDialog } from "@/components/features/profile/UnlinkPartnerDialog";
 import { LogoutDialog } from "@/components/features/profile/LogoutDialog";
 
@@ -40,6 +47,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const logoutFromStore = useAuthStore((s) => s.logout);
   const fallbackUser = useAuthStore((s) => s.user);
+  const currentSessionId = useAuthStore((s) => s.sessionId);
 
   const {
     profile,
@@ -60,6 +68,37 @@ export default function ProfilePage() {
     isLinkingPartner,
     isUnlinkingPartner,
   } = useProfile();
+
+  const {
+    incomingInvitations,
+    sendInvitation: sendInv,
+    acceptInvitation: acceptInv,
+    rejectInvitation: rejectInv,
+    isSending,
+    acceptingId,
+    isAccepting,
+    rejectingId,
+    isRejecting,
+  } = useInvitations();
+
+  const {
+    sessions,
+    isLoading: isSessionsLoading,
+    revokeSession: revokeSessionFn,
+    revokeOtherSessions: revokeOthersFn,
+    revokingId,
+    isRevoking,
+    isRevokingOthers,
+  } = useAuthSessions();
+
+  const {
+    logs: auditLogs,
+    total: auditTotal,
+    isLoading: isAuditLoading,
+    hasNextPage: auditHasNext,
+    isFetchingNextPage: isAuditFetchingNext,
+    fetchNextPage: fetchNextAudit,
+  } = useSecurityAudit();
 
   const user = profile ?? fallbackUser;
 
@@ -90,9 +129,13 @@ export default function ProfilePage() {
     }
   }
 
-  async function handleLinkPartner(code: string) {
-    await linkPartner(code);
-    setInviteOpen(false);
+  async function handleSendInvitation(email: string) {
+    try {
+      await sendInv(email);
+      setInviteOpen(false);
+    } catch {
+      // toast handled by mutation onError
+    }
   }
 
   async function handleUnlinkConfirm() {
@@ -147,6 +190,18 @@ export default function ProfilePage() {
           </div>
         )}
 
+        {!partner && incomingInvitations.length > 0 && (
+          <IncomingInvitationsCard
+            invitations={incomingInvitations}
+            onAccept={acceptInv}
+            onReject={rejectInv}
+            acceptingId={acceptingId}
+            isAccepting={isAccepting}
+            rejectingId={rejectingId}
+            isRejecting={isRejecting}
+          />
+        )}
+
         <PartnerCard
           partner={partner}
           isLoading={isPartnerLoading}
@@ -156,7 +211,29 @@ export default function ProfilePage() {
 
         <PreferencesCard />
 
+        <NotificationPreferencesCard />
+
         <SecurityCard onChangePassword={() => setPasswordOpen(true)} />
+
+        <SessionsCard
+          sessions={sessions}
+          currentSessionId={currentSessionId}
+          isLoading={isSessionsLoading}
+          onRevoke={revokeSessionFn}
+          onRevokeOthers={revokeOthersFn}
+          revokingId={revokingId}
+          isRevoking={isRevoking}
+          isRevokingOthers={isRevokingOthers}
+        />
+
+        <SecurityAuditCard
+          logs={auditLogs}
+          total={auditTotal}
+          isLoading={isAuditLoading}
+          hasNextPage={auditHasNext}
+          isFetchingNextPage={isAuditFetchingNext}
+          fetchNextPage={fetchNextAudit}
+        />
 
         <Button
           variant="destructive"
@@ -190,8 +267,8 @@ export default function ProfilePage() {
       <PartnerInviteSheet
         open={inviteOpen}
         onOpenChange={setInviteOpen}
-        onSubmit={handleLinkPartner}
-        isSubmitting={isLinkingPartner}
+        onSubmit={handleSendInvitation}
+        isSubmitting={isSending}
       />
 
       <UnlinkPartnerDialog

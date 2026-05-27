@@ -68,6 +68,46 @@ export type ActivityAction = "created" | "updated" | "deleted";
 
 export type ActivityEntityType = "expense" | "budget";
 
+export type RecurringScheduleType = "weekly" | "monthly";
+
+export type BillReminderStatus = "upcoming" | "overdue" | "done";
+
+export type NotificationType =
+  | "recurring_expense"
+  | "bill_reminder"
+  | "budget_alert"
+  | "partner_activity"
+  | "weekly_summary";
+
+export type CoupleInvitationStatus =
+  | "pending"
+  | "accepted"
+  | "rejected"
+  | "cancelled"
+  | "expired";
+
+export type ReportExportFormat = "pdf";
+
+export type ReportExportStatus =
+  | "pending"
+  | "processing"
+  | "completed"
+  | "failed";
+
+export type SecurityAuditEventType =
+  | "register_success"
+  | "login_success"
+  | "login_failure"
+  | "password_changed"
+  | "session_revoked"
+  | "sessions_revoked_others"
+  | "invitation_sent"
+  | "invitation_accepted"
+  | "invitation_rejected"
+  | "invitation_cancelled"
+  | "partner_linked"
+  | "partner_unlinked";
+
 // ─────────────────────────────────────────
 // Meta types
 // ─────────────────────────────────────────
@@ -166,12 +206,227 @@ export interface CategoryRolloverHistory {
 
 export type ReportScope = "me" | "partner" | "both";
 
+export interface ForecastKeyDriver {
+  categoryId: string;
+  categoryName: string;
+  shareOfSpend: number;
+  totalSpent: number;
+}
+
+export interface SpendingForecast {
+  year: number;
+  month: number;
+  scope: ReportScope;
+  projectedSpent: number;
+  projectedRemaining: number;
+  burnRatePerDay: number;
+  confidenceLevel: "low" | "medium" | "high";
+  keyDrivers: ForecastKeyDriver[];
+}
+
+export interface FinancialHealthScore {
+  year: number;
+  month: number;
+  scope: "me" | "both";
+  score: number;
+  savingRate: number;
+  budgetAdherence: number;
+  expenseVolatility: number;
+  insights: string[];
+}
+
+export interface ReportExportView {
+  id: string;
+  format: ReportExportFormat;
+  year: number;
+  month: number;
+  scope: string;
+  status: ReportExportStatus;
+  errorMessage: string | null;
+  requestedAt: string;
+  completedAt: string | null;
+  expiresAt: string | null;
+  downloadReady: boolean;
+}
+
+// ─────────────────────────────────────────
+// Session / Security
+// ─────────────────────────────────────────
+
+export interface Session {
+  id: string;
+  deviceName: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  lastActiveAt: string;
+  expiresAt: string;
+  revokedAt: string | null;
+  createdAt: string;
+}
+
+export interface SecurityAuditLog {
+  id: string;
+  eventType: SecurityAuditEventType;
+  ipAddress: string | null;
+  userAgent: string | null;
+  meta: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface PaginatedSecurityAudit {
+  data: SecurityAuditLog[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+// ─────────────────────────────────────────
+// Recurring Expenses
+// ─────────────────────────────────────────
+
+export interface RecurringExpense {
+  id: string;
+  categoryId: string;
+  categoryName: string;
+  amount: number;
+  note: string | null;
+  scheduleType: RecurringScheduleType;
+  scheduleDay: number;
+  nextRunAt: string;
+  lastRunAt: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CreateRecurringExpenseRequest {
+  categoryId: string;
+  amount: number;
+  note?: string;
+  scheduleType: RecurringScheduleType;
+  scheduleDay: number;
+}
+
+export interface UpdateRecurringExpenseRequest {
+  amount?: number;
+  note?: string;
+  scheduleType?: RecurringScheduleType;
+  scheduleDay?: number;
+}
+
+export interface RunDueResult {
+  processed: number;
+  succeeded: number;
+  failed: number;
+}
+
+// ─────────────────────────────────────────
+// Bill Reminders
+// ─────────────────────────────────────────
+
+export interface BillReminder {
+  id: string;
+  title: string;
+  amount: number | null;
+  dueDate: string;
+  remindBeforeDays: number;
+  status: BillReminderStatus;
+  snoozedUntil: string | null;
+  isRecurring: boolean;
+  recurringRule: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateReminderRequest {
+  title: string;
+  amount?: number;
+  dueDate: string;
+  remindBeforeDays?: number;
+  isRecurring?: boolean;
+  recurringRule?: string;
+}
+
+export interface UpdateReminderRequest {
+  title?: string;
+  amount?: number;
+  dueDate?: string;
+  remindBeforeDays?: number;
+  isRecurring?: boolean;
+  recurringRule?: string;
+}
+
+export interface SnoozeReminderRequest {
+  snoozeDays?: number;
+}
+
+export type ReminderStatusFilter = "upcoming" | "overdue" | "done";
+
+// ─────────────────────────────────────────
+// Notifications
+// ─────────────────────────────────────────
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  payloadJson: Record<string, unknown> | null;
+  isRead: boolean;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface PaginatedNotifications {
+  data: Notification[];
+  total: number;
+  limit: number;
+  offset: number;
+  unreadCount: number;
+}
+
+export interface NotificationPreferences {
+  budgetAlert: boolean;
+  partnerActivity: boolean;
+  weeklySummary: boolean;
+  reminderAlert: boolean;
+  recurringAlert: boolean;
+  updatedAt: string;
+}
+
+export interface UpdateNotificationPreferencesRequest {
+  budgetAlert?: boolean;
+  partnerActivity?: boolean;
+  weeklySummary?: boolean;
+  reminderAlert?: boolean;
+  recurringAlert?: boolean;
+}
+
+// ─────────────────────────────────────────
+// Couple Invitations
+// ─────────────────────────────────────────
+
+export interface CoupleInvitation {
+  id: string;
+  senderUserId: string;
+  senderName: string;
+  senderEmail: string;
+  receiverUserId: string;
+  receiverName: string;
+  receiverEmail: string;
+  status: CoupleInvitationStatus;
+  expiresAt: string;
+  respondedAt: string | null;
+  createdAt: string;
+}
+
 // ─────────────────────────────────────────
 // API Request/Response Types
 // ─────────────────────────────────────────
 
 export interface AuthResponse {
   accessToken: string;
+  refreshToken: string;
+  sessionId: string;
   user: User;
 }
 
@@ -221,6 +476,13 @@ export interface UpdateExpenseRequest {
   note?: string;
   expenseDate?: string;
   categoryId?: string;
+}
+
+export interface CreateReportExportRequest {
+  format?: ReportExportFormat;
+  year: number;
+  month: number;
+  scope: "me" | "both";
 }
 
 // ─────────────────────────────────────────

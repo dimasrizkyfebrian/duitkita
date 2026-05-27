@@ -1,14 +1,15 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useQueryClient } from "@tanstack/react-query";
+import { UserAvatar } from "@/components/shared/UserAvatar";
+import { useAuthStore } from "@/stores/auth.store";
+import { QUERY_KEYS } from "@/lib/constants";
 import {
-  cn,
   formatCurrencyShort,
   formatRelativeTime,
-  getInitials,
 } from "@/lib/utils";
-import type { Activity } from "@/types";
+import type { Activity, Partner } from "@/types";
 
 interface ActivityListItemProps {
   activity: Activity;
@@ -38,28 +39,29 @@ export function ActivityListItem({
   activity,
   currentUserId,
 }: ActivityListItemProps) {
+  const currentUser = useAuthStore((s) => s.user);
+  const qc = useQueryClient();
+  const partner = qc.getQueryData<Partner>(QUERY_KEYS.partner());
+
   const isOwn = activity.actorId === currentUserId;
   const actorLabel = isOwn ? "Kamu" : activity.actorName;
   const amount = activity.meta.amount;
   const categoryName = activity.meta.categoryName ?? activity.entityType;
+  const actorHasAvatar = isOwn
+    ? (currentUser?.hasAvatar ?? false)
+    : (partner?.hasAvatar ?? false);
 
   return (
     <motion.li
       variants={itemVariants}
       className="flex items-center gap-3 px-4 py-2.5"
     >
-      <Avatar className="w-9 h-9 shrink-0">
-        <AvatarFallback
-          className={cn(
-            "text-xs font-semibold",
-            isOwn
-              ? "bg-primary/10 text-primary"
-              : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
-          )}
-        >
-          {getInitials(activity.actorName)}
-        </AvatarFallback>
-      </Avatar>
+      <UserAvatar
+        userId={activity.actorId}
+        name={activity.actorName}
+        hasAvatar={actorHasAvatar}
+        className="w-9 h-9 shrink-0"
+      />
 
       <div className="flex-1 min-w-0">
         <p className="text-sm text-foreground leading-snug">

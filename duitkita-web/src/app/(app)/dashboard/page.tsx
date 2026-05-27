@@ -7,6 +7,7 @@ import { useAppStore } from "@/stores/app.store";
 import { useDashboard } from "@/hooks/useDashboard";
 import { DashboardHeader } from "@/components/features/dashboard/DashboardHeader";
 import { SummaryCard } from "@/components/features/dashboard/SummaryCard";
+import { RemindersShortcutCard } from "@/components/features/dashboard/RemindersShortcutCard";
 import { AlertBanner } from "@/components/features/dashboard/AlertBanner";
 import { ActivitySection } from "@/components/features/dashboard/ActivitySection";
 import { BudgetList } from "@/components/features/dashboard/BudgetList";
@@ -94,6 +95,8 @@ export default function DashboardPage() {
           totalRemaining={totalRemaining}
           isLoading={isBudgetsLoading}
         />
+
+        <RemindersShortcutCard />
 
         <AnimatePresence>
           {criticalBudget && !alertDismissed && (
