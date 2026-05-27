@@ -49,7 +49,7 @@ export default function LoginPage() {
     setIsPending(true);
     try {
       const result = await loginUser(data);
-      setAuth(result.user, result.accessToken, result.refreshToken);
+      setAuth(result.user, result.accessToken, result.refreshToken, result.sessionId);
       toast.success(`Selamat datang, ${result.user.name}!`);
       router.push("/dashboard");
     } catch {

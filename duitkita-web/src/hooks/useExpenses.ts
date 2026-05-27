@@ -39,7 +39,8 @@ export function useCreateExpense() {
     },
     onError: (err: unknown) => {
       const code = getApiErrorCode(err);
-      if (code === "NOT_FOUND") toast.error("Anggaran atau kategori tidak ditemukan");
+      if (code === "FORBIDDEN") toast.error("Bulan ini sudah dikunci, tidak dapat menambah pengeluaran");
+      else if (code === "NOT_FOUND") toast.error("Anggaran atau kategori tidak ditemukan");
       else if (code === "VALIDATION_ERROR" || code === "BAD_REQUEST") toast.error("Data pengeluaran tidak valid, periksa kembali isian kamu");
       else toast.error(...apiErrorToast(err, "Gagal mencatat pengeluaran, coba beberapa saat lagi"));
     },
@@ -121,7 +122,8 @@ export function useUpdateExpense() {
     },
     onError: (err: unknown) => {
       const code = getApiErrorCode(err);
-      if (code === "NOT_FOUND") toast.error("Pengeluaran tidak ditemukan");
+      if (code === "FORBIDDEN") toast.error("Bulan ini sudah dikunci, tidak dapat mengubah pengeluaran");
+      else if (code === "NOT_FOUND") toast.error("Pengeluaran tidak ditemukan");
       else if (code === "VALIDATION_ERROR" || code === "BAD_REQUEST") toast.error("Data pengeluaran tidak valid, periksa kembali isian kamu");
       else toast.error(...apiErrorToast(err, "Gagal memperbarui pengeluaran, coba beberapa saat lagi"));
     },
@@ -139,7 +141,8 @@ export function useDeleteExpense() {
     },
     onError: (err: unknown) => {
       const code = getApiErrorCode(err);
-      if (code === "NOT_FOUND") toast.error("Pengeluaran tidak ditemukan");
+      if (code === "FORBIDDEN") toast.error("Bulan ini sudah dikunci, tidak dapat menghapus pengeluaran");
+      else if (code === "NOT_FOUND") toast.error("Pengeluaran tidak ditemukan");
       else toast.error(...apiErrorToast(err, "Gagal menghapus pengeluaran, coba beberapa saat lagi"));
     },
   });

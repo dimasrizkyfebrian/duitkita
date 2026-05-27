@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { clampYearMonth } from "@/lib/utils";
 
 interface AppState {
   activeYear: number;
@@ -19,7 +20,10 @@ export const useAppStore = create<AppState>()((set) => ({
   activeYear: now.getFullYear(),
   activeMonth: now.getMonth() + 1,
 
-  setActiveMonth: (year, month) => set({ activeYear: year, activeMonth: month }),
+  setActiveMonth: (year, month) => {
+    const clamped = clampYearMonth(year, month);
+    set({ activeYear: clamped.year, activeMonth: clamped.month });
+  },
 
   isExpenseSheetOpen: false,
   openExpenseSheet: () => set({ isExpenseSheetOpen: true }),

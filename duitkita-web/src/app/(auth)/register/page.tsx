@@ -72,7 +72,7 @@ export default function RegisterPage() {
         email: data.email,
         password: data.password,
       });
-      setAuth(result.user, result.accessToken, result.refreshToken);
+      setAuth(result.user, result.accessToken, result.refreshToken, result.sessionId);
       toast.success("Akun berhasil dibuat. Selamat datang!");
       router.push("/dashboard");
     } catch (err: unknown) {

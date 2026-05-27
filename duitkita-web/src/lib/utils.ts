@@ -49,6 +49,22 @@ export function apiErrorToast(
   ];
 }
 
+const MIN_YEAR = 2020;
+
+export function clampYearMonth(
+  year: number,
+  month: number,
+): { year: number; month: number } {
+  const now = new Date();
+  const maxYear = now.getFullYear() + 1;
+  const y = Math.max(MIN_YEAR, Math.min(maxYear, Math.round(year)));
+  const m = Math.max(1, Math.min(12, Math.round(month)));
+  if (y === maxYear && m > now.getMonth() + 1) {
+    return { year: now.getFullYear(), month: now.getMonth() + 1 };
+  }
+  return { year: y, month: m };
+}
+
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",

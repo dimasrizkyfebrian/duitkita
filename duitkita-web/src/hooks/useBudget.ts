@@ -56,7 +56,8 @@ export function useBudget() {
     },
     onError: (err: unknown) => {
       const code = getApiErrorCode(err);
-      if (code === "CONFLICT") toast.error("Anggaran untuk kategori ini di bulan ini sudah ada");
+      if (code === "FORBIDDEN") toast.error("Bulan ini sudah dikunci, tidak dapat menambah anggaran");
+      else if (code === "CONFLICT") toast.error("Anggaran untuk kategori ini di bulan ini sudah ada");
       else if (code === "NOT_FOUND") toast.error("Kategori tidak ditemukan atau bukan milikmu");
       else if (code === "VALIDATION_ERROR" || code === "BAD_REQUEST") toast.error("Data anggaran tidak valid, periksa kembali isian kamu");
       else toast.error(...apiErrorToast(err, "Gagal menambahkan anggaran, coba beberapa saat lagi"));
