@@ -6,6 +6,8 @@ import type {
   TrendItem,
   CategoryTrend,
   CategoryRolloverHistory,
+  SpendingForecast,
+  FinancialHealthScore,
 } from "@/types";
 
 export async function fetchMonthlyReport(
@@ -52,5 +54,27 @@ export async function fetchRolloverHistory(
     API_ROUTES.reports.rollover(categoryId),
     { params: { monthsBack } },
   );
+  return res.data;
+}
+
+export async function fetchForecast(
+  year: number,
+  month: number,
+  scope: "me" | "partner" | "both",
+): Promise<SpendingForecast> {
+  const res = await api.get<SpendingForecast>(API_ROUTES.reports.forecast, {
+    params: { year, month, scope },
+  });
+  return res.data;
+}
+
+export async function fetchHealthScore(
+  year: number,
+  month: number,
+  scope: "me" | "both",
+): Promise<FinancialHealthScore> {
+  const res = await api.get<FinancialHealthScore>(API_ROUTES.reports.healthScore, {
+    params: { year, month, scope },
+  });
   return res.data;
 }

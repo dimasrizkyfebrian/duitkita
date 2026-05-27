@@ -3,12 +3,20 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Inbox } from "lucide-react";
-import { useReports, useTrend, useCategoryTrend } from "@/hooks/useReports";
+import {
+  useReports,
+  useTrend,
+  useCategoryTrend,
+  useForecast,
+  useHealthScore,
+} from "@/hooks/useReports";
 import { useAppStore } from "@/stores/app.store";
 import { ReportPageHeader } from "@/components/features/reports/ReportPageHeader";
 import { ScopeTabs } from "@/components/features/reports/ScopeTabs";
 import { PageTitle } from "@/components/layout/PageTitle";
 import { ReportSummaryCard } from "@/components/features/reports/ReportSummaryCard";
+import { ForecastCard } from "@/components/features/reports/ForecastCard";
+import { HealthScoreCard } from "@/components/features/reports/HealthScoreCard";
 import { CategoryDistributionChart } from "@/components/features/reports/CategoryDistributionChart";
 import { TrendChart } from "@/components/features/reports/TrendChart";
 import { CategoryTrendChart } from "@/components/features/reports/CategoryTrendChart";
@@ -52,6 +60,8 @@ export default function ReportsPage() {
     useReports(scope);
   const trendQuery = useTrend();
   const categoryTrendQuery = useCategoryTrend();
+  const forecastQuery = useForecast(scope);
+  const healthScoreQuery = useHealthScore(scope);
 
   function handlePrevMonth() {
     setExpandedCategoryId(null);
@@ -136,6 +146,17 @@ export default function ReportsPage() {
               totalSpent={report.totalSpent}
               totalRemaining={report.totalRemaining}
               percentageUsed={report.overallPercentageUsed}
+            />
+
+            <ForecastCard
+              forecast={forecastQuery.data}
+              isLoading={forecastQuery.isLoading}
+              noPartner={noPartner && (scope === "partner" || scope === "both")}
+            />
+
+            <HealthScoreCard
+              healthScore={healthScoreQuery.data}
+              isLoading={healthScoreQuery.isLoading}
             />
 
             <CategoryDistributionChart

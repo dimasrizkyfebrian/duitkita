@@ -325,7 +325,6 @@ export interface RunDueResult {
 
 export interface BillReminder {
   id: string;
-  userId: string;
   title: string;
   amount: number | null;
   dueDate: string;
@@ -346,6 +345,21 @@ export interface CreateReminderRequest {
   isRecurring?: boolean;
   recurringRule?: string;
 }
+
+export interface UpdateReminderRequest {
+  title?: string;
+  amount?: number;
+  dueDate?: string;
+  remindBeforeDays?: number;
+  isRecurring?: boolean;
+  recurringRule?: string;
+}
+
+export interface SnoozeReminderRequest {
+  snoozeDays?: number;
+}
+
+export type ReminderStatusFilter = "upcoming" | "overdue" | "done";
 
 // ─────────────────────────────────────────
 // Notifications
