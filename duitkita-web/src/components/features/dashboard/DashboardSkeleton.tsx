@@ -2,14 +2,22 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function SummaryCardSkeleton() {
   return (
-    <div className="bg-card rounded-2xl shadow-lg p-4">
-      <div className="flex items-center justify-around">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="flex flex-col items-center gap-2">
-            <Skeleton className="h-3.5 w-12" />
-            <Skeleton className="h-6 w-16" />
-          </div>
-        ))}
+    <div className="glass-card rounded-2xl p-4 space-y-3">
+      <div>
+        <Skeleton className="h-3 w-28" />
+        <Skeleton className="h-7 w-36 mt-2" />
+        <Skeleton className="h-1.5 w-full mt-3 rounded-full" />
+        <Skeleton className="h-3 w-16 mt-1" />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="bg-white/[0.05] rounded-xl px-3 py-2.5 space-y-1.5">
+          <Skeleton className="h-3 w-14" />
+          <Skeleton className="h-5 w-20" />
+        </div>
+        <div className="bg-white/[0.05] rounded-xl px-3 py-2.5 space-y-1.5">
+          <Skeleton className="h-3 w-8" />
+          <Skeleton className="h-5 w-20" />
+        </div>
       </div>
     </div>
   );

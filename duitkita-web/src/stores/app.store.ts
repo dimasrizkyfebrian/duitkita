@@ -12,6 +12,9 @@ interface AppState {
 
   selectedCategoryId: string | null;
   setSelectedCategoryId: (id: string | null) => void;
+
+  isSidebarCollapsed: boolean;
+  setSidebarCollapsed: (collapsed: boolean) => void;
 }
 
 const now = new Date();
@@ -32,4 +35,7 @@ export const useAppStore = create<AppState>()((set) => ({
 
   selectedCategoryId: null,
   setSelectedCategoryId: (id) => set({ selectedCategoryId: id }),
+
+  isSidebarCollapsed: false,
+  setSidebarCollapsed: (collapsed) => set({ isSidebarCollapsed: collapsed }),
 }));
