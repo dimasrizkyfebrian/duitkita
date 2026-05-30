@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { FileText, ChevronDown, ChevronUp, Plus, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { MONTH_NAMES } from "@/lib/utils";
 import { useReportExports } from "@/hooks/useReportExports";
 import { ExportHistoryRow } from "./ExportHistoryRow";
@@ -32,34 +31,34 @@ export function ExportPanel({ year, month, hasPartner }: ExportPanelProps) {
   }
 
   return (
-    <div className="bg-card rounded-2xl ring-1 ring-foreground/10 p-4">
+    <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl p-4">
       <button
         onClick={() => setExpanded((v) => !v)}
         className="w-full flex items-center justify-between"
       >
         <div className="flex items-center gap-2">
-          <FileText size={14} className="text-primary" />
-          <span className="text-sm font-semibold text-foreground">Ekspor PDF</span>
+          <FileText size={13} className="text-purple-400" />
+          <span className="text-[11px] font-semibold text-white/50 uppercase tracking-wider">Ekspor PDF</span>
         </div>
         {expanded ? (
-          <ChevronUp size={16} className="text-muted-foreground" />
+          <ChevronUp size={15} className="text-white/35" />
         ) : (
-          <ChevronDown size={16} className="text-muted-foreground" />
+          <ChevronDown size={15} className="text-white/35" />
         )}
       </button>
 
       {expanded && (
         <div className="mt-4 space-y-3">
           {hasPartner && (
-            <div className="grid grid-cols-2 gap-1 p-1 bg-muted rounded-xl">
+            <div className="grid grid-cols-2 gap-1 p-1 bg-white/[0.06] rounded-xl">
               {(["me", "both"] as const).map((s) => (
                 <button
                   key={s}
                   onClick={() => setExportScope(s)}
                   className={`text-xs font-medium py-1.5 rounded-lg transition-colors ${
                     exportScope === s
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground"
+                      ? "bg-white/[0.12] text-white"
+                      : "text-white/40"
                   }`}
                 >
                   {s === "me" ? "Saya" : "Berdua"}
@@ -68,10 +67,11 @@ export function ExportPanel({ year, month, hasPartner }: ExportPanelProps) {
             </div>
           )}
 
-          <Button
-            className="w-full"
+          <button
             onClick={handleCreate}
             disabled={isCreating}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity disabled:opacity-50"
+            style={{ background: "linear-gradient(135deg, #8b2be2 0%, #e91e8c 100%)" }}
           >
             {isCreating ? (
               <Loader2 size={14} className="animate-spin" />
@@ -79,7 +79,7 @@ export function ExportPanel({ year, month, hasPartner }: ExportPanelProps) {
               <Plus size={14} />
             )}
             Buat Laporan {monthLabel} {year}
-          </Button>
+          </button>
 
           {isLoading ? (
             <div className="space-y-2 pt-2">

@@ -63,23 +63,26 @@ export function CategoryTrendCard({
   };
 
   return (
-    <li className="bg-card rounded-2xl overflow-hidden">
+    <li className="bg-white/[0.04] border border-white/[0.06] rounded-2xl overflow-hidden">
       <button
         type="button"
         onClick={onToggle}
-        className="w-full px-3 py-3 text-left hover:bg-muted/40 transition-colors"
+        className="w-full px-3 py-3 text-left hover:bg-white/[0.04] transition-colors"
         aria-expanded={isExpanded}
       >
         <div className="flex items-center gap-3">
-          <span className="text-base w-9 h-9 flex items-center justify-center bg-muted rounded-xl shrink-0">
+          <span
+            className="text-sm w-9 h-9 flex items-center justify-center rounded-xl shrink-0"
+            style={{ backgroundColor: `${color}22`, color }}
+          >
             {category.categoryIcon ?? category.categoryName[0].toUpperCase()}
           </span>
 
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">
+            <p className="text-sm font-medium text-white/90 truncate">
               {category.categoryName}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-white/40">
               Total 6 bln · {formatCurrencyShort(totalSpent)}
             </p>
           </div>
@@ -140,7 +143,7 @@ export function CategoryTrendCard({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="overflow-hidden border-t border-border"
+            className="overflow-hidden border-t border-white/[0.06]"
           >
             <div className="p-4">
               <ChartContainer config={config} className="h-40 w-full">
@@ -148,13 +151,14 @@ export function CategoryTrendCard({
                   data={data}
                   margin={{ left: 4, right: 4, top: 8, bottom: 0 }}
                 >
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" />
                   <XAxis
                     dataKey="label"
                     tickLine={false}
                     axisLine={false}
                     tickMargin={6}
                     fontSize={11}
+                    tick={{ fill: "rgba(255,255,255,0.4)" }}
                   />
                   <YAxis
                     tickLine={false}
@@ -162,6 +166,7 @@ export function CategoryTrendCard({
                     tickFormatter={(v: number) => formatCurrencyShort(v)}
                     fontSize={10}
                     width={40}
+                    tick={{ fill: "rgba(255,255,255,0.35)" }}
                   />
                   <ChartTooltip
                     cursor={{ stroke: color, strokeOpacity: 0.4 }}

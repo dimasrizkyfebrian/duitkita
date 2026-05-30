@@ -112,15 +112,16 @@ export function RecurringFormSheet({
         showCloseButton={false}
         aria-describedby={undefined}
         className="rounded-t-2xl p-0 max-h-[90vh] overflow-y-auto"
+        style={{ background: "rgba(18, 6, 46, 0.97)" }}
       >
         <div className="px-4 pt-3 pb-8 space-y-4">
-          <div className="w-10 h-1 bg-muted rounded-full mx-auto" />
+          <div className="w-10 h-1 bg-white/20 rounded-full mx-auto" />
 
           <div>
-            <SheetTitle className="text-base font-semibold text-foreground">
+            <SheetTitle className="text-base font-semibold text-white">
               {isAdd ? "Tambah Pengeluaran Rutin" : "Edit Pengeluaran Rutin"}
             </SheetTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-xs text-white/45 mt-0.5">
               {isAdd
                 ? "Buat pengeluaran otomatis berulang"
                 : "Ubah pengaturan pengeluaran rutin"}
@@ -318,16 +319,15 @@ export function RecurringFormSheet({
             </div>
 
             {/* Submit */}
-            <Button
+            <button
               type="submit"
-              className="w-full"
               disabled={isSubmitting}
+              className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+              style={{ background: "linear-gradient(135deg, #8b2be2, #e91e8c)" }}
             >
-              {isSubmitting && (
-                <Loader2 size={14} className="animate-spin" />
-              )}
+              {isSubmitting && <Loader2 size={14} className="animate-spin" />}
               {isAdd ? "Tambah" : "Simpan Perubahan"}
-            </Button>
+            </button>
           </form>
         </div>
       </SheetContent>

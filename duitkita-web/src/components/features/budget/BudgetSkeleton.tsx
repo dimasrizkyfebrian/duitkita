@@ -51,3 +51,29 @@ export function BudgetListSkeleton() {
     </div>
   );
 }
+
+export function BudgetDesktopGridSkeleton() {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="glass-card rounded-2xl p-4 space-y-3.5">
+          <div className="flex items-start gap-3">
+            <Skeleton className="w-12 h-12 rounded-xl shrink-0" />
+            <div className="space-y-1.5 flex-1">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 w-14 rounded-full" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Skeleton className="h-7 w-28" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+          <div className="space-y-1.5">
+            <Skeleton className="h-2 w-full rounded-full" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}

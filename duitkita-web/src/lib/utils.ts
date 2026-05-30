@@ -214,6 +214,15 @@ export function getAlertLabel(status: AlertStatus): string {
   }
 }
 
+export function getProgressGradient(status: AlertStatus): string {
+  switch (status) {
+    case "over":    return "linear-gradient(90deg, #dc2626, #f87171)";
+    case "danger":  return "linear-gradient(90deg, #f97316, #fb923c)";
+    case "warning": return "linear-gradient(90deg, #d97706, #fbbf24)";
+    default:        return "linear-gradient(90deg, #8b2be2, #c084fc)";
+  }
+}
+
 export function getProgressColor(status: AlertStatus): string {
   switch (status) {
     case "ok":

@@ -46,18 +46,18 @@ export function CategoryTrendChart({
 
   return (
     <section className="space-y-2">
-      <h2 className="text-sm font-semibold text-foreground px-1">
+      <h2 className="text-[11px] font-semibold text-white/50 uppercase tracking-wider px-1">
         Tren per Kategori — 6 Bulan
       </h2>
 
       {isLoading ? (
         <ReportCategoryTrendSkeleton />
       ) : !hasAnyData ? (
-        <div className="bg-card rounded-2xl flex flex-col items-center gap-2 py-8 text-center">
-          <div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center">
-            <LineIcon size={18} className="text-muted-foreground" />
+        <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl flex flex-col items-center gap-2 py-8 text-center">
+          <div className="w-10 h-10 bg-white/[0.08] rounded-full flex items-center justify-center">
+            <LineIcon size={18} className="text-white/30" />
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-white/35">
             Belum cukup data untuk menampilkan tren
           </p>
         </div>
