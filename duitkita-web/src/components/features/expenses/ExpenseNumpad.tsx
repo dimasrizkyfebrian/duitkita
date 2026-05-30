@@ -16,9 +16,10 @@ const MAX_DIGITS = 12;
 interface ExpenseNumpadProps {
   value: string;
   onChange: (val: string) => void;
+  compact?: boolean;
 }
 
-export function ExpenseNumpad({ value, onChange }: ExpenseNumpadProps) {
+export function ExpenseNumpad({ value, onChange, compact = false }: ExpenseNumpadProps) {
   function handleKey(key: string) {
     if (key === "⌫") {
       onChange(value.slice(0, -1));
@@ -47,10 +48,10 @@ export function ExpenseNumpad({ value, onChange }: ExpenseNumpadProps) {
           whileTap={{ scale: 0.93 }}
           onClick={() => handleKey(key)}
           className={cn(
-            "h-14 rounded-2xl text-lg font-semibold flex items-center justify-center",
-            "bg-slate-surface text-slate-text active:bg-slate-200",
-            "dark:bg-slate-800 dark:text-slate-100",
-            key === "⌫" && "text-danger",
+            "rounded-xl font-semibold flex items-center justify-center transition-colors",
+            "bg-white/[0.08] text-white hover:bg-white/[0.14] active:bg-white/[0.20]",
+            compact ? "h-10 text-sm" : "h-14 rounded-2xl text-lg",
+            key === "⌫" && "text-red-400",
           )}
         >
           {key === "⌫" ? <Delete className="w-5 h-5" /> : key}

@@ -14,7 +14,11 @@ export function FabButton() {
           <motion.button
             whileTap={{ scale: 0.93 }}
             onClick={openExpenseSheet}
-            className="w-14 h-14 -mt-5 bg-primary rounded-full flex items-center justify-center shadow-lg shadow-primary/30 transition-shadow hover:shadow-xl"
+            className="w-14 h-14 -mt-5 rounded-full flex items-center justify-center shadow-lg transition-shadow hover:shadow-xl"
+            style={{
+              background: "linear-gradient(135deg, #8b2be2 0%, #e91e8c 100%)",
+              boxShadow: "0 8px 24px rgba(139, 43, 226, 0.45)",
+            }}
             aria-label="Catat pengeluaran"
           >
             <Plus size={24} className="text-primary-foreground" strokeWidth={2.5} />

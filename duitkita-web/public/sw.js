@@ -1,4 +1,4 @@
-const CACHE_NAME = 'duitkita-v3';
+const CACHE_NAME = 'duitkita-v7';
 const OFFLINE_URL = '/offline';
 
 const PRECACHE_ASSETS = [OFFLINE_URL];
@@ -50,11 +50,15 @@ self.addEventListener('fetch', (event) => {
       caches.match(request).then(
         (cached) =>
           cached ||
-          fetch(request).then((response) => {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-            return response;
-          })
+          fetch(request)
+            .then((response) => {
+              if (response.ok) {
+                const clone = response.clone();
+                caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+              }
+              return response;
+            })
+            .catch(() => Response.error())
       )
     );
     return;

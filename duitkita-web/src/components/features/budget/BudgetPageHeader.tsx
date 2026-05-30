@@ -8,8 +8,6 @@ import {
   Lock,
   MoreVertical,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,35 +63,40 @@ export function BudgetPageHeader({
   return (
     <div className="space-y-3">
       {/* Month navigator + overflow menu */}
-      <div className="grid grid-cols-[auto_1fr_auto] items-center">
-        <Button
-          variant="ghost"
-          size="icon-sm"
+      <div className="flex items-center justify-between">
+        <button
           onClick={onPrevMonth}
           aria-label="Bulan sebelumnya"
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-white/50 hover:text-white hover:bg-white/[0.08] transition-colors"
         >
           <ChevronLeft size={18} />
-        </Button>
-        <span className="text-sm font-semibold text-foreground text-center">
+        </button>
+        <span className="text-sm font-semibold text-white">
           {getMonthName(month)} {year}
         </span>
         <div className="flex items-center">
-          <Button
-            variant="ghost"
-            size="icon-sm"
+          <button
             onClick={onNextMonth}
             disabled={isCurrentMonth || isFutureMonth}
             aria-label="Bulan berikutnya"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-white/50 hover:text-white hover:bg-white/[0.08] transition-colors disabled:text-white/20 disabled:cursor-not-allowed"
           >
             <ChevronRight size={18} />
-          </Button>
+          </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="Menu lainnya">
+              <button
+                aria-label="Menu lainnya"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-white/50 hover:text-white hover:bg-white/[0.08] transition-colors"
+              >
                 <MoreVertical size={16} />
-              </Button>
+              </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent
+              align="end"
+              className="border-white/[0.1]"
+              style={{ background: "rgba(15, 5, 40, 0.95)", backdropFilter: "blur(20px) saturate(180%)" }}
+            >
               <DropdownMenuItem
                 onClick={onFinalize}
                 disabled={isFinalized || isFinalizing || !hasBudgets}
@@ -111,21 +114,21 @@ export function BudgetPageHeader({
         </div>
       </div>
 
-      {/* Summary card — 3 columns */}
-      <div className="bg-card rounded-2xl shadow-sm p-4 flex items-center">
+      {/* Summary card */}
+      <div className="glass-card rounded-2xl p-4 flex items-center">
         {items.map((item, i) => (
           <Fragment key={item.label}>
             <div className="flex-1 flex flex-col items-center gap-0.5">
-              <p className="text-xs text-muted-foreground">{item.label}</p>
+              <p className="text-xs text-white/45">{item.label}</p>
               <p
-                className="text-base font-bold text-foreground"
+                className="text-base font-bold text-white"
                 title={formatCurrency(item.value)}
               >
                 {formatCurrencyShort(item.value)}
               </p>
             </div>
             {i < items.length - 1 && (
-              <Separator orientation="vertical" className="h-8" />
+              <div className="w-px h-8 bg-white/[0.12] shrink-0" />
             )}
           </Fragment>
         ))}

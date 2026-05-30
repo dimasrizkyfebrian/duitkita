@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { BottomNav } from "@/components/layout/BottomNav";
-import { FabButton } from "@/components/layout/FabButton";
+import { Sidebar } from "@/components/layout/Sidebar";
 import { ExpenseSheet } from "@/components/features/expenses/ExpenseSheet";
 import { useAuthStore } from "@/stores/auth.store";
+import { useAppStore } from "@/stores/app.store";
 import { OfflineBanner } from "@/components/shared/OfflineBanner";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 
@@ -16,6 +18,7 @@ export default function AppLayout({
 }) {
   const router = useRouter();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isSidebarCollapsed = useAppStore((s) => s.isSidebarCollapsed);
   useOfflineSync();
   const [hasHydrated, setHasHydrated] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -36,8 +39,19 @@ export default function AppLayout({
 
   if (!hasHydrated) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div
+        className="dark min-h-screen flex flex-col items-center justify-center gap-4"
+        style={{ background: "linear-gradient(135deg, #0f0520 0%, #1a0533 50%, #2d0b5e 100%)" }}
+      >
+        <div
+          className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin"
+          style={{
+            borderColor: "rgba(139,43,226,0.3)",
+            borderTopColor: "#c084fc",
+            filter: "drop-shadow(0 0 8px rgba(139,43,226,0.6))",
+          }}
+        />
+        <p className="text-white/30 text-xs tracking-widest uppercase">DuitKita</p>
       </div>
     );
   }
@@ -47,15 +61,31 @@ export default function AppLayout({
   }
 
   return (
-    <div className="h-dvh overflow-hidden bg-background flex flex-col max-w-md mx-auto relative">
-      <OfflineBanner />
-      <main className="flex-1 overflow-y-auto pb-28 scrollbar-hide overscroll-none">
-        {children}
-      </main>
+    <div className="dark flex h-dvh lg:h-screen overflow-hidden desktop-bg">
+      {/* Spacer pushes content right to account for fixed floating sidebar */}
+      <motion.div
+        className="hidden lg:block shrink-0"
+        animate={{ width: isSidebarCollapsed ? 84 : 256 }}
+        transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
+      />
 
-      <BottomNav />
-      <FabButton />
+      {/* Single content column */}
+      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+        <OfflineBanner />
+        <main className="flex-1 overflow-y-auto pb-28 lg:pb-0 scrollbar-hide overscroll-none">
+          {children}
+        </main>
+      </div>
+
+      {/* Mobile-only bottom nav (FAB integrated inside) */}
+      <div className="lg:hidden">
+        <BottomNav />
+      </div>
+
       <ExpenseSheet />
+
+      {/* Floating sidebar — fixed positioning, rendered outside flex flow */}
+      <Sidebar />
     </div>
   );
 }

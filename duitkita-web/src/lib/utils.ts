@@ -187,15 +187,15 @@ export function getAlertColor(status: AlertStatus): string {
 export function getAlertBg(status: AlertStatus): string {
   switch (status) {
     case "ok":
-      return "bg-green-100 text-green-800";
+      return "bg-green-500/20 text-green-300";
     case "warning":
-      return "bg-amber-100 text-amber-800";
+      return "bg-amber-500/20 text-amber-300";
     case "danger":
-      return "bg-orange-100 text-orange-800";
+      return "bg-orange-500/20 text-orange-300";
     case "over":
-      return "bg-red-100 text-red-800";
+      return "bg-red-500/20 text-red-300";
     default:
-      return "bg-slate-100 text-slate-800";
+      return "bg-white/10 text-white/60";
   }
 }
 
@@ -211,6 +211,15 @@ export function getAlertLabel(status: AlertStatus): string {
       return "Over!";
     default:
       return "";
+  }
+}
+
+export function getProgressGradient(status: AlertStatus): string {
+  switch (status) {
+    case "over":    return "linear-gradient(90deg, #dc2626, #f87171)";
+    case "danger":  return "linear-gradient(90deg, #f97316, #fb923c)";
+    case "warning": return "linear-gradient(90deg, #d97706, #fbbf24)";
+    default:        return "linear-gradient(90deg, #8b2be2, #c084fc)";
   }
 }
 
