@@ -18,7 +18,6 @@ import {
   Loader2,
   UserPlus,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { formatRelativeTime } from "@/lib/utils";
 import type { SecurityAuditLog, SecurityAuditEventType } from "@/types";
 
@@ -51,13 +50,13 @@ const EVENT_CONFIG: Record<
 
 function AuditSkeleton() {
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       {[0, 1, 2].map((i) => (
         <div key={i} className="flex items-center gap-3 p-2.5">
-          <div className="size-8 rounded-lg bg-muted animate-pulse" />
+          <div className="size-8 rounded-lg bg-white/[0.08] animate-pulse" />
           <div className="flex-1 space-y-1.5">
-            <div className="h-3 w-28 bg-muted rounded animate-pulse" />
-            <div className="h-2.5 w-36 bg-muted rounded animate-pulse" />
+            <div className="h-3 w-28 bg-white/[0.08] rounded animate-pulse" />
+            <div className="h-2.5 w-36 bg-white/[0.06] rounded animate-pulse" />
           </div>
         </div>
       ))}
@@ -76,27 +75,27 @@ export function SecurityAuditCard({
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="bg-card rounded-2xl ring-1 ring-foreground/10 p-4 space-y-3">
+    <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl p-4 space-y-3">
       <button
         type="button"
         className="w-full flex items-center justify-between"
         onClick={() => setExpanded((v) => !v)}
       >
         <div className="flex items-center gap-2">
-          <Shield size={14} className="text-primary" />
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          <Shield size={13} className="text-purple-400" />
+          <p className="text-[11px] font-semibold text-white/45 uppercase tracking-wider">
             Log Keamanan
           </p>
           {total > 0 && (
-            <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+            <span className="text-[10px] font-semibold text-white/40 bg-white/[0.08] px-1.5 py-0.5 rounded-full">
               {total}
             </span>
           )}
         </div>
         {expanded ? (
-          <ChevronUp size={16} className="text-muted-foreground" />
+          <ChevronUp size={14} className="text-white/30" />
         ) : (
-          <ChevronDown size={16} className="text-muted-foreground" />
+          <ChevronDown size={14} className="text-white/30" />
         )}
       </button>
 
@@ -105,11 +104,9 @@ export function SecurityAuditCard({
           {isLoading ? (
             <AuditSkeleton />
           ) : logs.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-2">
-              Belum ada log keamanan.
-            </p>
+            <p className="text-sm text-white/40 py-2">Belum ada log keamanan.</p>
           ) : (
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {logs.map((log) => {
                 const config = EVENT_CONFIG[log.eventType] ?? {
                   label: log.eventType,
@@ -120,18 +117,15 @@ export function SecurityAuditCard({
                 return (
                   <div
                     key={log.id}
-                    className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/40 transition-colors"
+                    className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/[0.04] transition-colors"
                   >
-                    <div className="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                      <Icon size={14} />
+                    <div className="size-8 rounded-lg bg-purple-500/15 text-purple-400 flex items-center justify-center shrink-0">
+                      <Icon size={13} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground">
-                        {config.label}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {log.ipAddress ?? "IP tidak diketahui"} ·{" "}
-                        {formatRelativeTime(log.createdAt)}
+                      <p className="text-sm font-medium text-white/85">{config.label}</p>
+                      <p className="text-xs text-white/40">
+                        {log.ipAddress ?? "IP tidak diketahui"} · {formatRelativeTime(log.createdAt)}
                       </p>
                     </div>
                   </div>
@@ -141,18 +135,14 @@ export function SecurityAuditCard({
           )}
 
           {hasNextPage && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full"
+            <button
               onClick={fetchNextPage}
               disabled={isFetchingNextPage}
+              className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-medium text-white/45 hover:text-white/65 hover:bg-white/[0.04] transition-colors disabled:opacity-40"
             >
-              {isFetchingNextPage ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : null}
+              {isFetchingNextPage && <Loader2 size={12} className="animate-spin" />}
               Muat lebih banyak
-            </Button>
+            </button>
           )}
         </>
       )}

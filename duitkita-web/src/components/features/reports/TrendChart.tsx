@@ -39,30 +39,31 @@ export function TrendChart({ trend, isLoading }: TrendChartProps) {
   const hasData = data.some((d) => d.totalSpent > 0 || d.totalBudget > 0);
 
   return (
-    <section className="bg-card rounded-2xl p-4 space-y-3">
-      <h2 className="text-sm font-semibold text-foreground">
+    <section className="bg-white/[0.04] border border-white/[0.07] rounded-2xl p-4 space-y-3">
+      <h2 className="text-[11px] font-semibold text-white/50 uppercase tracking-wider">
         Tren 6 Bulan Terakhir
       </h2>
 
       {isLoading || !hasData ? (
         <div className="flex flex-col items-center gap-2 py-8 text-center">
-          <div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center">
-            <BarChart3 size={18} className="text-muted-foreground" />
+          <div className="w-10 h-10 bg-white/[0.08] rounded-full flex items-center justify-center">
+            <BarChart3 size={18} className="text-white/30" />
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-white/35">
             {isLoading ? "Memuat tren…" : "Belum ada data tren"}
           </p>
         </div>
       ) : (
-        <ChartContainer config={config} className="h-48 w-full">
+        <ChartContainer config={config} className="h-44 w-full">
           <BarChart data={data} margin={{ left: 4, right: 4, top: 4 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+            <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" />
             <XAxis
               dataKey="label"
               tickLine={false}
               axisLine={false}
               tickMargin={6}
               fontSize={11}
+              tick={{ fill: "rgba(255,255,255,0.4)" }}
             />
             <YAxis
               tickLine={false}
@@ -70,9 +71,10 @@ export function TrendChart({ trend, isLoading }: TrendChartProps) {
               tickFormatter={(v: number) => formatCurrencyShort(v)}
               fontSize={10}
               width={40}
+              tick={{ fill: "rgba(255,255,255,0.35)" }}
             />
             <ChartTooltip
-              cursor={{ fill: "var(--muted)", opacity: 0.4 }}
+              cursor={{ fill: "rgba(255,255,255,0.05)" }}
               content={
                 <ChartTooltipContent
                   formatter={(value, name) => (

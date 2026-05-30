@@ -22,9 +22,10 @@ export function ExpenseFilterBar({
         className={cn(
           "shrink-0 px-3 h-8 rounded-full text-xs font-medium transition-colors",
           selectedCategoryId === null
-            ? "bg-primary text-white"
-            : "bg-muted text-muted-foreground",
+            ? "text-white"
+            : "bg-white/[0.08] text-white/60 hover:bg-white/[0.12]",
         )}
+        style={selectedCategoryId === null ? { background: "linear-gradient(135deg, #8b2be2, #e91e8c)" } : undefined}
       >
         Semua
       </button>
@@ -38,13 +39,11 @@ export function ExpenseFilterBar({
             className={cn(
               "shrink-0 inline-flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-medium transition-colors",
               isSelected
-                ? "bg-primary/10 text-primary"
-                : "bg-muted text-muted-foreground",
+                ? "bg-white/[0.15] text-white border border-white/[0.25]"
+                : "bg-white/[0.08] text-white/60 hover:bg-white/[0.12]",
             )}
           >
-            <span className="text-sm leading-none">
-              {cat.icon ?? cat.name[0].toUpperCase()}
-            </span>
+            <span className="text-sm leading-none">{cat.icon ?? cat.name[0].toUpperCase()}</span>
             <span className="truncate max-w-[100px]">{cat.name}</span>
           </button>
         );

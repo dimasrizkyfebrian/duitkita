@@ -15,15 +15,20 @@ import {
   Loader2,
   Zap,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
 import { useCategories } from "@/hooks/useCategories";
 import {
@@ -31,6 +36,7 @@ import {
   type RecurringFormValues,
 } from "@/components/features/recurring/RecurringFormSheet";
 import {
+  cn,
   formatCurrency,
   formatScheduleLabel,
   formatFutureRelativeTime,
@@ -62,16 +68,13 @@ function RecurringSkeleton() {
   return (
     <div className="space-y-3">
       {[0, 1, 2].map((i) => (
-        <div
-          key={i}
-          className="bg-card rounded-2xl ring-1 ring-foreground/10 p-4 space-y-2"
-        >
+        <div key={i} className="glass-card rounded-2xl p-4 space-y-2 animate-pulse">
           <div className="flex items-center justify-between">
-            <div className="h-4 w-28 bg-muted rounded animate-pulse" />
-            <div className="h-5 w-12 bg-muted rounded-full animate-pulse" />
+            <div className="h-4 w-28 bg-white/[0.08] rounded" />
+            <div className="h-5 w-12 bg-white/[0.08] rounded-full" />
           </div>
-          <div className="h-5 w-20 bg-muted rounded animate-pulse" />
-          <div className="h-3 w-36 bg-muted rounded animate-pulse" />
+          <div className="h-5 w-20 bg-white/[0.08] rounded" />
+          <div className="h-3 w-36 bg-white/[0.08] rounded" />
         </div>
       ))}
     </div>
@@ -187,40 +190,39 @@ export default function RecurringPage() {
     >
       {/* Header */}
       <div className="px-4 flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon-sm"
+        <button
           onClick={() => router.back()}
           aria-label="Kembali"
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-white/50 hover:text-white hover:bg-white/[0.08] transition-colors"
         >
           <ArrowLeft size={18} />
-        </Button>
-        <h1 className="text-xl font-bold text-foreground flex-1">
-          Pengeluaran Rutin
-        </h1>
-        <Button size="sm" onClick={handleAdd}>
+        </button>
+        <h1 className="text-xl font-bold text-white flex-1">Pengeluaran Rutin</h1>
+        <button
+          onClick={handleAdd}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
+          style={{ background: "linear-gradient(135deg, #8b2be2, #e91e8c)" }}
+        >
           <Plus size={14} />
           Tambah
-        </Button>
+        </button>
       </div>
 
       <div className="px-4 space-y-3">
         {/* Run Due button */}
         {!isLoading && hasActive && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full"
+          <button
             disabled={!runDueAllowed || isRunningDue}
             onClick={handleRunDue}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium text-white/70 glass-card hover:bg-white/[0.08] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {isRunningDue ? (
               <Loader2 size={14} className="animate-spin" />
             ) : (
-              <Zap size={14} />
+              <Zap size={14} className="text-purple-400" />
             )}
             Proses Jatuh Tempo
-          </Button>
+          </button>
         )}
 
         {/* Content */}
@@ -228,19 +230,23 @@ export default function RecurringPage() {
           <RecurringSkeleton />
         ) : recurringExpenses.length === 0 ? (
           <div className="text-center py-12 space-y-3">
-            <div className="size-12 rounded-2xl bg-primary/15 text-primary flex items-center justify-center mx-auto">
-              <Repeat size={24} />
+            <div className="w-12 h-12 rounded-2xl bg-purple-500/20 flex items-center justify-center mx-auto">
+              <Repeat size={24} className="text-purple-400" />
             </div>
-            <p className="text-sm text-foreground font-medium">
+            <p className="text-sm text-white font-medium">
               Belum ada pengeluaran rutin
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-white/50">
               Buat pengeluaran otomatis untuk tagihan berulang
             </p>
-            <Button size="sm" onClick={handleAdd}>
+            <button
+              onClick={handleAdd}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
+              style={{ background: "linear-gradient(135deg, #8b2be2, #e91e8c)" }}
+            >
               <Plus size={14} />
               Tambah Pengeluaran Rutin
-            </Button>
+            </button>
           </div>
         ) : (
           <div className="space-y-3">
@@ -253,73 +259,81 @@ export default function RecurringPage() {
               return (
                 <div
                   key={item.id}
-                  className="bg-card rounded-2xl ring-1 ring-foreground/10 p-4 space-y-1.5"
+                  className="glass-card glass-card-accent rounded-2xl p-4 space-y-1.5"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <p className="text-sm font-medium text-foreground truncate">
+                      <p className="text-sm font-medium text-white truncate">
                         {item.categoryName}
                       </p>
-                      <Badge
-                        variant={item.isActive ? "default" : "secondary"}
-                        className="shrink-0 text-[10px] px-1.5 py-0"
+                      <span
+                        className={cn(
+                          "shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+                          item.isActive
+                            ? "bg-emerald-500/20 text-emerald-400"
+                            : "bg-white/[0.08] text-white/50",
+                        )}
                       >
                         {item.isActive ? "Aktif" : "Dijeda"}
-                      </Badge>
+                      </span>
                     </div>
 
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
+                        <button
                           disabled={anyBusy}
                           aria-label="Menu"
+                          className="w-7 h-7 flex items-center justify-center rounded-lg text-white/40 hover:text-white/70 hover:bg-white/[0.08] transition-colors disabled:opacity-40"
                         >
                           {isBusy ? (
                             <Loader2 size={14} className="animate-spin" />
                           ) : (
                             <MoreVertical size={14} />
                           )}
-                        </Button>
+                        </button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEdit(item)}>
-                          <Pencil size={14} className="mr-2" />
+                      <DropdownMenuContent
+                        align="end"
+                        className="min-w-[160px] border-white/[0.1]"
+                        style={{ background: "rgba(15, 5, 40, 0.95)", backdropFilter: "blur(20px) saturate(180%)" }}
+                      >
+                        <DropdownMenuItem onClick={() => handleEdit(item)} className="gap-2">
+                          <Pencil size={14} />
                           Edit
                         </DropdownMenuItem>
                         {item.isActive ? (
-                          <DropdownMenuItem onClick={() => handlePause(item.id)}>
-                            <Pause size={14} className="mr-2" />
+                          <DropdownMenuItem onClick={() => handlePause(item.id)} className="gap-2">
+                            <Pause size={14} />
                             Jeda
                           </DropdownMenuItem>
                         ) : (
-                          <DropdownMenuItem onClick={() => handleResume(item.id)}>
-                            <Play size={14} className="mr-2" />
+                          <DropdownMenuItem onClick={() => handleResume(item.id)} className="gap-2">
+                            <Play size={14} />
                             Aktifkan
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
+                          variant="destructive"
                           onClick={() => setDeleteDialogItem(item)}
+                          className="gap-2"
                         >
-                          <Trash2 size={14} className="mr-2" />
+                          <Trash2 size={14} />
                           Hapus
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
 
-                  <p className="text-base font-semibold text-foreground">
+                  <p className="text-base font-semibold text-white">
                     {formatCurrency(item.amount)}
                   </p>
 
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-white/50">
                     {formatScheduleLabel(item.scheduleType, item.scheduleDay)}
                     {item.note ? ` · ${item.note}` : ""}
                   </p>
 
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-white/40">
                     Berikutnya: {formatFutureRelativeTime(item.nextRunAt)}
                   </p>
                 </div>
@@ -344,35 +358,39 @@ export default function RecurringPage() {
       {/* Delete confirmation dialog */}
       <Dialog
         open={!!deleteDialogItem}
-        onOpenChange={(open) => {
-          if (!open) setDeleteDialogItem(null);
-        }}
+        onOpenChange={(open) => { if (!open) setDeleteDialogItem(null); }}
       >
-        <DialogContent className="max-w-sm">
-          <DialogTitle>Hapus Pengeluaran Rutin</DialogTitle>
-          <DialogDescription>
-            Yakin ingin menghapus pengeluaran rutin &quot;{deleteDialogItem?.categoryName}&quot;?
-            Tindakan ini tidak dapat dibatalkan.
+        <DialogContent
+          showCloseButton={false}
+          className="max-w-sm border-white/[0.12]"
+          style={{ background: "rgba(18, 6, 46, 0.92)", backdropFilter: "blur(24px)" }}
+        >
+          <DialogTitle className="text-white">Hapus Pengeluaran Rutin</DialogTitle>
+          <DialogDescription className="text-white/55">
+            Hapus pengeluaran rutin{" "}
+            <span className="font-semibold text-white">
+              &quot;{deleteDialogItem?.categoryName}&quot;
+            </span>
+            ? Tindakan ini tidak dapat dibatalkan.
           </DialogDescription>
-          <div className="flex gap-2 justify-end mt-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setDeleteDialogItem(null)}
-              disabled={isDeleting}
-            >
-              Batal
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
+          <DialogFooter className="gap-2 border-t-0 bg-transparent flex-row justify-end">
+            <DialogClose asChild>
+              <button
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-xl text-sm font-medium text-white/65 hover:text-white border border-white/[0.14] hover:bg-white/[0.08] transition-colors disabled:opacity-50"
+              >
+                Batal
+              </button>
+            </DialogClose>
+            <button
               onClick={handleDeleteConfirm}
               disabled={isDeleting}
+              className="px-4 py-2 rounded-xl text-sm font-semibold text-white bg-red-500/75 hover:bg-red-500/90 transition-colors disabled:opacity-50 flex items-center gap-2"
             >
               {isDeleting && <Loader2 size={14} className="animate-spin" />}
               Hapus
-            </Button>
-          </div>
+            </button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </motion.div>

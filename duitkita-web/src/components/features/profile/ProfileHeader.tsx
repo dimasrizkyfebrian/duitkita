@@ -2,7 +2,6 @@
 
 import { useRef } from "react";
 import { Camera, Loader2, Pencil, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import type { User } from "@/types";
 
@@ -36,7 +35,7 @@ export function ProfileHeader({
   }
 
   return (
-    <div className="flex items-center gap-3 px-1 py-2">
+    <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl p-4 flex items-center gap-4">
       <div className="relative shrink-0">
         <UserAvatar
           userId={user.id}
@@ -49,13 +48,14 @@ export function ProfileHeader({
           type="button"
           disabled={avatarBusy}
           onClick={() => fileInputRef.current?.click()}
-          className="absolute -bottom-0.5 -right-0.5 flex size-7 items-center justify-center rounded-full border border-background bg-primary text-primary-foreground shadow-sm disabled:opacity-60"
+          className="absolute -bottom-0.5 -right-0.5 flex size-7 items-center justify-center rounded-full border-2 border-[#1a0533] disabled:opacity-60"
+          style={{ background: "linear-gradient(135deg, #8b2be2 0%, #e91e8c 100%)" }}
           aria-label="Ubah foto profil"
         >
           {avatarBusy ? (
-            <Loader2 className="size-3.5 animate-spin" />
+            <Loader2 className="size-3.5 animate-spin text-white" />
           ) : (
-            <Camera className="size-3.5" />
+            <Camera className="size-3.5 text-white" />
           )}
         </button>
         <input
@@ -68,29 +68,28 @@ export function ProfileHeader({
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="text-base font-semibold text-foreground truncate">
-          {user.name}
-        </p>
-        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+        <p className="text-base font-semibold text-white/90 truncate">{user.name}</p>
+        <p className="text-xs text-white/45 truncate">{user.email}</p>
         {user.hasAvatar && onRemoveAvatar ? (
-          <Button
+          <button
             type="button"
-            variant="ghost"
-            size="sm"
-            className="mt-1 h-7 px-2 text-xs text-muted-foreground"
+            className="mt-1.5 flex items-center gap-1 text-xs text-white/40 hover:text-white/60 transition-colors disabled:opacity-40"
             disabled={avatarBusy}
             onClick={() => void onRemoveAvatar()}
           >
             <Trash2 className="size-3" />
             Hapus foto
-          </Button>
+          </button>
         ) : null}
       </div>
 
-      <Button variant="outline" size="sm" onClick={onEdit}>
-        <Pencil />
+      <button
+        onClick={onEdit}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-white/70 bg-white/[0.07] border border-white/[0.1] hover:bg-white/[0.11] transition-colors shrink-0"
+      >
+        <Pencil size={12} />
         Edit
-      </Button>
+      </button>
     </div>
   );
 }

@@ -7,9 +7,9 @@ export function RemindersShortcutCard() {
   return (
     <Link
       href="/reminders"
-      className="flex items-center gap-3 p-4 bg-card rounded-2xl ring-1 ring-foreground/10 hover:bg-muted/40 transition-colors"
+      className="flex items-center gap-3 p-4 glass-card rounded-2xl hover:bg-white/[0.08] transition-colors"
     >
-      <div className="size-9 rounded-lg bg-primary/15 text-primary flex items-center justify-center shrink-0">
+      <div className="size-9 rounded-lg bg-purple-500/20 text-purple-300 flex items-center justify-center shrink-0">
         <BellRing size={16} />
       </div>
       <div className="flex-1 min-w-0">
@@ -18,7 +18,7 @@ export function RemindersShortcutCard() {
           Lihat upcoming, overdue, dan tandai selesai
         </p>
       </div>
-      <ChevronRight size={16} className="text-muted-foreground shrink-0" />
+      <ChevronRight size={16} className="text-white/30 shrink-0" />
     </Link>
   );
 }

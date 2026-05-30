@@ -47,9 +47,10 @@ export function CategoryPicker({
             className={cn(
               "flex flex-col items-center gap-1 p-2 rounded-2xl shrink-0 w-16 transition-colors",
               isSelected
-                ? "bg-primary text-white"
-                : "bg-slate-surface text-slate-text dark:bg-slate-800 dark:text-slate-100",
+                ? "text-white"
+                : "bg-white/[0.08] text-white/70 hover:bg-white/[0.14]",
             )}
+            style={isSelected ? { background: "linear-gradient(135deg, #8b2be2, #e91e8c)" } : undefined}
           >
             <span className="text-xl leading-none">
               {cat.icon ?? cat.name[0].toUpperCase()}

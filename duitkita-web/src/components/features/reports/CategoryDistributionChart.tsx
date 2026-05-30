@@ -54,17 +54,17 @@ export function CategoryDistributionChart({
   }, [data]);
 
   return (
-    <section className="bg-card rounded-2xl p-4 space-y-3">
-      <h2 className="text-sm font-semibold text-foreground">
+    <section className="bg-white/[0.04] border border-white/[0.07] rounded-2xl p-4 space-y-3">
+      <h2 className="text-[11px] font-semibold text-white/50 uppercase tracking-wider">
         Distribusi per Kategori
       </h2>
 
       {data.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-8 text-center">
-          <div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center">
-            <PieIcon size={18} className="text-muted-foreground" />
+          <div className="w-10 h-10 bg-white/[0.08] rounded-full flex items-center justify-center">
+            <PieIcon size={18} className="text-white/30" />
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-white/35">
             Belum ada pengeluaran bulan ini
           </p>
         </div>
@@ -108,8 +108,8 @@ export function CategoryDistributionChart({
             </PieChart>
           </ChartContainer>
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <p className="text-xs text-muted-foreground">Total</p>
-            <p className="text-base font-bold text-foreground">
+            <p className="text-[10px] text-white/40">Total</p>
+            <p className="text-base font-bold text-white">
               {formatCurrencyShort(totalSpent)}
             </p>
           </div>
@@ -126,10 +126,10 @@ export function CategoryDistributionChart({
                   className="w-2.5 h-2.5 rounded-sm shrink-0"
                   style={{ backgroundColor: item.fill }}
                 />
-                <span className="text-xs text-foreground truncate">
+                <span className="text-xs text-white/70 truncate">
                   {item.name}
                 </span>
-                <span className="text-xs text-muted-foreground ml-auto shrink-0">
+                <span className="text-xs text-white/40 ml-auto shrink-0">
                   {pct.toFixed(0)}%
                 </span>
               </li>

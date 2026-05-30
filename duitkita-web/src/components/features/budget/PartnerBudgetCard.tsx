@@ -8,7 +8,7 @@ import {
   getAlertBg,
   getAlertColor,
   getAlertLabel,
-  getProgressColor,
+  getProgressGradient,
 } from "@/lib/utils";
 import type { MonthlyBudget } from "@/types";
 
@@ -30,16 +30,16 @@ export function PartnerBudgetCard({ budget, index }: PartnerBudgetCardProps) {
     <motion.li variants={itemVariants} className="px-3 py-3 space-y-2">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-lg w-9 h-9 flex items-center justify-center bg-muted rounded-xl shrink-0">
+          <span className="text-lg w-9 h-9 flex items-center justify-center bg-white/[0.08] rounded-xl shrink-0">
             {budget.category.icon ?? budget.category.name[0].toUpperCase()}
           </span>
-          <span className="text-sm font-medium text-foreground truncate">
+          <span className="text-sm font-medium text-white truncate">
             {budget.category.name}
           </span>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {budget.isFinalized && (
-            <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+            <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-white/[0.08] text-white/50">
               <Lock size={10} />
               Dikunci
             </span>
@@ -55,12 +55,10 @@ export function PartnerBudgetCard({ budget, index }: PartnerBudgetCardProps) {
         </div>
       </div>
 
-      <div className="relative h-2 rounded-full bg-muted overflow-hidden">
+      <div className="relative h-2 rounded-full bg-white/10 overflow-hidden">
         <motion.div
-          className={cn(
-            "absolute inset-y-0 left-0 rounded-full",
-            getProgressColor(budget.alertStatus),
-          )}
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{ background: getProgressGradient(budget.alertStatus) }}
           initial={{ width: "0%" }}
           animate={{ width: `${Math.min(pct, 100)}%` }}
           transition={{ duration: 0.6, ease: "easeOut", delay: index * 0.05 }}
@@ -68,14 +66,14 @@ export function PartnerBudgetCard({ budget, index }: PartnerBudgetCardProps) {
       </div>
 
       <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-white/45">
           {formatCurrencyShort(budget.totalSpent)} /{" "}
           {formatCurrencyShort(budget.totalAmount)}
         </p>
         <p
           className={cn(
             "text-xs font-medium",
-            isOver ? getAlertColor("over") : "text-muted-foreground",
+            isOver ? getAlertColor("over") : "text-white/45",
           )}
         >
           {pct.toFixed(0)}%
@@ -83,7 +81,7 @@ export function PartnerBudgetCard({ budget, index }: PartnerBudgetCardProps) {
       </div>
 
       {budget.rolloverAmount > 0 && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-white/35">
           + {formatCurrencyShort(budget.rolloverAmount)} saldo bulan lalu
         </p>
       )}

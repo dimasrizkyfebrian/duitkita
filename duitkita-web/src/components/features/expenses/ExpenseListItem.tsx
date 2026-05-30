@@ -8,7 +8,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
 import { formatCurrencyShort } from "@/lib/utils";
 import type { Expense } from "@/types";
 
@@ -35,34 +34,38 @@ export function ExpenseListItem({
       variants={itemVariants}
       className="flex items-center gap-3 px-4 py-3"
     >
-      <span className="text-base w-9 h-9 flex items-center justify-center bg-muted rounded-xl shrink-0">
+      <span className="text-base w-9 h-9 flex items-center justify-center bg-white/[0.08] rounded-xl shrink-0">
         {expense.category.icon ?? expense.category.name[0].toUpperCase()}
       </span>
 
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground truncate">
+        <p className="text-sm font-medium text-white truncate">
           {expense.category.name}
         </p>
         {expense.note && (
-          <p className="text-xs text-muted-foreground truncate">
+          <p className="text-xs text-white/45 truncate">
             {expense.note}
           </p>
         )}
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
-        <p className="text-sm font-semibold text-foreground tabular-nums">
+        <p className="text-sm font-semibold text-white tabular-nums">
           {formatCurrencyShort(expense.amount)}
         </p>
         {showActions && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm">
+              <button className="w-7 h-7 flex items-center justify-center rounded-lg text-white/40 hover:text-white/70 hover:bg-white/[0.08] transition-colors">
                 <MoreVertical size={14} />
                 <span className="sr-only">Menu</span>
-              </Button>
+              </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent
+              align="end"
+              className="min-w-[140px] border-white/[0.1]"
+              style={{ background: "rgba(15, 5, 40, 0.95)", backdropFilter: "blur(20px) saturate(180%)" }}
+            >
               <DropdownMenuItem
                 onClick={() => onEdit?.(expense)}
                 className="gap-2"

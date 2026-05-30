@@ -15,7 +15,7 @@ export function ReportHeaderSkeleton() {
 
 export function ReportSummarySkeleton() {
   return (
-    <div className="bg-card rounded-2xl p-4 flex justify-around">
+    <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl p-4 flex justify-around">
       {[0, 1, 2].map((i) => (
         <div key={i} className="flex flex-col items-center gap-1.5">
           <Skeleton className="h-3 w-12" />
@@ -28,7 +28,7 @@ export function ReportSummarySkeleton() {
 
 export function ReportChartSkeleton() {
   return (
-    <div className="bg-card rounded-2xl p-4 space-y-3">
+    <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl p-4 space-y-3">
       <Skeleton className="h-4 w-32" />
       <Skeleton className="h-48 w-full rounded-lg" />
     </div>
@@ -41,7 +41,7 @@ export function ReportCategoryTrendSkeleton({ rows = 4 }: { rows?: number }) {
       {Array.from({ length: rows }).map((_, i) => (
         <li
           key={i}
-          className="bg-card rounded-2xl px-3 py-3 flex items-center gap-3"
+          className="bg-white/[0.04] border border-white/[0.07] rounded-2xl px-3 py-3 flex items-center gap-3"
         >
           <Skeleton className="w-9 h-9 rounded-xl shrink-0" />
           <div className="flex-1 space-y-1.5">
@@ -57,7 +57,7 @@ export function ReportCategoryTrendSkeleton({ rows = 4 }: { rows?: number }) {
 
 export function ReportListSkeleton() {
   return (
-    <div className="bg-card rounded-2xl p-4 space-y-3">
+    <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl p-4 space-y-3">
       <Skeleton className="h-4 w-32" />
       <div className="space-y-2">
         {[0, 1, 2].map((i) => (

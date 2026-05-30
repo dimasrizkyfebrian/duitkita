@@ -9,6 +9,7 @@ interface ExpenseListProps {
   expenses: Expense[];
   showActions: boolean;
   groupByDay?: boolean;
+  containerClassName?: string;
   onEdit?: (expense: Expense) => void;
   onDelete?: (expense: Expense) => void;
 }
@@ -40,6 +41,7 @@ export function ExpenseList({
   expenses,
   showActions,
   groupByDay = true,
+  containerClassName,
   onEdit,
   onDelete,
 }: ExpenseListProps) {
@@ -49,7 +51,8 @@ export function ExpenseList({
         variants={listVariants}
         initial="hidden"
         animate="visible"
-        className="bg-card rounded-2xl divide-y divide-border overflow-hidden"
+        className={containerClassName ?? "rounded-2xl divide-y divide-white/[0.07] overflow-hidden"}
+        style={containerClassName ? undefined : { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
       >
         {expenses.map((expense) => (
           <ExpenseListItem
@@ -86,14 +89,15 @@ export function ExpenseList({
       {Array.from(groups.entries()).map(([key, group]) => (
         <section
           key={key}
-          className="bg-card rounded-2xl overflow-hidden"
+          className="rounded-2xl overflow-hidden"
+          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
         >
           <div className="px-4 pt-3 pb-1">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            <p className="text-xs font-medium text-white/40 uppercase tracking-wide">
               {group.label}
             </p>
           </div>
-          <ul className="divide-y divide-border">
+          <ul className="divide-y divide-white/[0.07]">
             {group.items.map((expense) => (
               <ExpenseListItem
                 key={expense.id}

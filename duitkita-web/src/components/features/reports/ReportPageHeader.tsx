@@ -1,7 +1,6 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { getMonthName } from "@/lib/utils";
 
 interface ReportPageHeaderProps {
@@ -26,26 +25,24 @@ export function ReportPageHeader({
 
   return (
     <div className="flex items-center justify-between">
-      <Button
-        variant="ghost"
-        size="icon-sm"
+      <button
         onClick={onPrevMonth}
         aria-label="Bulan sebelumnya"
+        className="w-8 h-8 flex items-center justify-center rounded-lg text-white/50 hover:text-white hover:bg-white/[0.08] transition-colors"
       >
         <ChevronLeft size={18} />
-      </Button>
-      <span className="text-sm font-semibold text-foreground">
+      </button>
+      <span className="text-sm font-semibold text-white">
         {getMonthName(month)} {year}
       </span>
-      <Button
-        variant="ghost"
-        size="icon-sm"
+      <button
         onClick={onNextMonth}
         disabled={isCurrentMonth || isFutureMonth}
         aria-label="Bulan berikutnya"
+        className="w-8 h-8 flex items-center justify-center rounded-lg text-white/50 hover:text-white hover:bg-white/[0.08] transition-colors disabled:text-white/20 disabled:cursor-not-allowed"
       >
         <ChevronRight size={18} />
-      </Button>
+      </button>
     </div>
   );
 }
