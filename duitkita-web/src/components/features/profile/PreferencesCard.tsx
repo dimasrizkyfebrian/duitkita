@@ -14,31 +14,25 @@ const OPTIONS = [
 const noopSubscribe = () => () => {};
 
 function useIsMounted(): boolean {
-  return useSyncExternalStore(
-    noopSubscribe,
-    () => true,
-    () => false,
-  );
+  return useSyncExternalStore(noopSubscribe, () => true, () => false);
 }
 
 export function PreferencesCard() {
   const { theme, setTheme } = useTheme();
   const mounted = useIsMounted();
-
-  // next-themes returns `theme` only after hydration; render neutral on SSR.
   const current = mounted ? (theme ?? "system") : null;
 
   return (
-    <div className="bg-card rounded-2xl ring-1 ring-foreground/10 p-4 space-y-3">
+    <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl p-4 space-y-3">
       <div>
-        <p className="text-sm font-semibold text-foreground">Tampilan</p>
-        <p className="text-xs text-muted-foreground mt-0.5">
+        <p className="text-sm font-semibold text-white/90">Tampilan</p>
+        <p className="text-xs text-white/40 mt-0.5">
           Pilih mode terang, gelap, atau ikuti sistem.
         </p>
       </div>
 
       <div
-        className="grid grid-cols-3 gap-1 p-1 bg-muted rounded-lg"
+        className="grid grid-cols-3 gap-1 p-1 bg-white/[0.05] rounded-xl border border-white/[0.07]"
         role="radiogroup"
         aria-label="Mode tampilan"
       >
@@ -53,13 +47,13 @@ export function PreferencesCard() {
               aria-checked={active}
               onClick={() => setTheme(opt.value)}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 py-2 rounded-md text-xs font-medium transition-colors",
+                "flex flex-col items-center justify-center gap-1 py-2 rounded-lg text-xs font-medium transition-all duration-200",
                 active
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
+                  ? "bg-white/[0.12] text-white shadow-sm"
+                  : "text-white/40 hover:text-white/70 hover:bg-white/[0.05]",
               )}
             >
-              <Icon size={16} />
+              <Icon size={15} />
               {opt.label}
             </button>
           );

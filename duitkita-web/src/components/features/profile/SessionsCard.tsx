@@ -1,7 +1,6 @@
 "use client";
 
 import { Smartphone, Monitor, Globe, Loader2, Trash2, LogOut } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { formatRelativeTime } from "@/lib/utils";
 import type { Session } from "@/types";
 
@@ -37,13 +36,13 @@ function parseDeviceLabel(deviceName: string | null, userAgent: string | null): 
 
 function SessionSkeleton() {
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {[0, 1].map((i) => (
-        <div key={i} className="flex items-center gap-3 p-3 bg-muted/40 rounded-xl">
-          <div className="size-9 rounded-lg bg-muted animate-pulse" />
+        <div key={i} className="flex items-center gap-3 p-3 bg-white/[0.04] rounded-xl">
+          <div className="size-9 rounded-xl bg-white/[0.08] animate-pulse" />
           <div className="flex-1 space-y-1.5">
-            <div className="h-3 w-24 bg-muted rounded animate-pulse" />
-            <div className="h-2.5 w-32 bg-muted rounded animate-pulse" />
+            <div className="h-3 w-24 bg-white/[0.08] rounded animate-pulse" />
+            <div className="h-2.5 w-32 bg-white/[0.06] rounded animate-pulse" />
           </div>
         </div>
       ))}
@@ -65,10 +64,10 @@ export function SessionsCard({
   const otherSessionsExist = sessions.some((s) => s.id !== currentSessionId);
 
   return (
-    <div className="bg-card rounded-2xl ring-1 ring-foreground/10 p-4 space-y-3">
+    <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl p-4 space-y-3">
       <div className="flex items-center gap-2">
-        <Smartphone size={14} className="text-primary" />
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        <Smartphone size={13} className="text-purple-400" />
+        <p className="text-[11px] font-semibold text-white/45 uppercase tracking-wider">
           Perangkat Aktif
         </p>
       </div>
@@ -76,11 +75,9 @@ export function SessionsCard({
       {isLoading ? (
         <SessionSkeleton />
       ) : sessions.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-2">
-          Tidak ada sesi aktif.
-        </p>
+        <p className="text-sm text-white/40 py-2">Tidak ada sesi aktif.</p>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {sessions.map((session) => {
             const DeviceIcon = parseDeviceIcon(session.userAgent);
             const label = parseDeviceLabel(session.deviceName, session.userAgent);
@@ -90,43 +87,40 @@ export function SessionsCard({
             return (
               <div
                 key={session.id}
-                className="flex items-center gap-3 p-3 bg-muted/40 rounded-xl"
+                className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/[0.06] rounded-xl"
               >
-                <div className="size-9 rounded-lg bg-primary/15 text-primary flex items-center justify-center shrink-0">
-                  <DeviceIcon size={16} />
+                <div className="size-9 rounded-xl bg-purple-500/15 border border-purple-500/20 flex items-center justify-center shrink-0">
+                  <DeviceIcon size={15} className="text-purple-400" />
                 </div>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {label}
-                    </p>
+                    <p className="text-sm font-medium text-white/85 truncate">{label}</p>
                     {isCurrent && (
-                      <span className="text-[10px] font-semibold text-primary bg-primary/15 px-1.5 py-0.5 rounded-full shrink-0">
+                      <span className="text-[10px] font-semibold text-purple-400 bg-purple-400/15 px-1.5 py-0.5 rounded-full shrink-0">
                         Sesi ini
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-white/40">
                     {session.ipAddress ?? "IP tidak diketahui"} · Aktif{" "}
                     {formatRelativeTime(session.lastActiveAt)}
                   </p>
                 </div>
 
                 {!isCurrent && (
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
+                  <button
                     onClick={() => onRevoke(session.id)}
                     disabled={anyBusy}
                     aria-label="Hapus sesi"
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-red-400/70 hover:text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-40"
                   >
                     {isThisRevoking ? (
-                      <Loader2 size={14} className="animate-spin" />
+                      <Loader2 size={13} className="animate-spin" />
                     ) : (
-                      <Trash2 size={14} className="text-destructive" />
+                      <Trash2 size={13} />
                     )}
-                  </Button>
+                  </button>
                 )}
               </div>
             );
@@ -135,20 +129,18 @@ export function SessionsCard({
       )}
 
       {otherSessionsExist && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full"
+        <button
           onClick={() => onRevokeOthers()}
           disabled={anyBusy}
+          className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-medium text-white/55 bg-white/[0.05] border border-white/[0.08] hover:bg-white/[0.08] transition-colors disabled:opacity-40"
         >
           {isRevokingOthers ? (
-            <Loader2 size={14} className="animate-spin" />
+            <Loader2 size={12} className="animate-spin" />
           ) : (
-            <LogOut size={14} />
+            <LogOut size={12} />
           )}
           Keluar dari semua perangkat lain
-        </Button>
+        </button>
       )}
     </div>
   );

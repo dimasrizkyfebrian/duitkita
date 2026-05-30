@@ -1,10 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
-import { BellRing, CalendarClock, CheckCircle2, Loader2, Plus, Trash2 } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  BellRing,
+  CalendarClock,
+  CheckCircle2,
+  Loader2,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,20 +24,234 @@ import {
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { BillReminder, ReminderStatusFilter } from "@/types";
 
+const TABS: { value: ReminderStatusFilter; label: string }[] = [
+  { value: "upcoming", label: "Upcoming" },
+  { value: "overdue", label: "Overdue" },
+  { value: "done", label: "Done" },
+];
+
 function ReminderListSkeleton() {
   return (
     <div className="space-y-3">
       {[0, 1, 2].map((i) => (
         <div
           key={i}
-          className="bg-card rounded-2xl ring-1 ring-foreground/10 p-4 space-y-2"
+          className="bg-white/[0.04] border border-white/[0.07] rounded-2xl p-4 space-y-2.5"
         >
-          <div className="h-4 w-44 bg-muted rounded animate-pulse" />
-          <div className="h-3 w-28 bg-muted rounded animate-pulse" />
-          <div className="h-3 w-24 bg-muted rounded animate-pulse" />
+          <div className="h-4 w-44 bg-white/[0.08] rounded animate-pulse" />
+          <div className="h-3 w-28 bg-white/[0.06] rounded animate-pulse" />
+          <div className="h-3 w-24 bg-white/[0.06] rounded animate-pulse" />
+          <div className="flex gap-2 pt-1">
+            {[0, 1, 2].map((j) => (
+              <div key={j} className="h-7 w-20 bg-white/[0.06] rounded-lg animate-pulse" />
+            ))}
+          </div>
         </div>
       ))}
     </div>
+  );
+}
+
+function ReminderCard({
+  item,
+  status,
+  isBusy,
+  onEdit,
+  onMarkDone,
+  onSnooze,
+  onDelete,
+}: {
+  item: BillReminder;
+  status: ReminderStatusFilter;
+  isBusy: boolean;
+  onEdit: () => void;
+  onMarkDone: () => void;
+  onSnooze: (days: number) => void;
+  onDelete: () => void;
+}) {
+  const isDanger = status === "overdue";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
+      className="bg-white/[0.04] border border-white/[0.07] rounded-2xl p-4 space-y-3"
+      style={isDanger ? { borderColor: "rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.05)" } : undefined}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-white/90 truncate">{item.title}</p>
+          <p className={`text-xs mt-0.5 ${isDanger ? "text-red-400" : "text-white/45"}`}>
+            Jatuh tempo: {formatDate(item.dueDate)}
+          </p>
+          {item.snoozedUntil && (
+            <p className="text-xs text-white/35 mt-0.5">
+              Ditunda sampai: {formatDate(item.snoozedUntil)}
+            </p>
+          )}
+        </div>
+        <button
+          onClick={onEdit}
+          disabled={isBusy}
+          aria-label="Edit pengingat"
+          className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/[0.06] border border-white/[0.08] text-white/50 hover:text-white hover:bg-white/[0.1] transition-colors disabled:opacity-40 shrink-0"
+        >
+          {isBusy ? (
+            <Loader2 size={13} className="animate-spin" />
+          ) : (
+            <CalendarClock size={13} />
+          )}
+        </button>
+      </div>
+
+      <p className="text-base font-bold text-white/80">
+        {item.amount !== null ? formatCurrency(item.amount) : (
+          <span className="text-sm font-normal text-white/35">Tanpa nominal</span>
+        )}
+      </p>
+
+      <div className="space-y-2">
+        {/* Row 1: Tandai selesai (full width) — only when not done */}
+        {status !== "done" && (
+          <button
+            onClick={onMarkDone}
+            disabled={isBusy}
+            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-medium text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 hover:bg-emerald-400/15 transition-colors disabled:opacity-40"
+          >
+            <CheckCircle2 size={12} />
+            Tandai selesai
+          </button>
+        )}
+
+        {/* Row 2: Snooze buttons + Hapus */}
+        <div className="flex gap-1.5">
+          {status !== "done" && (
+            <>
+              {[
+                { label: "Tunda +1", days: 1 },
+                { label: "+3", days: 3 },
+                { label: "+7", days: 7 },
+              ].map(({ label, days }) => (
+                <button
+                  key={days}
+                  onClick={() => onSnooze(days)}
+                  disabled={isBusy}
+                  className="flex-1 py-1.5 rounded-xl text-xs font-medium text-white/55 bg-white/[0.06] border border-white/[0.08] hover:bg-white/[0.1] transition-colors disabled:opacity-40"
+                >
+                  {label}
+                </button>
+              ))}
+            </>
+          )}
+          <button
+            onClick={onDelete}
+            disabled={isBusy}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium text-red-400 bg-red-400/10 border border-red-400/20 hover:bg-red-400/15 transition-colors disabled:opacity-40 ml-auto"
+          >
+            <Trash2 size={12} />
+            Hapus
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function PageContent({
+  status,
+  reminders,
+  isLoading,
+  isError,
+  refetch,
+  openAdd,
+  markDone,
+  snooze,
+  isDeleting,
+  isMarkingDone,
+  isSnoozing,
+  deletingId,
+  markingDoneId,
+  snoozingId,
+  openEdit,
+  setDeleteTarget,
+}: {
+  status: ReminderStatusFilter;
+  reminders: BillReminder[];
+  isLoading: boolean;
+  isError: boolean;
+  refetch: () => void;
+  openAdd: () => void;
+  markDone: (id: string) => void;
+  snooze: (args: { id: string; snoozeDays: number }) => void;
+  isDeleting: boolean;
+  isMarkingDone: boolean;
+  isSnoozing: boolean;
+  deletingId: string | null;
+  markingDoneId: string | null;
+  snoozingId: string | null;
+  openEdit: (item: BillReminder) => void;
+  setDeleteTarget: (item: BillReminder) => void;
+}) {
+  if (isError) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-sm text-white/45">Gagal memuat pengingat.</p>
+        <button onClick={refetch} className="text-xs text-primary mt-1 font-medium">
+          Coba lagi
+        </button>
+      </div>
+    );
+  }
+
+  if (isLoading) return <ReminderListSkeleton />;
+
+  if (reminders.length === 0) {
+    return (
+      <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl py-12 px-6 text-center space-y-3">
+        <div className="w-12 h-12 rounded-2xl bg-purple-500/15 border border-purple-500/20 flex items-center justify-center mx-auto">
+          <BellRing size={22} className="text-purple-400" />
+        </div>
+        <p className="text-sm font-medium text-white/80">Belum ada data pengingat</p>
+        <p className="text-xs text-white/40">
+          Tambahkan pengingat agar tagihan tidak terlewat.
+        </p>
+        <button
+          onClick={openAdd}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90 mt-1"
+          style={{ background: "linear-gradient(135deg, #8b2be2 0%, #e91e8c 100%)" }}
+        >
+          <Plus size={14} />
+          Tambah Pengingat
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <AnimatePresence initial={false}>
+      <div className="space-y-3">
+        {reminders.map((item) => {
+          const isBusy =
+            (isDeleting && deletingId === item.id) ||
+            (isMarkingDone && markingDoneId === item.id) ||
+            (isSnoozing && snoozingId === item.id);
+
+          return (
+            <ReminderCard
+              key={item.id}
+              item={item}
+              status={status}
+              isBusy={isBusy}
+              onEdit={() => openEdit(item)}
+              onMarkDone={() => markDone(item.id)}
+              onSnooze={(days) => snooze({ id: item.id, snoozeDays: days })}
+              onDelete={() => setDeleteTarget(item)}
+            />
+          );
+        })}
+      </div>
+    </AnimatePresence>
   );
 }
 
@@ -79,7 +298,6 @@ export default function RemindersPage() {
       remindBeforeDays: Number(values.remindBeforeDays),
       recurringRule: values.recurringRule || undefined,
     };
-
     if (sheetMode === "add") {
       await createReminder(payload);
     } else if (editingItem) {
@@ -110,171 +328,107 @@ export default function RemindersPage() {
     }
   }
 
+  const contentProps = {
+    status,
+    reminders,
+    isLoading,
+    isError,
+    refetch,
+    openAdd,
+    markDone,
+    snooze,
+    isDeleting,
+    isMarkingDone,
+    isSnoozing,
+    deletingId: deletingId ?? null,
+    markingDoneId: markingDoneId ?? null,
+    snoozingId: snoozingId ?? null,
+    openEdit,
+    setDeleteTarget,
+  };
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: "easeOut" }}
-      className="w-full pt-safe-top pb-6 space-y-4"
-    >
-      <div className="px-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-foreground">{pageTitle}</h1>
-        <Button size="sm" onClick={openAdd}>
-          <Plus size={14} />
-          Tambah
-        </Button>
-      </div>
+    <>
+      {/* ── Desktop layout (lg+) ── */}
+      <div className="hidden lg:block p-6 min-h-screen">
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-white">{pageTitle}</h1>
+            <p className="desktop-text-dim text-sm mt-0.5">Kelola tagihan & jatuh tempo</p>
+          </div>
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white"
+            style={{ background: "linear-gradient(135deg, #8b2be2 0%, #e91e8c 100%)", boxShadow: "0 4px 16px rgba(139,43,226,0.35)" }}
+          >
+            <Plus size={14} />
+            Tambah
+          </button>
+        </div>
 
-      <div className="px-4">
-        <Tabs
-          value={status}
-          onValueChange={(v) => setStatus(v as ReminderStatusFilter)}
-          className="space-y-3"
-        >
-          <TabsList className="w-full">
-            <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-            <TabsTrigger value="overdue">Overdue</TabsTrigger>
-            <TabsTrigger value="done">Done</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
-
-      <div className="px-4 space-y-3">
-        {isError && (
-          <div className="text-center py-3">
-            <p className="text-sm text-muted-foreground">Gagal memuat pengingat.</p>
+        {/* Tabs */}
+        <div className="flex gap-1 p-1 bg-white/[0.05] border border-white/[0.07] rounded-2xl w-fit mb-6">
+          {TABS.map((tab) => (
             <button
-              onClick={refetch}
-              className="text-xs text-primary mt-1 font-medium"
+              key={tab.value}
+              onClick={() => setStatus(tab.value)}
+              className={`px-5 py-1.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                status === tab.value
+                  ? "bg-white/[0.12] text-white shadow-sm"
+                  : "text-white/45 hover:text-white/70 hover:bg-white/[0.05]"
+              }`}
             >
-              Coba lagi
+              {tab.label}
             </button>
-          </div>
-        )}
+          ))}
+        </div>
 
-        {isLoading ? (
-          <ReminderListSkeleton />
-        ) : reminders.length === 0 ? (
-          <div className="text-center py-12 space-y-3">
-            <div className="size-12 rounded-2xl bg-primary/15 text-primary flex items-center justify-center mx-auto">
-              <BellRing size={22} />
-            </div>
-            <p className="text-sm font-medium text-foreground">
-              Belum ada data pengingat
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Tambahkan pengingat agar tagihan tidak terlewat.
-            </p>
-            <Button size="sm" onClick={openAdd}>
-              <Plus size={14} />
-              Tambah Pengingat
-            </Button>
-          </div>
-        ) : (
-          reminders.map((item) => {
-            const isDanger = status === "overdue";
-            const isBusy =
-              (isDeleting && deletingId === item.id) ||
-              (isMarkingDone && markingDoneId === item.id) ||
-              (isSnoozing && snoozingId === item.id);
-
-            return (
-              <div
-                key={item.id}
-                className="bg-card rounded-2xl ring-1 ring-foreground/10 p-4 space-y-2"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-foreground truncate">
-                      {item.title}
-                    </p>
-                    <p
-                      className={`text-xs ${isDanger ? "text-destructive" : "text-muted-foreground"}`}
-                    >
-                      Jatuh tempo: {formatDate(item.dueDate)}
-                    </p>
-                    {item.snoozedUntil && (
-                      <p className="text-xs text-muted-foreground">
-                        Ditunda sampai: {formatDate(item.snoozedUntil)}
-                      </p>
-                    )}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => openEdit(item)}
-                    disabled={isBusy}
-                    aria-label="Edit pengingat"
-                  >
-                    {isBusy ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <CalendarClock size={14} />
-                    )}
-                  </Button>
-                </div>
-
-                <p className="text-sm text-foreground">
-                  {item.amount !== null ? formatCurrency(item.amount) : "Tanpa nominal"}
-                </p>
-
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {status !== "done" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => markDone(item.id)}
-                      disabled={isBusy}
-                    >
-                      <CheckCircle2 size={14} />
-                      Tandai selesai
-                    </Button>
-                  )}
-
-                  {status !== "done" && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => snooze({ id: item.id, snoozeDays: 1 })}
-                        disabled={isBusy}
-                      >
-                        Tunda +1
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => snooze({ id: item.id, snoozeDays: 3 })}
-                        disabled={isBusy}
-                      >
-                        +3
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => snooze({ id: item.id, snoozeDays: 7 })}
-                        disabled={isBusy}
-                      >
-                        +7
-                      </Button>
-                    </>
-                  )}
-
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => setDeleteTarget(item)}
-                    disabled={isBusy}
-                  >
-                    <Trash2 size={14} />
-                    Hapus
-                  </Button>
-                </div>
-              </div>
-            );
-          })
-        )}
+        <PageContent {...contentProps} />
       </div>
+
+      {/* ── Mobile layout ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
+        className="lg:hidden w-full pt-safe-top pb-6 space-y-4"
+      >
+        <div className="px-4 flex items-center justify-between">
+          <h1 className="text-xl font-bold text-white">{pageTitle}</h1>
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold text-white"
+            style={{ background: "linear-gradient(135deg, #8b2be2 0%, #e91e8c 100%)" }}
+          >
+            <Plus size={13} />
+            Tambah
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="px-4">
+          <div className="flex gap-1 p-1 bg-white/[0.05] border border-white/[0.07] rounded-2xl">
+            {TABS.map((tab) => (
+              <button
+                key={tab.value}
+                onClick={() => setStatus(tab.value)}
+                className={`flex-1 py-1.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                  status === tab.value
+                    ? "bg-white/[0.12] text-white shadow-sm"
+                    : "text-white/45 hover:text-white/70"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="px-4">
+          <PageContent {...contentProps} />
+        </div>
+      </motion.div>
 
       <ReminderFormSheet
         open={sheetOpen}
@@ -294,29 +448,27 @@ export default function RemindersPage() {
         <DialogContent className="max-w-sm">
           <DialogTitle>Hapus Pengingat</DialogTitle>
           <DialogDescription>
-            Yakin ingin menghapus pengingat "{deleteTarget?.title}"?
+            Yakin ingin menghapus pengingat &ldquo;{deleteTarget?.title}&rdquo;?
           </DialogDescription>
           <div className="flex justify-end gap-2 mt-2">
-            <Button
-              variant="outline"
-              size="sm"
+            <button
               onClick={() => setDeleteTarget(null)}
               disabled={isDeleting}
+              className="px-4 py-2 rounded-xl text-sm font-medium text-white/60 bg-white/[0.06] border border-white/[0.08] hover:bg-white/[0.1] transition-colors disabled:opacity-40"
             >
               Batal
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
+            </button>
+            <button
               onClick={handleDeleteConfirm}
               disabled={isDeleting}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-red-500/80 hover:bg-red-500 transition-colors disabled:opacity-40"
             >
-              {isDeleting && <Loader2 size={14} className="animate-spin" />}
+              {isDeleting && <Loader2 size={13} className="animate-spin" />}
               Hapus
-            </Button>
+            </button>
           </div>
         </DialogContent>
       </Dialog>
-    </motion.div>
+    </>
   );
 }

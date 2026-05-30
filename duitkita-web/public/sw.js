@@ -1,4 +1,4 @@
-const CACHE_NAME = 'duitkita-v4';
+const CACHE_NAME = 'duitkita-v7';
 const OFFLINE_URL = '/offline';
 
 const PRECACHE_ASSETS = [OFFLINE_URL];

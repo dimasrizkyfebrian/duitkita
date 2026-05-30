@@ -39,8 +39,19 @@ export default function AppLayout({
 
   if (!hasHydrated) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div
+        className="dark min-h-screen flex flex-col items-center justify-center gap-4"
+        style={{ background: "linear-gradient(135deg, #0f0520 0%, #1a0533 50%, #2d0b5e 100%)" }}
+      >
+        <div
+          className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin"
+          style={{
+            borderColor: "rgba(139,43,226,0.3)",
+            borderTopColor: "#c084fc",
+            filter: "drop-shadow(0 0 8px rgba(139,43,226,0.6))",
+          }}
+        />
+        <p className="text-white/30 text-xs tracking-widest uppercase">DuitKita</p>
       </div>
     );
   }
