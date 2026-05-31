@@ -69,7 +69,7 @@ export function useProfile() {
       toast.success("Foto profil berhasil diperbarui");
     },
     onError: () => {
-      toast.error("Gagal mengunggah foto. Gunakan JPEG, PNG, atau WebP (maks. 2 MB).");
+      toast.error("Gagal mengunggah foto. Gunakan JPEG, PNG, atau WebP (maks. 10 MB).");
     },
   });
 
