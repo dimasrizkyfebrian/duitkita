@@ -36,7 +36,7 @@ import { QuerySecurityAuditDto } from './dto/query-security-audit.dto';
 import { extractRequestAuditContext } from '../../common/utils/request-audit-context.util';
 
 const AVATAR_UPLOAD_OPTIONS = {
-  limits: { fileSize: 2 * 1024 * 1024 },
+  limits: { fileSize: 10 * 1024 * 1024 },
 };
 
 @ApiTags('users')

@@ -25,7 +25,7 @@ import {
 } from './storage/avatar-storage.interface';
 
 const ALLOWED_AVATAR_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
-const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+const MAX_AVATAR_BYTES = 10 * 1024 * 1024;
 
 export type ProfileInfo = {
   id: string;
