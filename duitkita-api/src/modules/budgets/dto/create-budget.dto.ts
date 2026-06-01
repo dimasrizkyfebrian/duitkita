@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsPositive, IsUUID, Max, Min } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsBoolean, IsInt, IsOptional, IsPositive, IsUUID, Max, Min } from 'class-validator';
 
 export class CreateBudgetDto {
   @ApiProperty({ example: '3fa85f64-5717-4562-b3fc-2c963f66afa6', format: 'uuid' })
@@ -22,4 +22,9 @@ export class CreateBudgetDto {
   @IsInt()
   @IsPositive()
   baseAmount: number;
+
+  @ApiPropertyOptional({ default: false, description: 'Whether to carry over the remaining balance from the previous month' })
+  @IsOptional()
+  @IsBoolean()
+  includeRollover?: boolean;
 }

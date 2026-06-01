@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -17,7 +17,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -27,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getMonthName } from "@/lib/utils";
+import { getMonthName, formatCurrencyShort } from "@/lib/utils";
 import type { MonthlyBudget, Category } from "@/types";
 
 const budgetSchema = z.object({
@@ -55,9 +54,10 @@ interface BudgetFormSheetProps {
   isCategoriesLoading: boolean;
   year: number;
   month: number;
-  onSubmit: (values: BudgetFormValues) => Promise<void>;
+  onSubmit: (values: BudgetFormValues, includeRollover: boolean) => Promise<void>;
   isSubmitting: boolean;
   budgetedCategoryIds: string[];
+  prevMonthBudgets?: MonthlyBudget[];
 }
 
 function useIsDesktop() {
@@ -83,18 +83,23 @@ export function BudgetFormSheet({
   onSubmit,
   isSubmitting,
   budgetedCategoryIds,
+  prevMonthBudgets,
 }: BudgetFormSheetProps) {
   const isDesktop = useIsDesktop();
+  const [includeRollover, setIncludeRollover] = useState(false);
 
   const {
     control,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<BudgetFormValues>({
     resolver: zodResolver(budgetSchema),
     defaultValues: { categoryId: "", baseAmount: "" },
   });
+
+  const watchedCategoryId = watch("categoryId");
 
   useEffect(() => {
     if (!open) return;
@@ -106,7 +111,12 @@ export function BudgetFormSheet({
     } else {
       reset({ categoryId: "", baseAmount: "" });
     }
+    setIncludeRollover(false);
   }, [open, mode, editingBudget, reset]);
+
+  useEffect(() => {
+    setIncludeRollover(false);
+  }, [watchedCategoryId]);
 
   const availableCategories =
     mode === "add"
@@ -115,8 +125,15 @@ export function BudgetFormSheet({
 
   const isAdd = mode === "add";
 
+  const prevBudget = prevMonthBudgets?.find((b) => b.categoryId === watchedCategoryId);
+  const availableRollover = (prevBudget?.remaining ?? 0) > 0 ? (prevBudget?.remaining ?? 0) : 0;
+  const showRolloverToggle = isAdd && availableRollover > 0;
+
   const formContent = (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form
+      onSubmit={handleSubmit((values) => onSubmit(values, includeRollover))}
+      className="space-y-4"
+    >
       {/* Category field */}
       {isAdd ? (
         <div className="space-y-1.5">
@@ -202,6 +219,39 @@ export function BudgetFormSheet({
           <p className="text-xs text-destructive">{errors.baseAmount.message}</p>
         )}
       </div>
+
+      {/* Rollover toggle */}
+      {showRolloverToggle && (
+        <div
+          className="flex items-center justify-between rounded-xl px-3.5 py-3 gap-3"
+          style={{ background: "rgba(139, 43, 226, 0.12)", border: "1px solid rgba(139, 43, 226, 0.25)" }}
+        >
+          <div className="space-y-0.5 min-w-0">
+            <p className="text-xs font-medium text-white/80">Sertakan sisa bulan lalu?</p>
+            <p className="text-xs text-white/45">
+              +{formatCurrencyShort(availableRollover)} tersedia
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={includeRollover}
+            onClick={() => setIncludeRollover((v) => !v)}
+            disabled={isSubmitting}
+            className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50"
+            style={{
+              background: includeRollover
+                ? "linear-gradient(135deg, #8b2be2, #e91e8c)"
+                : "rgba(255,255,255,0.12)",
+            }}
+          >
+            <span
+              className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200"
+              style={{ transform: includeRollover ? "translateX(20px)" : "translateX(0)" }}
+            />
+          </button>
+        </div>
+      )}
 
       {/* Submit */}
       {isDesktop ? (
