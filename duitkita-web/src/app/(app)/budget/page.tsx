@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -14,6 +15,8 @@ import {
   Wallet,
 } from "lucide-react";
 import { useBudget, usePartnerBudget } from "@/hooks/useBudget";
+import { fetchBudgets } from "@/lib/services/budget.service";
+import { QUERY_KEYS } from "@/lib/constants";
 import { useAppStore } from "@/stores/app.store";
 import { Button } from "@/components/ui/button";
 import { BorderGlow } from "@/components/ui/border-glow";
@@ -337,6 +340,15 @@ export default function BudgetPage() {
   const now = new Date();
   const isCurrentMonth = activeYear === now.getFullYear() && activeMonth === now.getMonth() + 1;
 
+  const prevMonth = activeMonth === 1 ? 12 : activeMonth - 1;
+  const prevYear = activeMonth === 1 ? activeYear - 1 : activeYear;
+
+  const prevBudgetsQuery = useQuery({
+    queryKey: QUERY_KEYS.budgets(prevYear, prevMonth),
+    queryFn: () => fetchBudgets(prevYear, prevMonth),
+    staleTime: 5 * 60 * 1000,
+  });
+
   function handlePrevMonth() {
     const { year, month } = clampYearMonth(
       activeMonth === 1 ? activeYear - 1 : activeYear,
@@ -366,11 +378,11 @@ export default function BudgetPage() {
     }
   }
 
-  async function handleFormSubmit(values: BudgetFormValues) {
+  async function handleFormSubmit(values: BudgetFormValues, includeRollover: boolean) {
     const baseAmount = parseInt(values.baseAmount.replace(/\D/g, ""), 10);
     try {
       if (sheetMode === "add") {
-        await addBudget({ categoryId: values.categoryId, year: activeYear, month: activeMonth, baseAmount });
+        await addBudget({ categoryId: values.categoryId, year: activeYear, month: activeMonth, baseAmount, includeRollover });
         setSheetMode(null);
       } else if (sheetMode === "edit" && editingBudget) {
         await editBudget({ id: editingBudget.id, payload: { baseAmount } });
@@ -823,6 +835,7 @@ export default function BudgetPage() {
         onSubmit={handleFormSubmit}
         isSubmitting={isAdding || isEditing}
         budgetedCategoryIds={budgetedCategoryIds}
+        prevMonthBudgets={prevBudgetsQuery.data ?? []}
       />
 
       <DeleteBudgetDialog

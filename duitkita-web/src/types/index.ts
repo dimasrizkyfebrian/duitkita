@@ -453,6 +453,7 @@ export interface CreateBudgetRequest {
   year: number;
   month: number;
   baseAmount: number;
+  includeRollover?: boolean;
 }
 
 export interface UpdateBudgetRequest {
