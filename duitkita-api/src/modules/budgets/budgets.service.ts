@@ -83,14 +83,10 @@ export class BudgetsService {
         throw new ConflictException(BudgetMessages.ALREADY_EXISTS);
       }
 
-      const rolloverAmount = await this.calculateRollover(
-        userId,
-        dto.categoryId,
-        dto.year,
-        dto.month,
-        budgetRepo,
-        expenseRepo,
-      );
+      const rolloverAmount =
+        dto.includeRollover === true
+          ? await this.calculateRollover(userId, dto.categoryId, dto.year, dto.month, budgetRepo, expenseRepo)
+          : 0;
 
       const budget = budgetRepo.create({
         userId,
