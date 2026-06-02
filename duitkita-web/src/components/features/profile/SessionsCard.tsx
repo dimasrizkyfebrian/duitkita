@@ -1,8 +1,12 @@
 "use client";
 
-import { Smartphone, Monitor, Globe, Loader2, Trash2, LogOut } from "lucide-react";
+import { useState } from "react";
+import { Smartphone, Monitor, Globe, Loader2, Trash2, LogOut, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "@/lib/utils";
 import type { Session } from "@/types";
+
+const VISIBLE_LIMIT = 3;
 
 interface SessionsCardProps {
   sessions: Session[];
@@ -50,6 +54,57 @@ function SessionSkeleton() {
   );
 }
 
+interface SessionRowProps {
+  session: Session;
+  isCurrent: boolean;
+  isThisRevoking: boolean;
+  anyBusy: boolean;
+  onRevoke: (id: string) => Promise<unknown>;
+}
+
+function SessionRow({ session, isCurrent, isThisRevoking, anyBusy, onRevoke }: SessionRowProps) {
+  const DeviceIcon = parseDeviceIcon(session.userAgent);
+  const label = parseDeviceLabel(session.deviceName, session.userAgent);
+
+  return (
+    <div className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/[0.06] rounded-xl">
+      <div className="size-9 rounded-xl bg-purple-500/15 border border-purple-500/20 flex items-center justify-center shrink-0">
+        <DeviceIcon size={15} className="text-purple-400" />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-medium text-white/85 truncate">{label}</p>
+          {isCurrent && (
+            <span className="text-[10px] font-semibold text-purple-400 bg-purple-400/15 px-1.5 py-0.5 rounded-full shrink-0">
+              Sesi ini
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-white/40">
+          {session.ipAddress ?? "IP tidak diketahui"} · Aktif{" "}
+          {formatRelativeTime(session.lastActiveAt)}
+        </p>
+      </div>
+
+      {!isCurrent && (
+        <button
+          onClick={() => onRevoke(session.id)}
+          disabled={anyBusy}
+          aria-label="Hapus sesi"
+          className="w-7 h-7 flex items-center justify-center rounded-lg text-red-400/70 hover:text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-40"
+        >
+          {isThisRevoking ? (
+            <Loader2 size={13} className="animate-spin" />
+          ) : (
+            <Trash2 size={13} />
+          )}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function SessionsCard({
   sessions,
   currentSessionId,
@@ -60,16 +115,29 @@ export function SessionsCard({
   isRevoking,
   isRevokingOthers,
 }: SessionsCardProps) {
+  const [expanded, setExpanded] = useState(false);
   const anyBusy = isRevoking || isRevokingOthers;
   const otherSessionsExist = sessions.some((s) => s.id !== currentSessionId);
+
+  // Current session always first, then others sorted by last active
+  const sorted = [
+    ...sessions.filter((s) => s.id === currentSessionId),
+    ...sessions.filter((s) => s.id !== currentSessionId),
+  ];
+
+  const visibleSessions = expanded ? sorted : sorted.slice(0, VISIBLE_LIMIT);
+  const hiddenCount = sorted.length - VISIBLE_LIMIT;
 
   return (
     <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl p-4 space-y-3">
       <div className="flex items-center gap-2">
         <Smartphone size={13} className="text-purple-400" />
-        <p className="text-[11px] font-semibold text-white/45 uppercase tracking-wider">
+        <p className="text-[11px] font-semibold text-white/45 uppercase tracking-wider flex-1">
           Perangkat Aktif
         </p>
+        {!isLoading && sessions.length > 0 && (
+          <span className="text-xs text-white/35">{sessions.length} sesi</span>
+        )}
       </div>
 
       {isLoading ? (
@@ -78,53 +146,30 @@ export function SessionsCard({
         <p className="text-sm text-white/40 py-2">Tidak ada sesi aktif.</p>
       ) : (
         <div className="space-y-1.5">
-          {sessions.map((session) => {
-            const DeviceIcon = parseDeviceIcon(session.userAgent);
-            const label = parseDeviceLabel(session.deviceName, session.userAgent);
-            const isCurrent = session.id === currentSessionId;
-            const isThisRevoking = isRevoking && revokingId === session.id;
+          {visibleSessions.map((session) => (
+            <SessionRow
+              key={session.id}
+              session={session}
+              isCurrent={session.id === currentSessionId}
+              isThisRevoking={isRevoking && revokingId === session.id}
+              anyBusy={anyBusy}
+              onRevoke={onRevoke}
+            />
+          ))}
 
-            return (
-              <div
-                key={session.id}
-                className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/[0.06] rounded-xl"
-              >
-                <div className="size-9 rounded-xl bg-purple-500/15 border border-purple-500/20 flex items-center justify-center shrink-0">
-                  <DeviceIcon size={15} className="text-purple-400" />
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-white/85 truncate">{label}</p>
-                    {isCurrent && (
-                      <span className="text-[10px] font-semibold text-purple-400 bg-purple-400/15 px-1.5 py-0.5 rounded-full shrink-0">
-                        Sesi ini
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-white/40">
-                    {session.ipAddress ?? "IP tidak diketahui"} · Aktif{" "}
-                    {formatRelativeTime(session.lastActiveAt)}
-                  </p>
-                </div>
-
-                {!isCurrent && (
-                  <button
-                    onClick={() => onRevoke(session.id)}
-                    disabled={anyBusy}
-                    aria-label="Hapus sesi"
-                    className="w-7 h-7 flex items-center justify-center rounded-lg text-red-400/70 hover:text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-40"
-                  >
-                    {isThisRevoking ? (
-                      <Loader2 size={13} className="animate-spin" />
-                    ) : (
-                      <Trash2 size={13} />
-                    )}
-                  </button>
-                )}
-              </div>
-            );
-          })}
+          {hiddenCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-white/40 hover:text-white/60 transition-colors"
+            >
+              <ChevronDown
+                size={13}
+                className={cn("transition-transform duration-200", expanded && "rotate-180")}
+              />
+              {expanded ? "Sembunyikan" : `Lihat ${hiddenCount} sesi lainnya`}
+            </button>
+          )}
         </div>
       )}
 

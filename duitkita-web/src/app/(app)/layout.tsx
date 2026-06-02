@@ -20,15 +20,29 @@ export default function AppLayout({
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isSidebarCollapsed = useAppStore((s) => s.isSidebarCollapsed);
   useOfflineSync();
-  const [hasHydrated, setHasHydrated] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return useAuthStore.persist?.hasHydrated() ?? false;
-  });
+  const [hasHydrated, setHasHydrated] = useState(false);
 
   useEffect(() => {
-    return useAuthStore.persist.onFinishHydration(() => {
+    // Zustand reads localStorage synchronously on module load, so the store
+    // may already be hydrated before this effect registers the listener.
+    // Always check first; only subscribe if not yet done.
+    if (useAuthStore.persist.hasHydrated()) {
+      setHasHydrated(true);
+      return;
+    }
+
+    const unsub = useAuthStore.persist.onFinishHydration(() => {
       setHasHydrated(true);
     });
+
+    // Safety valve: if hydration never fires (corrupted storage, cold start
+    // timing), unblock the UI after 3 s instead of hanging forever.
+    const timer = setTimeout(() => setHasHydrated(true), 3000);
+
+    return () => {
+      unsub();
+      clearTimeout(timer);
+    };
   }, []);
 
   useEffect(() => {

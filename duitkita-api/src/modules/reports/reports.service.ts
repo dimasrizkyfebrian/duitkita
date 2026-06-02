@@ -331,8 +331,20 @@ export class ReportsService {
       year,
       month,
     );
-    const burnRatePerDay =
-      daysElapsed > 0 ? Math.round(totalSpent / daysElapsed) : 0;
+
+    // When fewer than 3 days have elapsed the actual burn rate is too noisy.
+    // Blend actual burn rate with the budget-implied daily rate to dampen wild
+    // early-month projections. Weight shifts fully to actual after 14 days.
+    const budgetDailyRate =
+      daysInMonth > 0 ? Math.round(totalEffectiveBudget / daysInMonth) : 0;
+    const actualBurnRate =
+      daysElapsed > 0 ? Math.round(totalSpent / daysElapsed) : budgetDailyRate;
+
+    const blendWeight = Math.min(1, daysElapsed / 14); // 0 → 1 over first 14 days
+    const burnRatePerDay = Math.round(
+      actualBurnRate * blendWeight + budgetDailyRate * (1 - blendWeight),
+    );
+
     const projectedSpent = totalSpent + burnRatePerDay * daysRemaining;
     const projectedRemaining = Math.round(totalEffectiveBudget - projectedSpent);
 

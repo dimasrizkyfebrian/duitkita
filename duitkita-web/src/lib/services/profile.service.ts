@@ -35,11 +35,11 @@ export async function deleteAvatar(): Promise<User> {
   return res.data;
 }
 
-export async function fetchAvatarBlobUrl(userId: string): Promise<string> {
+export async function fetchAvatarBlob(userId: string): Promise<Blob> {
   const res = await api.get(API_ROUTES.users.userAvatar(userId), {
     responseType: "blob",
   });
-  return URL.createObjectURL(res.data);
+  return res.data as Blob;
 }
 
 export async function changePassword(

@@ -10,15 +10,22 @@ import { Expense } from '../../database/entities/expense.entity';
 import { MonthlyBudget } from '../../database/entities/monthly-budget.entity';
 import { Couple } from '../../database/entities/couple.entity';
 import { Category } from '../../database/entities/category.entity';
+import { User } from '../../database/entities/user.entity';
 import {
   ActivityAction,
   ActivityEntityType,
 } from '../../database/entities/activity.entity';
+import { NotificationType } from '../../database/entities/notification.entity';
 import { ActivityService } from '../activity/activity.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { validateYearMonth } from '../../common/utils/validate-period.util';
 import { ExpenseMessages } from '../../common/constants/expense.messages';
+
+function formatRupiah(amount: number): string {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount);
+}
 
 @Injectable()
 export class ExpensesService {
@@ -35,8 +42,12 @@ export class ExpensesService {
     @InjectRepository(Category)
     private readonly categoryRepo: Repository<Category>,
 
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+
     private readonly dataSource: DataSource,
     private readonly activityService: ActivityService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(userId: string, dto: CreateExpenseDto): Promise<Expense> {
@@ -100,6 +111,8 @@ export class ExpensesService {
     } catch {
       /* activity log failure must not break the main operation */
     }
+
+    void this.notifyPartnerActivity(userId, result.category.name, Number(result.saved.amount), result.saved.note ?? null);
 
     return result.saved;
   }
@@ -297,6 +310,39 @@ export class ExpensesService {
   ): Promise<Expense[]> {
     const partnerId = await this.getPartnerId(requestingUserId);
     return this.findAllByMonth(partnerId, year, month, categoryId);
+  }
+
+  private async notifyPartnerActivity(
+    actorId: string,
+    categoryName: string,
+    amount: number,
+    note: string | null,
+  ): Promise<void> {
+    try {
+      const couple = await this.coupleRepo
+        .createQueryBuilder('couple')
+        .where('couple.user1_id = :actorId OR couple.user2_id = :actorId', { actorId })
+        .getOne();
+      if (!couple) return;
+
+      const partnerId = couple.user1Id === actorId ? couple.user2Id : couple.user1Id;
+      const actor = await this.userRepo.findOne({ where: { id: actorId }, select: ['name'] });
+      if (!actor) return;
+
+      const body = note
+        ? `${formatRupiah(amount)} untuk ${categoryName} · ${note}`
+        : `${formatRupiah(amount)} untuk ${categoryName}`;
+
+      await this.notificationsService.create({
+        userId: partnerId,
+        type: NotificationType.PARTNER_ACTIVITY,
+        title: `${actor.name} mencatat pengeluaran`,
+        body,
+        payloadJson: { actorId, categoryName, amount },
+      });
+    } catch {
+      /* notification failure must not surface to the caller */
+    }
   }
 
   private async getPartnerId(userId: string): Promise<string> {
