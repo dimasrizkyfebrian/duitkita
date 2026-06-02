@@ -1,6 +1,8 @@
 "use client";
 
-import { Bell } from "lucide-react";
+import { useState } from "react";
+import { Bell, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useNotificationPreferences } from "@/hooks/useNotifications";
 import type { UpdateNotificationPreferencesRequest } from "@/types";
 
@@ -26,7 +28,7 @@ interface ToggleRowProps {
 
 function ToggleRow({ label, description, checked, disabled, onChange }: ToggleRowProps) {
   return (
-    <label className="flex items-center justify-between gap-3 cursor-pointer">
+    <label className="flex items-center justify-between gap-3 py-3 cursor-pointer">
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-white/85">{label}</p>
         <p className="text-xs text-white/40">{description}</p>
@@ -55,36 +57,60 @@ function ToggleRow({ label, description, checked, disabled, onChange }: ToggleRo
 }
 
 export function NotificationPreferencesCard() {
+  const [open, setOpen] = useState(false);
   const { preferences, isLoading, updatePreferences, isUpdating } = useNotificationPreferences();
 
+  const enabledCount = preferences
+    ? PREF_CONFIG.filter(({ key }) => preferences[key]).length
+    : null;
+
   return (
-    <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl p-4 space-y-4">
-      <div className="flex items-center gap-2">
-        <Bell size={13} className="text-purple-400" />
-        <span className="text-[11px] font-semibold text-white/50 uppercase tracking-wider">Notifikasi</span>
-      </div>
+    <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-3 p-4 hover:bg-white/[0.03] transition-colors"
+      >
+        <Bell size={13} className="text-purple-400 shrink-0" />
+        <span className="text-[11px] font-semibold text-white/50 uppercase tracking-wider flex-1 text-left">
+          Notifikasi
+        </span>
+        {enabledCount !== null && !open && (
+          <span className="text-xs text-white/35 mr-1">
+            {enabledCount}/{PREF_CONFIG.length} aktif
+          </span>
+        )}
+        <ChevronDown
+          size={15}
+          className={cn(
+            "text-white/30 transition-transform duration-200 shrink-0",
+            open && "rotate-180",
+          )}
+        />
+      </button>
 
-      {isLoading && (
-        <div className="space-y-3">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="h-10 bg-white/[0.06] animate-pulse rounded-xl" />
-          ))}
-        </div>
-      )}
-
-      {!isLoading && preferences && (
-        <div className="space-y-4 divide-y divide-white/[0.06]">
-          {PREF_CONFIG.map(({ key, label, description }) => (
-            <div key={key} className="pt-4 first:pt-0">
-              <ToggleRow
-                label={label}
-                description={description}
-                checked={preferences[key]}
-                disabled={isUpdating}
-                onChange={(checked) => updatePreferences({ [key]: checked })}
-              />
+      {open && (
+        <div className="px-4 pb-2 border-t border-white/[0.06]">
+          {isLoading ? (
+            <div className="space-y-3 py-3">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-10 bg-white/[0.06] animate-pulse rounded-xl" />
+              ))}
             </div>
-          ))}
+          ) : preferences ? (
+            <div className="divide-y divide-white/[0.06]">
+              {PREF_CONFIG.map(({ key, label, description }) => (
+                <ToggleRow
+                  key={key}
+                  label={label}
+                  description={description}
+                  checked={preferences[key]}
+                  disabled={isUpdating}
+                  onChange={(checked) => updatePreferences({ [key]: checked })}
+                />
+              ))}
+            </div>
+          ) : null}
         </div>
       )}
     </div>

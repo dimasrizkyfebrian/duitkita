@@ -1,12 +1,13 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { useAuthStore } from "@/stores/auth.store";
 import { QUERY_KEYS } from "@/lib/constants";
+import { fetchPartner } from "@/lib/services/profile.service";
 import { formatCurrencyShort, formatRelativeTime } from "@/lib/utils";
-import type { Activity, Partner } from "@/types";
+import type { Activity } from "@/types";
 
 interface ActivityListItemProps {
   activity: Activity;
@@ -37,8 +38,11 @@ export function ActivityListItem({
   currentUserId,
 }: ActivityListItemProps) {
   const currentUser = useAuthStore((s) => s.user);
-  const qc = useQueryClient();
-  const partner = qc.getQueryData<Partner>(QUERY_KEYS.partner());
+  const { data: partner } = useQuery({
+    queryKey: QUERY_KEYS.partner(),
+    queryFn: fetchPartner,
+    staleTime: 5 * 60_000,
+  });
 
   const isOwn = activity.actorId === currentUserId;
   const actorLabel = isOwn ? "Kamu" : activity.actorName;

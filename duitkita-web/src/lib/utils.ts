@@ -75,11 +75,13 @@ export function formatCurrency(amount: number): string {
 }
 
 export function formatCurrencyShort(amount: number): string {
-  if (amount >= 1_000_000) {
-    return `${(amount / 1_000_000).toFixed(1).replace(".", ",")}jt`;
+  const abs = Math.abs(amount);
+  const sign = amount < 0 ? "-" : "";
+  if (abs >= 1_000_000) {
+    return `${sign}${(abs / 1_000_000).toFixed(1).replace(".", ",")}jt`;
   }
-  if (amount >= 1_000) {
-    return `${(amount / 1_000).toFixed(0)}rb`;
+  if (abs >= 1_000) {
+    return `${sign}${(abs / 1_000).toFixed(0)}rb`;
   }
   return amount.toString();
 }

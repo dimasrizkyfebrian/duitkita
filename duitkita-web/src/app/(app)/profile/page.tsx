@@ -12,7 +12,6 @@ import { useAuthStore } from "@/stores/auth.store";
 import { Button } from "@/components/ui/button";
 import { ProfileHeader } from "@/components/features/profile/ProfileHeader";
 import { PartnerCard } from "@/components/features/profile/PartnerCard";
-import { PreferencesCard } from "@/components/features/profile/PreferencesCard";
 import { NotificationPreferencesCard } from "@/components/features/profile/NotificationPreferencesCard";
 import { SecurityCard } from "@/components/features/profile/SecurityCard";
 import { AppVersionFooter } from "@/components/features/profile/AppVersionFooter";
@@ -208,8 +207,6 @@ export default function ProfilePage() {
           onInvite={() => setInviteOpen(true)}
           onUnlink={() => setUnlinkOpen(true)}
         />
-
-        <PreferencesCard />
 
         <NotificationPreferencesCard />
 

@@ -4,11 +4,8 @@ import { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, ShieldCheck, Lock } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 const schema = z
@@ -40,6 +37,7 @@ interface FieldDef {
   label: string;
   showKey: "current" | "next" | "confirm";
   autoComplete: string;
+  hint?: string;
 }
 
 const FIELDS: FieldDef[] = [
@@ -54,6 +52,7 @@ const FIELDS: FieldDef[] = [
     label: "Password baru",
     showKey: "next",
     autoComplete: "new-password",
+    hint: "Minimal 8 karakter",
   },
   {
     name: "confirmPassword",
@@ -62,6 +61,76 @@ const FIELDS: FieldDef[] = [
     autoComplete: "new-password",
   },
 ];
+
+function PasswordField({
+  fieldDef,
+  control,
+  error,
+  isSubmitting,
+  visible,
+  onToggleVisible,
+}: {
+  fieldDef: FieldDef;
+  control: ReturnType<typeof useForm<ChangePasswordFormValues>>["control"];
+  error?: string;
+  isSubmitting: boolean;
+  visible: boolean;
+  onToggleVisible: () => void;
+}) {
+  const [focused, setFocused] = useState(false);
+  const Icon = visible ? EyeOff : Eye;
+
+  return (
+    <div className="space-y-1.5">
+      <label
+        htmlFor={fieldDef.name}
+        className="text-xs font-medium text-white/45 uppercase tracking-wider flex items-center gap-1.5"
+      >
+        <Lock size={11} />
+        {fieldDef.label}
+      </label>
+      <div
+        className={cn(
+          "flex items-center bg-white/[0.05] border rounded-xl transition-all duration-200",
+          focused && !error ? "border-purple-500/50 ring-2 ring-purple-500/10" : "",
+          error ? "border-red-500/50 ring-2 ring-red-500/10" : "border-white/[0.08]",
+        )}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+      >
+        <Controller
+          control={control}
+          name={fieldDef.name}
+          render={({ field }) => (
+            <input
+              id={fieldDef.name}
+              type={visible ? "text" : "password"}
+              autoComplete={fieldDef.autoComplete}
+              disabled={isSubmitting}
+              placeholder="••••••••"
+              className="flex-1 h-11 bg-transparent px-3.5 text-sm text-white/90 placeholder:text-white/20 outline-none disabled:opacity-50"
+              {...field}
+            />
+          )}
+        />
+        <button
+          type="button"
+          onClick={onToggleVisible}
+          tabIndex={-1}
+          aria-label={visible ? "Sembunyikan password" : "Tampilkan password"}
+          className="px-3 text-white/30 hover:text-white/60 transition-colors"
+        >
+          <Icon size={15} />
+        </button>
+      </div>
+      {error ? (
+        <p className="text-xs text-red-400">{error}</p>
+      ) : fieldDef.hint ? (
+        <p className="text-xs text-white/25">{fieldDef.hint}</p>
+      ) : null}
+    </div>
+  );
+}
 
 function ChangePasswordForm({
   onSubmit,
@@ -76,61 +145,35 @@ function ChangePasswordForm({
     defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
   });
 
-  const [show, setShow] = useState({
-    current: false,
-    next: false,
-    confirm: false,
-  });
+  const [show, setShow] = useState({ current: false, next: false, confirm: false });
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {FIELDS.map((f) => {
-        const visible = show[f.showKey];
-        const Icon = visible ? EyeOff : Eye;
-        return (
-          <div key={f.name} className="space-y-1.5">
-            <Label htmlFor={f.name}>{f.label}</Label>
-            <div className="relative">
-              <Controller
-                control={control}
-                name={f.name}
-                render={({ field }) => (
-                  <Input
-                    id={f.name}
-                    type={visible ? "text" : "password"}
-                    autoComplete={f.autoComplete}
-                    disabled={isSubmitting}
-                    className="pr-10"
-                    {...field}
-                  />
-                )}
-              />
-              <button
-                type="button"
-                onClick={() =>
-                  setShow((s) => ({ ...s, [f.showKey]: !s[f.showKey] }))
-                }
-                className={cn(
-                  "absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground",
-                )}
-                aria-label={visible ? "Sembunyikan" : "Tampilkan"}
-              >
-                <Icon size={16} />
-              </button>
-            </div>
-            {errors[f.name] && (
-              <p className="text-xs text-destructive">
-                {errors[f.name]?.message}
-              </p>
-            )}
-          </div>
-        );
-      })}
+      {FIELDS.map((f) => (
+        <PasswordField
+          key={f.name}
+          fieldDef={f}
+          control={control}
+          error={errors[f.name]?.message}
+          isSubmitting={isSubmitting}
+          visible={show[f.showKey]}
+          onToggleVisible={() => setShow((s) => ({ ...s, [f.showKey]: !s[f.showKey] }))}
+        />
+      ))}
 
-      <Button type="submit" className="w-full" disabled={isSubmitting}>
-        {isSubmitting && <Loader2 size={14} className="animate-spin" />}
-        Simpan Password Baru
-      </Button>
+      <div className="pt-1">
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full h-11 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50"
+          style={{
+            background: "linear-gradient(135deg, #7c3aed, #db2777)",
+          }}
+        >
+          {isSubmitting ? <Loader2 size={15} className="animate-spin" /> : null}
+          Simpan Password Baru
+        </button>
+      </div>
     </form>
   );
 }
@@ -147,16 +190,29 @@ export function ChangePasswordSheet({
         side="bottom"
         showCloseButton={false}
         aria-describedby={undefined}
-        className="rounded-t-2xl p-0 max-h-[85vh] overflow-y-auto"
+        className="rounded-t-2xl p-0 max-h-[90vh] overflow-y-auto border-t border-white/[0.08] bg-[#0d0920]/98"
       >
-        <div className="px-4 pt-3 pb-8 space-y-4">
-          <div className="w-10 h-1 bg-muted rounded-full mx-auto" />
+        <div className="px-5 pt-3 pb-8 space-y-5">
+          {/* Drag handle */}
+          <div className="w-10 h-1 bg-white/[0.12] rounded-full mx-auto" />
 
-          <SheetTitle className="text-base font-semibold text-foreground">
-            Ganti Password
-          </SheetTitle>
+          {/* Header */}
+          <div className="flex items-center gap-3">
+            <div className="size-9 rounded-xl bg-purple-500/15 border border-purple-500/20 flex items-center justify-center shrink-0">
+              <ShieldCheck size={15} className="text-purple-400" />
+            </div>
+            <div>
+              <SheetTitle className="text-base font-semibold text-white/90">
+                Ganti Password
+              </SheetTitle>
+              <p className="text-xs text-white/35 mt-0.5">Pastikan password baru kamu kuat</p>
+            </div>
+          </div>
 
-          {/* Form remounts each time SheetContent mounts -> fresh state per open. */}
+          {/* Divider */}
+          <div className="h-px bg-white/[0.06]" />
+
+          {/* Form remounts each time SheetContent mounts → fresh state per open. */}
           <ChangePasswordForm onSubmit={onSubmit} isSubmitting={isSubmitting} />
         </div>
       </SheetContent>

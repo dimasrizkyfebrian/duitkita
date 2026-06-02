@@ -68,7 +68,7 @@ export function DashboardHeader({ userName, year, month }: DashboardHeaderProps)
         <div>
           <p className="text-white/55 text-sm font-medium">{getGreeting()} 👋</p>
           <p className="text-white font-bold text-2xl leading-tight mt-0.5">
-            {userName.split(" ")[0]}
+            {userName}
           </p>
 
           {/* Month navigation */}

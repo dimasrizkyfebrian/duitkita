@@ -11,7 +11,9 @@ import {
   BarChart2,
   Activity,
   Bell,
+  BellRing,
   RefreshCw,
+  AlarmClock,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -48,8 +50,9 @@ const NAV_GROUPS = [
   {
     label: "KELOLA",
     items: [
+      { href: "/notifications", icon: Bell, label: "Notifikasi" },
       { href: "/activity", icon: Activity, label: "Aktivitas" },
-      { href: "/reminders", icon: Bell, label: "Pengingat" },
+      { href: "/reminders", icon: AlarmClock, label: "Pengingat" },
       { href: "/recurring", icon: RefreshCw, label: "Berulang" },
     ],
   },
@@ -206,6 +209,8 @@ export function Sidebar() {
             <div className="space-y-0.5">
               {group.items.map(({ href, icon: Icon, label }) => {
                 const isActive = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+                const isNotif = href === "/notifications";
+                const showBadge = isNotif && unreadCount > 0;
 
                 return (
                   <Link
@@ -220,13 +225,19 @@ export function Sidebar() {
                       collapsed && "justify-center px-0 py-2.5"
                     )}
                   >
-                    <Icon
-                      size={16}
-                      className={cn(
-                        "shrink-0 transition-colors",
-                        isActive ? "text-purple-300" : "text-white/40 group-hover:text-white/70"
+                    <div className="relative shrink-0">
+                      <Icon
+                        size={16}
+                        className={cn(
+                          "transition-colors",
+                          isActive ? "text-purple-300" : "text-white/40 group-hover:text-white/70"
+                        )}
+                      />
+                      {/* Unread dot on icon (visible when collapsed) */}
+                      {showBadge && collapsed && (
+                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-pink-500 border border-black/40" />
                       )}
-                    />
+                    </div>
 
                     <AnimatePresence>
                       {!collapsed && (
@@ -242,8 +253,15 @@ export function Sidebar() {
                       )}
                     </AnimatePresence>
 
-                    {/* Active indicator dot */}
-                    {isActive && !collapsed && (
+                    {/* Unread badge (expanded) */}
+                    {showBadge && !collapsed && (
+                      <span className="shrink-0 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-pink-500 text-white text-[10px] font-bold px-1">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
+
+                    {/* Active indicator dot (only when no badge) */}
+                    {isActive && !collapsed && !showBadge && (
                       <motion.span
                         layoutId="sidebar-active"
                         className="w-1 h-1 rounded-full bg-purple-400 shrink-0"
@@ -269,17 +287,12 @@ export function Sidebar() {
               )}
               title={collapsed ? user?.name ?? "Akun" : undefined}
             >
-              <div className="relative shrink-0">
-                <UserAvatar
-                  userId={user?.id ?? ""}
-                  name={user?.name ?? ""}
-                  hasAvatar={user?.hasAvatar ?? false}
-                  className="w-7 h-7 ring-1 ring-white/[0.12]"
-                />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-pink-500 border border-black/30" />
-                )}
-              </div>
+              <UserAvatar
+                userId={user?.id ?? ""}
+                name={user?.name ?? ""}
+                hasAvatar={user?.hasAvatar ?? false}
+                className="w-7 h-7 ring-1 ring-white/[0.12] shrink-0"
+              />
 
               <AnimatePresence>
                 {!collapsed && (
