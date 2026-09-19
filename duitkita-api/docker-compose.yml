@@ -1,0 +1,24 @@
+services:
+  api:
+    build:
+      context: .
+      target: dev
+    container_name: duitkita-api
+    env_file:
+      - .env
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    volumes:
+      - .:/app
+      - go-mod-cache:/go/pkg/mod
+    # Lets the container reach Postgres/Redis containers that publish their
+    # ports to the host (e.g. `-p 5432:5432`), without joining their network.
+    # If those containers only listen on a custom Docker network instead,
+    # replace this with `networks:` pointing at that external network and
+    # use the container's service name as DB_HOST/REDIS_HOST in .env.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  go-mod-cache:

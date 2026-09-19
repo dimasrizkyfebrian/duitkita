@@ -1,0 +1,17 @@
+.git/
+.gitignore
+.env
+.env.*
+!.env.example
+
+tmp/
+bin/
+dist/
+coverage.out
+
+test/
+
+.vscode/
+.idea/
+
+*.md
