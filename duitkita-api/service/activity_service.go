@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
@@ -31,10 +32,11 @@ type ActivityService interface {
 type activityService struct {
 	repo       repository.ActivityRepository
 	coupleRepo repository.CoupleRepository
+	notifSvc   NotificationService
 }
 
-func NewActivityService(repo repository.ActivityRepository, coupleRepo repository.CoupleRepository) ActivityService {
-	return &activityService{repo: repo, coupleRepo: coupleRepo}
+func NewActivityService(repo repository.ActivityRepository, coupleRepo repository.CoupleRepository, notifSvc NotificationService) ActivityService {
+	return &activityService{repo: repo, coupleRepo: coupleRepo, notifSvc: notifSvc}
 }
 
 func (s *activityService) List(ctx context.Context, userID string, limit, offset int) ([]ActivityItem, error) {
@@ -81,7 +83,30 @@ func (s *activityService) LogActivity(ctx context.Context, actorID string, actio
 		EntityID:   entityID,
 		Meta:       metaJSON,
 	}
-	_ = s.repo.Create(ctx, activity)
+	if err := s.repo.Create(ctx, activity); err != nil {
+		return
+	}
+
+	s.notifyPartner(ctx, couple, actorID, action, entityType)
+}
+
+func (s *activityService) notifyPartner(ctx context.Context, couple *domain.Couple, actorID string, action domain.ActivityAction, entityType domain.ActivityEntityType) {
+	partner := couple.User2
+	actorName := couple.User1.Name
+	if couple.User2ID == actorID {
+		partner = couple.User1
+		actorName = couple.User2.Name
+	}
+
+	body := fmt.Sprintf("%s %s %s %s", actorName, action, article(entityType), entityType)
+	_ = s.notifSvc.Create(ctx, partner.ID, domain.NotificationTypePartnerActivity, "Partner activity", body)
+}
+
+func article(entityType domain.ActivityEntityType) string {
+	if entityType == domain.ActivityEntityTypeExpense {
+		return "an"
+	}
+	return "a"
 }
 
 func toActivityItems(items []domain.Activity) []ActivityItem {

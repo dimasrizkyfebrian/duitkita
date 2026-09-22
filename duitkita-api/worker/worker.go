@@ -9,7 +9,7 @@ func RegisterAll(scheduler *infrastructure.Scheduler, svcs *service.Services) er
 	if err := scheduler.Register("recurring-expenses", "0 0 * * * *", NewRecurringExpenseJob(svcs.RecurringExpense)); err != nil {
 		return err
 	}
-	
+
 	if err := scheduler.Register("reminders", "0 0 * * * *", NewReminderJob(svcs.Reminder)); err != nil {
 		return err
 	}

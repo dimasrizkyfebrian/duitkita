@@ -18,6 +18,7 @@ type Services struct {
 	Reminder         ReminderService
 	Notification     NotificationService
 	Report           ReportService
+	Insights         InsightsService
 	ReportExport     ReportExportService
 	Activity         ActivityService
 	SecurityAudit    SecurityAuditService
@@ -43,7 +44,7 @@ func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.Reten
 
 	securityAuditSvc := NewSecurityAuditService(securityAuditRepo)
 	notificationSvc := NewNotificationService(notificationRepo, notificationPrefRepo)
-	activitySvc := NewActivityService(activityRepo, coupleRepo)
+	activitySvc := NewActivityService(activityRepo, coupleRepo, notificationSvc)
 	reportSvc := NewReportService(reportRepo, budgetRepo, coupleRepo)
 
 	return &Services{
@@ -51,12 +52,13 @@ func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.Reten
 		User:             NewUserService(userRepo, securityAuditSvc, storage),
 		Couple:           NewCoupleService(coupleRepo, invitationRepo, userRepo, securityAuditSvc),
 		Category:         NewCategoryService(categoryRepo),
-		Budget:           NewBudgetService(budgetRepo, categoryRepo, coupleRepo),
-		Expense:          NewExpenseService(expenseRepo, categoryRepo, budgetRepo, coupleRepo),
+		Budget:           NewBudgetService(budgetRepo, categoryRepo, coupleRepo, activitySvc),
+		Expense:          NewExpenseService(expenseRepo, categoryRepo, budgetRepo, coupleRepo, activitySvc),
 		RecurringExpense: NewRecurringExpenseService(recurringExpenseRepo, categoryRepo, budgetRepo, expenseRepo),
 		Reminder:         NewReminderService(reminderRepo, notificationSvc),
 		Notification:     notificationSvc,
 		Report:           reportSvc,
+		Insights:         NewInsightsService(reportRepo, reportSvc),
 		ReportExport:     NewReportExportService(reportExportRepo, reportSvc, storage),
 		Activity:         activitySvc,
 		SecurityAudit:    securityAuditSvc,

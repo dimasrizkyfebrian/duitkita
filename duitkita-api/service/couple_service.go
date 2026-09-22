@@ -16,7 +16,6 @@ import (
 const invitationTTL = 7 * 24 * time.Hour
 
 type CoupleService interface {
-	Link(ctx context.Context, userID string, req request.SendInvitationRequest) (*response.CoupleResponse, error)
 	SendInvitation(ctx context.Context, senderID string, req request.SendInvitationRequest) (*response.InvitationResponse, error)
 	ListIncomingInvitations(ctx context.Context, userID string) ([]response.InvitationResponse, error)
 	AcceptInvitation(ctx context.Context, userID, invitationID string) (*response.CoupleResponse, error)
@@ -40,48 +39,6 @@ func NewCoupleService(coupleRepo repository.CoupleRepository, invitationRepo rep
 		userRepo:       userRepo,
 		auditSvc:       auditSvc,
 	}
-}
-
-func (s *coupleService) Link(ctx context.Context, userID string, req request.SendInvitationRequest) (*response.CoupleResponse, error) {
-	if existing, err := s.coupleRepo.FindByUserID(ctx, userID); err != nil {
-		return nil, utils.ErrInternal("failed to check existing partner")
-	} else if existing != nil {
-		return nil, utils.ErrConflict("you already have a linked partner")
-	}
-
-	partner, err := s.userRepo.FindByEmail(ctx, req.ReceiverEmail)
-	if err != nil {
-		return nil, utils.ErrInternal("failed to look up partner")
-	}
-	if partner == nil {
-		return nil, utils.ErrNotFound("no user found with that email")
-	}
-	if partner.ID == userID {
-		return nil, utils.ErrBadRequest("cannot link yourself")
-	}
-	if existing, err := s.coupleRepo.FindByUserID(ctx, partner.ID); err != nil {
-		return nil, utils.ErrInternal("failed to check partner's link status")
-	} else if existing != nil {
-		return nil, utils.ErrConflict("that user already has a linked partner")
-	}
-
-	user1ID, user2ID := normalizePair(userID, partner.ID)
-	couple := &domain.Couple{
-		ID:      uuid.NewString(),
-		User1ID: user1ID,
-		User2ID: user2ID,
-	}
-	if err := s.coupleRepo.Create(ctx, couple); err != nil {
-		return nil, utils.ErrInternal("failed to link partner")
-	}
-
-	s.auditSvc.LogEvent(ctx, &userID, domain.SecurityAuditEventPartnerLinked, "", "", map[string]interface{}{"couple_id": couple.ID})
-
-	return &response.CoupleResponse{
-		ID:       couple.ID,
-		Partner:  toUserResponse(partner),
-		LinkedAt: couple.LinkedAt,
-	}, nil
 }
 
 func (s *coupleService) SendInvitation(ctx context.Context, senderID string, req request.SendInvitationRequest) (*response.InvitationResponse, error) {

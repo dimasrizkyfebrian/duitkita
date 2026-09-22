@@ -33,10 +33,11 @@ type expenseService struct {
 	categoryRepo repository.CategoryRepository
 	budgetRepo   repository.BudgetRepository
 	coupleRepo   repository.CoupleRepository
+	activitySvc  ActivityService
 }
 
-func NewExpenseService(repo repository.ExpenseRepository, categoryRepo repository.CategoryRepository, budgetRepo repository.BudgetRepository, coupleRepo repository.CoupleRepository) ExpenseService {
-	return &expenseService{repo: repo, categoryRepo: categoryRepo, budgetRepo: budgetRepo, coupleRepo: coupleRepo}
+func NewExpenseService(repo repository.ExpenseRepository, categoryRepo repository.CategoryRepository, budgetRepo repository.BudgetRepository, coupleRepo repository.CoupleRepository, activitySvc ActivityService) ExpenseService {
+	return &expenseService{repo: repo, categoryRepo: categoryRepo, budgetRepo: budgetRepo, coupleRepo: coupleRepo, activitySvc: activitySvc}
 }
 
 func (s *expenseService) Create(ctx context.Context, userID string, req request.CreateExpenseRequest) (*response.ExpenseResponse, error) {
@@ -73,6 +74,8 @@ func (s *expenseService) Create(ctx context.Context, userID string, req request.
 	if err := s.repo.Create(ctx, expense); err != nil {
 		return nil, utils.ErrInternal("failed to create expense")
 	}
+
+	s.activitySvc.LogActivity(ctx, userID, domain.ActivityActionCreated, domain.ActivityEntityTypeExpense, expense.ID, nil)
 
 	res := toExpenseResponse(expense)
 	return &res, nil
@@ -159,17 +162,22 @@ func (s *expenseService) Update(ctx context.Context, userID, id string, req requ
 		return nil, utils.ErrInternal("failed to update expense")
 	}
 
+	s.activitySvc.LogActivity(ctx, userID, domain.ActivityActionUpdated, domain.ActivityEntityTypeExpense, expense.ID, nil)
+
 	res := toExpenseResponse(expense)
 	return &res, nil
 }
 
 func (s *expenseService) Delete(ctx context.Context, userID, id string) error {
-	if _, err := s.mustOwnExpense(ctx, userID, id); err != nil {
+	expense, err := s.mustOwnExpense(ctx, userID, id)
+	if err != nil {
 		return err
 	}
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return utils.ErrInternal("failed to delete expense")
 	}
+
+	s.activitySvc.LogActivity(ctx, userID, domain.ActivityActionDeleted, domain.ActivityEntityTypeExpense, expense.ID, nil)
 	return nil
 }
 

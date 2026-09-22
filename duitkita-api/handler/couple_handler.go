@@ -20,7 +20,6 @@ func NewCoupleHandler(svc service.CoupleService) *CoupleHandler {
 
 func (h *CoupleHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	couples := rg.Group("/couples")
-	couples.POST("/link", h.link)
 	couples.GET("/partner", h.getPartner)
 	couples.DELETE("/partner", h.unlink)
 	couples.POST("/invitations", h.sendInvitation)
@@ -28,20 +27,6 @@ func (h *CoupleHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	couples.POST("/invitations/:id/accept", h.acceptInvitation)
 	couples.POST("/invitations/:id/reject", h.rejectInvitation)
 	couples.POST("/invitations/:id/cancel", h.cancelInvitation)
-}
-
-func (h *CoupleHandler) link(c *gin.Context) {
-	var req request.SendInvitationRequest
-	if !bindJSON(c, &req) {
-		return
-	}
-
-	res, err := h.svc.Link(c.Request.Context(), currentUserID(c), req)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	utils.Success(c, http.StatusCreated, "partner linked", res)
 }
 
 func (h *CoupleHandler) getPartner(c *gin.Context) {

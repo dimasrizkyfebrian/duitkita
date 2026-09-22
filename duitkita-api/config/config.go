@@ -14,6 +14,7 @@ type Config struct {
 	GCS       GCSConfig
 	Log       LogConfig
 	Retention RetentionConfig
+	Feature   FeatureConfig
 }
 
 type AppConfig struct {
@@ -54,6 +55,10 @@ type RetentionConfig struct {
 	SecurityAuditDays int
 }
 
+type FeatureConfig struct {
+	InsightsEnabled bool
+}
+
 func Load() (*Config, error) {
 	_ = godotenv.Load()
 
@@ -89,6 +94,9 @@ func Load() (*Config, error) {
 			NotificationDays:  getEnvAsInt("RETENTION_NOTIFICATION_DAYS", 90),
 			ActivityDays:      getEnvAsInt("RETENTION_ACTIVITY_DAYS", 180),
 			SecurityAuditDays: getEnvAsInt("RETENTION_SECURITY_AUDIT_DAYS", 365),
+		},
+		Feature: FeatureConfig{
+			InsightsEnabled: getEnvAsBool("FEATURE_INSIGHTS_ENABLED", true),
 		},
 	}
 

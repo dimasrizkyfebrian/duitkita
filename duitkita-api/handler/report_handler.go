@@ -12,12 +12,14 @@ import (
 )
 
 type ReportHandler struct {
-	reportSvc service.ReportService
-	exportSvc service.ReportExportService
+	reportSvc       service.ReportService
+	insightsSvc     service.InsightsService
+	exportSvc       service.ReportExportService
+	insightsEnabled bool
 }
 
-func NewReportHandler(reportSvc service.ReportService, exportSvc service.ReportExportService) *ReportHandler {
-	return &ReportHandler{reportSvc: reportSvc, exportSvc: exportSvc}
+func NewReportHandler(reportSvc service.ReportService, insightsSvc service.InsightsService, exportSvc service.ReportExportService, insightsEnabled bool) *ReportHandler {
+	return &ReportHandler{reportSvc: reportSvc, insightsSvc: insightsSvc, exportSvc: exportSvc, insightsEnabled: insightsEnabled}
 }
 
 func (h *ReportHandler) RegisterRoutes(rg *gin.RouterGroup) {
@@ -26,13 +28,16 @@ func (h *ReportHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	reports.GET("/couple", h.couple)
 	reports.GET("/trend", h.trend)
 	reports.GET("/trend/category", h.trendByCategory)
-	reports.GET("/forecast", h.forecast)
-	reports.GET("/health-score", h.healthScore)
 	reports.POST("/exports", h.createExport)
 	reports.GET("/exports", h.listExports)
 	reports.GET("/exports/:id/download", h.downloadExport)
 	reports.GET("/exports/:id", h.getExport)
 	reports.GET("/rollover/:categoryId", h.rollover)
+
+	if h.insightsEnabled {
+		reports.GET("/forecast", h.forecast)
+		reports.GET("/health-score", h.healthScore)
+	}
 }
 
 func (h *ReportHandler) monthly(c *gin.Context) {
@@ -81,7 +86,7 @@ func (h *ReportHandler) trendByCategory(c *gin.Context) {
 }
 
 func (h *ReportHandler) forecast(c *gin.Context) {
-	res, err := h.reportSvc.Forecast(c.Request.Context(), currentUserID(c))
+	res, err := h.insightsSvc.Forecast(c.Request.Context(), currentUserID(c))
 	if err != nil {
 		c.Error(err)
 		return
@@ -91,7 +96,7 @@ func (h *ReportHandler) forecast(c *gin.Context) {
 
 func (h *ReportHandler) healthScore(c *gin.Context) {
 	year, month := parseYearMonth(c)
-	res, err := h.reportSvc.HealthScore(c.Request.Context(), currentUserID(c), year, month)
+	res, err := h.insightsSvc.HealthScore(c.Request.Context(), currentUserID(c), year, month)
 	if err != nil {
 		c.Error(err)
 		return

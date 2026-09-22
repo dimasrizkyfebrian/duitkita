@@ -22,7 +22,7 @@ func NewRouter(svcs *service.Services, cfg *config.Config, logger zerolog.Logger
 	recurringExpenseHandler := handler.NewRecurringExpenseHandler(svcs.RecurringExpense)
 	reminderHandler := handler.NewReminderHandler(svcs.Reminder)
 	notificationHandler := handler.NewNotificationHandler(svcs.Notification)
-	reportHandler := handler.NewReportHandler(svcs.Report, svcs.ReportExport)
+	reportHandler := handler.NewReportHandler(svcs.Report, svcs.Insights, svcs.ReportExport, cfg.Feature.InsightsEnabled)
 	activityHandler := handler.NewActivityHandler(svcs.Activity)
 
 	api := r.Group("/api/v1")

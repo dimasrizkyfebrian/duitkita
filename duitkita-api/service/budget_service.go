@@ -26,10 +26,11 @@ type budgetService struct {
 	repo         repository.BudgetRepository
 	categoryRepo repository.CategoryRepository
 	coupleRepo   repository.CoupleRepository
+	activitySvc  ActivityService
 }
 
-func NewBudgetService(repo repository.BudgetRepository, categoryRepo repository.CategoryRepository, coupleRepo repository.CoupleRepository) BudgetService {
-	return &budgetService{repo: repo, categoryRepo: categoryRepo, coupleRepo: coupleRepo}
+func NewBudgetService(repo repository.BudgetRepository, categoryRepo repository.CategoryRepository, coupleRepo repository.CoupleRepository, activitySvc ActivityService) BudgetService {
+	return &budgetService{repo: repo, categoryRepo: categoryRepo, coupleRepo: coupleRepo, activitySvc: activitySvc}
 }
 
 func (s *budgetService) Create(ctx context.Context, userID string, req request.CreateBudgetRequest) (*response.BudgetResponse, error) {
@@ -59,6 +60,8 @@ func (s *budgetService) Create(ctx context.Context, userID string, req request.C
 	if err := s.repo.Create(ctx, budget); err != nil {
 		return nil, utils.ErrInternal("failed to create budget")
 	}
+
+	s.activitySvc.LogActivity(ctx, userID, domain.ActivityActionCreated, domain.ActivityEntityTypeBudget, budget.ID, nil)
 
 	res := toBudgetResponse(budget)
 	return &res, nil
@@ -96,17 +99,22 @@ func (s *budgetService) Update(ctx context.Context, userID, id string, req reque
 		return nil, utils.ErrInternal("failed to update budget")
 	}
 
+	s.activitySvc.LogActivity(ctx, userID, domain.ActivityActionUpdated, domain.ActivityEntityTypeBudget, budget.ID, nil)
+
 	res := toBudgetResponse(budget)
 	return &res, nil
 }
 
 func (s *budgetService) Delete(ctx context.Context, userID, id string) error {
-	if _, err := s.mustOwnBudget(ctx, userID, id); err != nil {
+	budget, err := s.mustOwnBudget(ctx, userID, id)
+	if err != nil {
 		return err
 	}
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return utils.ErrInternal("failed to delete budget")
 	}
+
+	s.activitySvc.LogActivity(ctx, userID, domain.ActivityActionDeleted, domain.ActivityEntityTypeBudget, budget.ID, nil)
 	return nil
 }
 

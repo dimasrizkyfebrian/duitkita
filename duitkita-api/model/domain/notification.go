@@ -52,11 +52,11 @@ var AllNotificationPreferenceKeys = []NotificationPreferenceKey{
 }
 
 type NotificationPreference struct {
-	UserID string                    `gorm:"column:user_id;type:uuid;primaryKey"`
-	User   User                      `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
-	Key    NotificationPreferenceKey `gorm:"column:key;type:varchar(30);primaryKey"`
-	Enabled   bool      `gorm:"column:enabled;not null"`
-	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime"`
+	UserID    string                    `gorm:"column:user_id;type:uuid;primaryKey"`
+	User      User                      `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
+	Key       NotificationPreferenceKey `gorm:"column:key;type:varchar(30);primaryKey"`
+	Enabled   bool                      `gorm:"column:enabled;not null"`
+	UpdatedAt time.Time                 `gorm:"column:updated_at;autoUpdateTime"`
 }
 
 func (NotificationPreference) TableName() string {
