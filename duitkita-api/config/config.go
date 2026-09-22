@@ -37,6 +37,7 @@ type JWTConfig struct {
 }
 
 type GCSConfig struct {
+	Enabled         bool
 	BucketName      string
 	CredentialsFile string
 }
@@ -71,6 +72,7 @@ func Load() (*Config, error) {
 			RefreshTTLDays:   getEnvAsInt("JWT_REFRESH_TTL_DAYS", 30),
 		},
 		GCS: GCSConfig{
+			Enabled:         getEnvAsBool("GCS_ENABLED", true),
 			BucketName:      getEnv("GCS_BUCKET_NAME", ""),
 			CredentialsFile: getEnv("GCS_CREDENTIALS_FILE", ""),
 		},
@@ -87,6 +89,18 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func getEnvAsBool(key string, fallback bool) bool {
+	v, ok := os.LookupEnv(key)
+	if !ok || v == "" {
+		return fallback
+	}
+	parsed, err := strconv.ParseBool(v)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }
 
 func getEnvAsInt(key string, fallback int) int {

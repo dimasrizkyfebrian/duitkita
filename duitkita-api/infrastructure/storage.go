@@ -70,3 +70,31 @@ func (s *StorageClient) SignedURL(objectKey string, expiry time.Duration) (strin
 func (s *StorageClient) Close() error {
 	return s.client.Close()
 }
+
+// NoopStorageClient stands in for StorageClient when GCS is disabled
+// (GCS_ENABLED=false) — e.g. running locally to test the DB connection
+// without needing real Google Cloud credentials. Every method fails with a
+// clear error instead of the app crashing at startup or hitting a nil client.
+type NoopStorageClient struct{}
+
+func NewNoopStorageClient() *NoopStorageClient {
+	return &NoopStorageClient{}
+}
+
+var errStorageDisabled = fmt.Errorf("file storage is disabled (set GCS_ENABLED=true and configure GCS_BUCKET_NAME/GCS_CREDENTIALS_FILE)")
+
+func (s *NoopStorageClient) Upload(ctx context.Context, objectKey string, data io.Reader, contentType string) (string, error) {
+	return "", errStorageDisabled
+}
+
+func (s *NoopStorageClient) Delete(ctx context.Context, objectKey string) error {
+	return errStorageDisabled
+}
+
+func (s *NoopStorageClient) SignedURL(objectKey string, expiry time.Duration) (string, error) {
+	return "", errStorageDisabled
+}
+
+func (s *NoopStorageClient) Close() error {
+	return nil
+}

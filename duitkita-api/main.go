@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,6 +14,16 @@ import (
 	"duitkita-api/service"
 	"duitkita-api/worker"
 )
+
+// fileStorage is satisfied by both infrastructure.StorageClient (real GCS)
+// and infrastructure.NoopStorageClient (GCS_ENABLED=false), so main.go can
+// pick one at startup without service/router code caring which it got.
+type fileStorage interface {
+	Upload(ctx context.Context, objectKey string, data io.Reader, contentType string) (string, error)
+	Delete(ctx context.Context, objectKey string) error
+	SignedURL(objectKey string, expiry time.Duration) (string, error)
+	Close() error
+}
 
 func main() {
 	cfg, err := config.Load()
@@ -33,10 +44,17 @@ func main() {
 		}
 	}
 
-	ctx := context.Background()
-	storage, err := infrastructure.NewStorageClient(ctx, cfg.GCS)
-	if err != nil {
-		logger.Fatal().Err(err).Msg("failed to create storage client")
+	var storage fileStorage
+	if cfg.GCS.Enabled {
+		ctx := context.Background()
+		gcs, err := infrastructure.NewStorageClient(ctx, cfg.GCS)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("failed to create storage client")
+		}
+		storage = gcs
+	} else {
+		logger.Warn().Msg("GCS_ENABLED=false — avatar upload and report export download will fail until it's turned back on")
+		storage = infrastructure.NewNoopStorageClient()
 	}
 	defer storage.Close()
 
