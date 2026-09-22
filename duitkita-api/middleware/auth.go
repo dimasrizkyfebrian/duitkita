@@ -9,9 +9,6 @@ import (
 	"duitkita-api/utils"
 )
 
-// Auth validates the "Authorization: Bearer <token>" header against the
-// given access-token secret and stores the resolved user id in the gin
-// context under utils.ContextUserIDKey for downstream handlers.
 func Auth(accessSecret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")

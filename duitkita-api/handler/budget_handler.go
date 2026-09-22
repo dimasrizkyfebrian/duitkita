@@ -93,9 +93,6 @@ func (h *BudgetHandler) delete(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// finalizeByQuery finalizes the budget identified by ?id=... — kept as a
-// dedicated /budgets/finalize route to mirror the source API; consider
-// moving this to POST /budgets/:id/finalize for a more RESTful shape.
 func (h *BudgetHandler) finalizeByQuery(c *gin.Context) {
 	id := c.Query("id")
 	if id == "" {

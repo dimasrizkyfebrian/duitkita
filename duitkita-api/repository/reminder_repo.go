@@ -49,9 +49,6 @@ func (r *reminderRepository) FindAllByUserID(ctx context.Context, userID string)
 	return reminders, err
 }
 
-// FindDueForNotification returns reminders that are not done and whose
-// (due_date - remind_before_days) has been reached. Used by
-// worker/reminder_job.go to fire notifications and flip overdue status.
 func (r *reminderRepository) FindDueForNotification(ctx context.Context, asOf time.Time) ([]domain.BillReminder, error) {
 	var reminders []domain.BillReminder
 	err := r.db.WithContext(ctx).

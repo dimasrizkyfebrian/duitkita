@@ -28,9 +28,6 @@ func NewDatabase(cfg config.DatabaseConfig) (*gorm.DB, error) {
 	return db, nil
 }
 
-// AutoMigrate syncs table schemas from the domain models. Handy for local
-// development; production schema changes should go through a proper
-// migration tool (golang-migrate/goose) instead.
 func AutoMigrate(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&domain.User{},

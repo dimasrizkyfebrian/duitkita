@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -11,6 +12,7 @@ import (
 type SecurityAuditRepository interface {
 	Create(ctx context.Context, log *domain.SecurityAuditLog) error
 	FindByUserID(ctx context.Context, userID string, limit int) ([]domain.SecurityAuditLog, error)
+	DeleteOlderThan(ctx context.Context, cutoff time.Time) (int64, error)
 }
 
 type securityAuditRepository struct {
@@ -33,4 +35,9 @@ func (r *securityAuditRepository) FindByUserID(ctx context.Context, userID strin
 		Limit(limit).
 		Find(&logs).Error
 	return logs, err
+}
+
+func (r *securityAuditRepository) DeleteOlderThan(ctx context.Context, cutoff time.Time) (int64, error) {
+	result := r.db.WithContext(ctx).Where("created_at < ?", cutoff).Delete(&domain.SecurityAuditLog{})
+	return result.RowsAffected, result.Error
 }

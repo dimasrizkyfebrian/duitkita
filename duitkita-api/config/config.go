@@ -8,11 +8,12 @@ import (
 )
 
 type Config struct {
-	App      AppConfig
-	Database DatabaseConfig
-	JWT      JWTConfig
-	GCS      GCSConfig
-	Log      LogConfig
+	App       AppConfig
+	Database  DatabaseConfig
+	JWT       JWTConfig
+	GCS       GCSConfig
+	Log       LogConfig
+	Retention RetentionConfig
 }
 
 type AppConfig struct {
@@ -46,9 +47,13 @@ type LogConfig struct {
 	Level string
 }
 
-// Load reads environment variables (optionally from a .env file) and
-// returns a populated Config. Missing .env file is not fatal since env
-// vars may already be injected by the runtime (e.g. containers).
+type RetentionConfig struct {
+	SessionDays       int
+	NotificationDays  int
+	ActivityDays      int
+	SecurityAuditDays int
+}
+
 func Load() (*Config, error) {
 	_ = godotenv.Load()
 
@@ -78,6 +83,12 @@ func Load() (*Config, error) {
 		},
 		Log: LogConfig{
 			Level: getEnv("LOG_LEVEL", "info"),
+		},
+		Retention: RetentionConfig{
+			SessionDays:       getEnvAsInt("RETENTION_SESSION_DAYS", 30),
+			NotificationDays:  getEnvAsInt("RETENTION_NOTIFICATION_DAYS", 90),
+			ActivityDays:      getEnvAsInt("RETENTION_ACTIVITY_DAYS", 180),
+			SecurityAuditDays: getEnvAsInt("RETENTION_SECURITY_AUDIT_DAYS", 365),
 		},
 	}
 

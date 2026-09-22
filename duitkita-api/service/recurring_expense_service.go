@@ -22,10 +22,6 @@ type RecurringExpenseService interface {
 	Delete(ctx context.Context, userID, id string) error
 	Pause(ctx context.Context, userID, id string) error
 	Resume(ctx context.Context, userID, id string) error
-	// RunDue processes every active recurring expense whose next_run_at has
-	// passed, creating the corresponding expense and advancing the
-	// schedule. Called both by POST /recurring-expenses/run-due and by
-	// worker/recurring_expense_job.go on the cron tick.
 	RunDue(ctx context.Context) (int, error)
 }
 
@@ -158,10 +154,6 @@ func (s *recurringExpenseService) RunDue(ctx context.Context) (int, error) {
 			continue
 		}
 		if budget == nil {
-			// No budget exists for this category/period yet — skip creating
-			// the expense rather than violate the FK, but still advance the
-			// schedule so it doesn't retry every tick. Revisit once budgets
-			// can be auto-created from a recurring expense's category.
 			log.Warn().Str("recurring_expense_id", re.ID).Msg("no matching budget found, skipping expense creation")
 		} else {
 			expense := &domain.Expense{
@@ -202,9 +194,6 @@ func (s *recurringExpenseService) mustOwn(ctx context.Context, userID, id string
 	return re, nil
 }
 
-// computeNextRun advances from `from` to the next occurrence of the
-// schedule. Weekly: scheduleDay is 0-6 (Sun-Sat). Monthly: scheduleDay is
-// 1-31, clamped to the number of days in the target month.
 func computeNextRun(scheduleType domain.RecurringScheduleType, scheduleDay int, from time.Time) time.Time {
 	if scheduleType == domain.RecurringScheduleWeekly {
 		daysUntil := (scheduleDay - int(from.Weekday()) + 7) % 7

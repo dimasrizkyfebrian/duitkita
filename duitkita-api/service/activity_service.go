@@ -25,9 +25,6 @@ type ActivityItem struct {
 type ActivityService interface {
 	List(ctx context.Context, userID string, limit, offset int) ([]ActivityItem, error)
 	Recent(ctx context.Context, userID string, limit int) ([]ActivityItem, error)
-	// LogActivity is called by other services (expenses, budgets) whenever
-	// a couple-visible change happens. It's a no-op if the actor has no
-	// linked partner yet, since activities are always couple-scoped.
 	LogActivity(ctx context.Context, actorID string, action domain.ActivityAction, entityType domain.ActivityEntityType, entityID string, meta map[string]interface{})
 }
 

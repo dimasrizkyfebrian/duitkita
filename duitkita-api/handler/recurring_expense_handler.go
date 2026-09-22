@@ -52,9 +52,6 @@ func (h *RecurringExpenseHandler) list(c *gin.Context) {
 	utils.Success(c, http.StatusOK, "recurring expenses retrieved", res)
 }
 
-// runDue is a manual trigger kept for parity with the source API; the
-// worker/recurring_expense_job.go cron job calls the same service method
-// automatically, so this endpoint is mostly useful for ops/debugging.
 func (h *RecurringExpenseHandler) runDue(c *gin.Context) {
 	count, err := h.svc.RunDue(c.Request.Context())
 	if err != nil {

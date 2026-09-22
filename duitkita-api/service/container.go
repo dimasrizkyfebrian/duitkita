@@ -7,9 +7,6 @@ import (
 	"duitkita-api/repository"
 )
 
-// Services aggregates every service so main.go (dependency wiring) and
-// infrastructure/router.go + worker/ (dependency consumers) share one
-// construction point instead of each rebuilding the repository graph.
 type Services struct {
 	Auth             AuthService
 	User             UserService
@@ -24,9 +21,10 @@ type Services struct {
 	ReportExport     ReportExportService
 	Activity         ActivityService
 	SecurityAudit    SecurityAuditService
+	Maintenance      MaintenanceService
 }
 
-func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, storage FileStorage) *Services {
+func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.RetentionConfig, storage FileStorage) *Services {
 	userRepo := repository.NewUserRepository(db)
 	sessionRepo := repository.NewUserSessionRepository(db)
 	coupleRepo := repository.NewCoupleRepository(db)
@@ -62,5 +60,6 @@ func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, storage FileStorage) *Ser
 		ReportExport:     NewReportExportService(reportExportRepo, reportSvc, storage),
 		Activity:         activitySvc,
 		SecurityAudit:    securityAuditSvc,
+		Maintenance:      NewMaintenanceService(sessionRepo, notificationRepo, activityRepo, securityAuditRepo, retentionCfg),
 	}
 }

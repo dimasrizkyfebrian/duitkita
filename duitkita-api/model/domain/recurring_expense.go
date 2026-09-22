@@ -9,8 +9,6 @@ const (
 	RecurringScheduleMonthly RecurringScheduleType = "monthly"
 )
 
-// RecurringExpense mirrors `recurring_expenses`.
-// ScheduleDay: for weekly, 0-6 (Sun-Sat); for monthly, 1-31.
 type RecurringExpense struct {
 	ID           string                `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	UserID       string                `gorm:"column:user_id;type:uuid;index;not null"`

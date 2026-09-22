@@ -9,10 +9,6 @@ import (
 	"duitkita-api/service"
 )
 
-// NewRouter builds every handler from the given services and registers all
-// route groups. Service construction itself lives in service.NewServices
-// (called from main.go) so main.go, the router, and worker/ all share the
-// same instances instead of each rebuilding the dependency graph.
 func NewRouter(svcs *service.Services, cfg *config.Config, logger zerolog.Logger) *gin.Engine {
 	r := gin.New()
 	RegisterGlobalMiddleware(r, logger)

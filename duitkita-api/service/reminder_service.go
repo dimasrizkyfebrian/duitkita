@@ -56,8 +56,6 @@ func (s *reminderService) Create(ctx context.Context, userID string, req request
 		DueDate:          dueDate,
 		RemindBeforeDays: remindBefore,
 		Status:           domain.BillReminderStatusUpcoming,
-		IsRecurring:      req.IsRecurring,
-		RecurringRule:    utils.StringPtr(req.RecurringRule),
 	}
 	if err := s.repo.Create(ctx, reminder); err != nil {
 		return nil, utils.ErrInternal("failed to create reminder")
@@ -207,7 +205,6 @@ func toReminderResponse(reminder *domain.BillReminder) response.ReminderResponse
 		RemindBeforeDays: reminder.RemindBeforeDays,
 		Status:           string(reminder.Status),
 		SnoozedUntil:     reminder.SnoozedUntil,
-		IsRecurring:      reminder.IsRecurring,
 		CreatedAt:        reminder.CreatedAt,
 	}
 }

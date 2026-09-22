@@ -33,16 +33,30 @@ func (Notification) TableName() string {
 	return "notifications"
 }
 
-// NotificationPreference mirrors `notification_preferences` (1:1 with User).
+type NotificationPreferenceKey string
+
+const (
+	PreferenceBudgetAlert     NotificationPreferenceKey = "budget_alert"
+	PreferencePartnerActivity NotificationPreferenceKey = "partner_activity"
+	PreferenceWeeklySummary   NotificationPreferenceKey = "weekly_summary"
+	PreferenceReminderAlert   NotificationPreferenceKey = "reminder_alert"
+	PreferenceRecurringAlert  NotificationPreferenceKey = "recurring_alert"
+)
+
+var AllNotificationPreferenceKeys = []NotificationPreferenceKey{
+	PreferenceBudgetAlert,
+	PreferencePartnerActivity,
+	PreferenceWeeklySummary,
+	PreferenceReminderAlert,
+	PreferenceRecurringAlert,
+}
+
 type NotificationPreference struct {
-	UserID          string    `gorm:"column:user_id;type:uuid;primaryKey"`
-	User            User      `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
-	BudgetAlert     bool      `gorm:"column:budget_alert;default:true"`
-	PartnerActivity bool      `gorm:"column:partner_activity;default:true"`
-	WeeklySummary   bool      `gorm:"column:weekly_summary;default:true"`
-	ReminderAlert   bool      `gorm:"column:reminder_alert;default:true"`
-	RecurringAlert  bool      `gorm:"column:recurring_alert;default:true"`
-	UpdatedAt       time.Time `gorm:"column:updated_at;autoUpdateTime"`
+	UserID string                    `gorm:"column:user_id;type:uuid;primaryKey"`
+	User   User                      `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
+	Key    NotificationPreferenceKey `gorm:"column:key;type:varchar(30);primaryKey"`
+	Enabled   bool      `gorm:"column:enabled;not null"`
+	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime"`
 }
 
 func (NotificationPreference) TableName() string {

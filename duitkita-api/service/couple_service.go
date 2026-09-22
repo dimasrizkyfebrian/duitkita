@@ -16,8 +16,6 @@ import (
 const invitationTTL = 7 * 24 * time.Hour
 
 type CoupleService interface {
-	// Link creates the couple immediately from a partner's email, bypassing
-	// the invitation accept/reject flow (e.g. for trusted/dev linking).
 	Link(ctx context.Context, userID string, req request.SendInvitationRequest) (*response.CoupleResponse, error)
 	SendInvitation(ctx context.Context, senderID string, req request.SendInvitationRequest) (*response.InvitationResponse, error)
 	ListIncomingInvitations(ctx context.Context, userID string) ([]response.InvitationResponse, error)
@@ -67,10 +65,11 @@ func (s *coupleService) Link(ctx context.Context, userID string, req request.Sen
 		return nil, utils.ErrConflict("that user already has a linked partner")
 	}
 
+	user1ID, user2ID := normalizePair(userID, partner.ID)
 	couple := &domain.Couple{
 		ID:      uuid.NewString(),
-		User1ID: userID,
-		User2ID: partner.ID,
+		User1ID: user1ID,
+		User2ID: user2ID,
 	}
 	if err := s.coupleRepo.Create(ctx, couple); err != nil {
 		return nil, utils.ErrInternal("failed to link partner")
@@ -145,10 +144,11 @@ func (s *coupleService) AcceptInvitation(ctx context.Context, userID, invitation
 		return nil, utils.ErrInternal("failed to accept invitation")
 	}
 
+	user1ID, user2ID := normalizePair(invitation.SenderUserID, invitation.ReceiverUserID)
 	couple := &domain.Couple{
 		ID:      uuid.NewString(),
-		User1ID: invitation.SenderUserID,
-		User2ID: invitation.ReceiverUserID,
+		User1ID: user1ID,
+		User2ID: user2ID,
 	}
 	if err := s.coupleRepo.Create(ctx, couple); err != nil {
 		return nil, utils.ErrInternal("failed to link partner")
@@ -251,6 +251,13 @@ func (s *coupleService) loadRespondableInvitation(ctx context.Context, receiverI
 		return nil, utils.ErrConflict("invitation has expired")
 	}
 	return invitation, nil
+}
+
+func normalizePair(a, b string) (string, string) {
+	if a < b {
+		return a, b
+	}
+	return b, a
 }
 
 func toInvitationResponse(invitation *domain.CoupleInvitation) *response.InvitationResponse {

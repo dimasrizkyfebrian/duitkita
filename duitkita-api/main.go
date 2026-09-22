@@ -15,9 +15,6 @@ import (
 	"duitkita-api/worker"
 )
 
-// fileStorage is satisfied by both infrastructure.StorageClient (real GCS)
-// and infrastructure.NoopStorageClient (GCS_ENABLED=false), so main.go can
-// pick one at startup without service/router code caring which it got.
 type fileStorage interface {
 	Upload(ctx context.Context, objectKey string, data io.Reader, contentType string) (string, error)
 	Delete(ctx context.Context, objectKey string) error
@@ -58,10 +55,10 @@ func main() {
 	}
 	defer storage.Close()
 
-	services := service.NewServices(db, cfg.JWT, storage)
+	services := service.NewServices(db, cfg.JWT, cfg.Retention, storage)
 
 	scheduler := infrastructure.NewScheduler(logger)
-	if err := worker.RegisterAll(scheduler, services.RecurringExpense, services.Reminder); err != nil {
+	if err := worker.RegisterAll(scheduler, services); err != nil {
 		logger.Fatal().Err(err).Msg("failed to register scheduled jobs")
 	}
 	scheduler.Start()

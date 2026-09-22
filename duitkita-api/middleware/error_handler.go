@@ -9,10 +9,6 @@ import (
 	"duitkita-api/utils"
 )
 
-// ErrorHandler centralizes error -> HTTP response translation. Handlers
-// should call c.Error(err) (instead of writing a response directly) when
-// they want the error mapped consistently; *utils.AppError carries its own
-// status code, anything else falls back to 500.
 func ErrorHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()

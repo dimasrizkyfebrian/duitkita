@@ -2,7 +2,6 @@ package domain
 
 import "time"
 
-// MonthlyBudget mirrors the `monthly_budgets` table from the NestJS entity.
 type MonthlyBudget struct {
 	ID             string    `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	UserID         string    `gorm:"column:user_id;type:uuid;index;not null;uniqueIndex:idx_budgets_user_category_period"`

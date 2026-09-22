@@ -17,6 +17,7 @@ type UserSessionRepository interface {
 	Update(ctx context.Context, session *domain.UserSession) error
 	RevokeByID(ctx context.Context, id string) error
 	RevokeAllExcept(ctx context.Context, userID, exceptSessionID string) error
+	DeleteStale(ctx context.Context, cutoff time.Time) (int64, error)
 }
 
 type userSessionRepository struct {
@@ -66,4 +67,11 @@ func (r *userSessionRepository) RevokeAllExcept(ctx context.Context, userID, exc
 	return r.db.WithContext(ctx).Model(&domain.UserSession{}).
 		Where("user_id = ? AND id <> ? AND revoked_at IS NULL", userID, exceptSessionID).
 		Update("revoked_at", time.Now()).Error
+}
+
+func (r *userSessionRepository) DeleteStale(ctx context.Context, cutoff time.Time) (int64, error) {
+	result := r.db.WithContext(ctx).
+		Where("(revoked_at IS NOT NULL AND revoked_at < ?) OR expires_at < ?", cutoff, cutoff).
+		Delete(&domain.UserSession{})
+	return result.RowsAffected, result.Error
 }

@@ -33,9 +33,6 @@ func NewReportExportService(repo repository.ReportExportRepository, reportSvc Re
 	return &reportExportService{repo: repo, reportSvc: reportSvc, storage: storage}
 }
 
-// Create generates the export synchronously for now (report PDFs are small).
-// If this becomes slow, switch to: persist as "pending", enqueue a
-// worker/ job to render+upload, and let clients poll GetByID for status.
 func (s *reportExportService) Create(ctx context.Context, userID string, req request.CreateExportRequest) (*response.ExportResponse, error) {
 	export := &domain.ReportExport{
 		ID:     uuid.NewString(),

@@ -49,8 +49,6 @@ func (r *recurringExpenseRepository) FindAllByUserID(ctx context.Context, userID
 	return items, err
 }
 
-// FindDue returns active recurring expenses whose next_run_at has passed.
-// Used by worker/recurring_expense_job.go on each scheduler tick.
 func (r *recurringExpenseRepository) FindDue(ctx context.Context, asOf time.Time) ([]domain.RecurringExpense, error) {
 	var items []domain.RecurringExpense
 	err := r.db.WithContext(ctx).

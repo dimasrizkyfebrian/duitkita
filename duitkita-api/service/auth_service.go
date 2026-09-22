@@ -112,8 +112,6 @@ func (s *authService) Refresh(ctx context.Context, req request.RefreshTokenReque
 		return nil, utils.ErrUnauthorized("user not found")
 	}
 
-	// Rotate the refresh token secret on every use so a stolen token only
-	// works once before the legitimate client's next refresh invalidates it.
 	newSecret, err := utils.GenerateOpaqueSecret()
 	if err != nil {
 		return nil, utils.ErrInternal("failed to rotate refresh token")

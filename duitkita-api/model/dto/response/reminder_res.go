@@ -10,6 +10,5 @@ type ReminderResponse struct {
 	RemindBeforeDays int        `json:"remind_before_days"`
 	Status           string     `json:"status"`
 	SnoozedUntil     *time.Time `json:"snoozed_until,omitempty"`
-	IsRecurring      bool       `json:"is_recurring"`
 	CreatedAt        time.Time  `json:"created_at"`
 }

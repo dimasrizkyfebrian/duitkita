@@ -2,10 +2,10 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"duitkita-api/model/domain"
 )
@@ -15,6 +15,7 @@ type NotificationRepository interface {
 	FindAllByUserID(ctx context.Context, userID string) ([]domain.Notification, error)
 	MarkRead(ctx context.Context, id, userID string) error
 	MarkAllRead(ctx context.Context, userID string) error
+	DeleteReadBefore(ctx context.Context, cutoff time.Time) (int64, error)
 }
 
 type notificationRepository struct {
@@ -47,9 +48,15 @@ func (r *notificationRepository) MarkAllRead(ctx context.Context, userID string)
 		Updates(map[string]interface{}{"is_read": true, "read_at": time.Now()}).Error
 }
 
-// NotificationPreferenceRepository manages the 1:1 notification_preferences row.
+func (r *notificationRepository) DeleteReadBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+	result := r.db.WithContext(ctx).
+		Where("is_read = ? AND read_at < ?", true, cutoff).
+		Delete(&domain.Notification{})
+	return result.RowsAffected, result.Error
+}
+
 type NotificationPreferenceRepository interface {
-	FindByUserID(ctx context.Context, userID string) (*domain.NotificationPreference, error)
+	FindAllByUserID(ctx context.Context, userID string) ([]domain.NotificationPreference, error)
 	Upsert(ctx context.Context, pref *domain.NotificationPreference) error
 }
 
@@ -61,18 +68,17 @@ func NewNotificationPreferenceRepository(db *gorm.DB) NotificationPreferenceRepo
 	return &notificationPreferenceRepository{db: db}
 }
 
-func (r *notificationPreferenceRepository) FindByUserID(ctx context.Context, userID string) (*domain.NotificationPreference, error) {
-	var pref domain.NotificationPreference
-	err := r.db.WithContext(ctx).First(&pref, "user_id = ?", userID).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &pref, nil
+func (r *notificationPreferenceRepository) FindAllByUserID(ctx context.Context, userID string) ([]domain.NotificationPreference, error) {
+	var prefs []domain.NotificationPreference
+	err := r.db.WithContext(ctx).Where("user_id = ?", userID).Find(&prefs).Error
+	return prefs, err
 }
 
 func (r *notificationPreferenceRepository) Upsert(ctx context.Context, pref *domain.NotificationPreference) error {
-	return r.db.WithContext(ctx).Save(pref).Error
+	return r.db.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "user_id"}, {Name: "key"}},
+			DoUpdates: clause.AssignmentColumns([]string{"enabled", "updated_at"}),
+		}).
+		Create(pref).Error
 }

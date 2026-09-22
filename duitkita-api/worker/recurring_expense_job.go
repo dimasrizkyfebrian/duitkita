@@ -8,8 +8,6 @@ import (
 	"duitkita-api/service"
 )
 
-// NewRecurringExpenseJob returns the cron callback that materializes due
-// recurring expenses into actual expense rows and advances their schedule.
 func NewRecurringExpenseJob(svc service.RecurringExpenseService) func() {
 	return func() {
 		processed, err := svc.RunDue(context.Background())

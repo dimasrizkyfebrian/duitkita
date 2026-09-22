@@ -18,8 +18,6 @@ func NewNotificationHandler(svc service.NotificationService) *NotificationHandle
 	return &NotificationHandler{svc: svc}
 }
 
-// RegisterRoutes mirrors the source API's route layout, which mixes
-// /notifications and /users/me/notification-preferences under one controller.
 func (h *NotificationHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/notifications", h.list)
 	rg.PATCH("/notifications/read-all", h.markAllRead)

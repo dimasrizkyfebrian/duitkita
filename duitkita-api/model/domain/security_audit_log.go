@@ -23,8 +23,6 @@ const (
 	SecurityAuditEventPartnerUnlinked       SecurityAuditEventType = "partner_unlinked"
 )
 
-// SecurityAuditLog mirrors `security_audit_logs`. UserID is nullable because
-// the referencing FK uses ON DELETE SET NULL in the source schema.
 type SecurityAuditLog struct {
 	ID        string                 `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	UserID    *string                `gorm:"column:user_id;type:uuid;index"`

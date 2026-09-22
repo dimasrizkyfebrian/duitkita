@@ -18,9 +18,6 @@ type NotificationService interface {
 	MarkAllRead(ctx context.Context, userID string) error
 	GetPreferences(ctx context.Context, userID string) (*response.NotificationPreferenceResponse, error)
 	UpdatePreferences(ctx context.Context, userID string, req request.UpdateNotificationPreferenceRequest) (*response.NotificationPreferenceResponse, error)
-	// Create is used internally by other services/workers (reminders,
-	// recurring expenses, budget alerts) to push a notification — there is
-	// no public endpoint for creating notifications directly.
 	Create(ctx context.Context, userID string, notifType domain.NotificationType, title, body string) error
 }
 
@@ -69,60 +66,32 @@ func (s *notificationService) MarkAllRead(ctx context.Context, userID string) er
 }
 
 func (s *notificationService) GetPreferences(ctx context.Context, userID string) (*response.NotificationPreferenceResponse, error) {
-	pref, err := s.prefRepo.FindByUserID(ctx, userID)
+	rows, err := s.prefRepo.FindAllByUserID(ctx, userID)
 	if err != nil {
 		return nil, utils.ErrInternal("failed to load preferences")
 	}
-	if pref == nil {
-		// Default preferences (all enabled) for a user who hasn't saved any yet.
-		pref = &domain.NotificationPreference{
-			UserID:          userID,
-			BudgetAlert:     true,
-			PartnerActivity: true,
-			WeeklySummary:   true,
-			ReminderAlert:   true,
-			RecurringAlert:  true,
-		}
-	}
-	return toPreferenceResponse(pref), nil
+	return buildPreferenceResponse(rows), nil
 }
 
 func (s *notificationService) UpdatePreferences(ctx context.Context, userID string, req request.UpdateNotificationPreferenceRequest) (*response.NotificationPreferenceResponse, error) {
-	pref, err := s.prefRepo.FindByUserID(ctx, userID)
-	if err != nil {
-		return nil, utils.ErrInternal("failed to load preferences")
+	changes := map[domain.NotificationPreferenceKey]*bool{
+		domain.PreferenceBudgetAlert:     req.BudgetAlert,
+		domain.PreferencePartnerActivity: req.PartnerActivity,
+		domain.PreferenceWeeklySummary:   req.WeeklySummary,
+		domain.PreferenceReminderAlert:   req.ReminderAlert,
+		domain.PreferenceRecurringAlert:  req.RecurringAlert,
 	}
-	if pref == nil {
-		pref = &domain.NotificationPreference{
-			UserID:          userID,
-			BudgetAlert:     true,
-			PartnerActivity: true,
-			WeeklySummary:   true,
-			ReminderAlert:   true,
-			RecurringAlert:  true,
+
+	for key, val := range changes {
+		if val == nil {
+			continue
+		}
+		if err := s.prefRepo.Upsert(ctx, &domain.NotificationPreference{UserID: userID, Key: key, Enabled: *val}); err != nil {
+			return nil, utils.ErrInternal("failed to save preferences")
 		}
 	}
 
-	if req.BudgetAlert != nil {
-		pref.BudgetAlert = *req.BudgetAlert
-	}
-	if req.PartnerActivity != nil {
-		pref.PartnerActivity = *req.PartnerActivity
-	}
-	if req.WeeklySummary != nil {
-		pref.WeeklySummary = *req.WeeklySummary
-	}
-	if req.ReminderAlert != nil {
-		pref.ReminderAlert = *req.ReminderAlert
-	}
-	if req.RecurringAlert != nil {
-		pref.RecurringAlert = *req.RecurringAlert
-	}
-
-	if err := s.prefRepo.Upsert(ctx, pref); err != nil {
-		return nil, utils.ErrInternal("failed to save preferences")
-	}
-	return toPreferenceResponse(pref), nil
+	return s.GetPreferences(ctx, userID)
 }
 
 func (s *notificationService) Create(ctx context.Context, userID string, notifType domain.NotificationType, title, body string) error {
@@ -136,12 +105,20 @@ func (s *notificationService) Create(ctx context.Context, userID string, notifTy
 	return s.repo.Create(ctx, notification)
 }
 
-func toPreferenceResponse(pref *domain.NotificationPreference) *response.NotificationPreferenceResponse {
+func buildPreferenceResponse(rows []domain.NotificationPreference) *response.NotificationPreferenceResponse {
+	values := make(map[domain.NotificationPreferenceKey]bool, len(domain.AllNotificationPreferenceKeys))
+	for _, key := range domain.AllNotificationPreferenceKeys {
+		values[key] = true
+	}
+	for _, row := range rows {
+		values[row.Key] = row.Enabled
+	}
+
 	return &response.NotificationPreferenceResponse{
-		BudgetAlert:     pref.BudgetAlert,
-		PartnerActivity: pref.PartnerActivity,
-		WeeklySummary:   pref.WeeklySummary,
-		ReminderAlert:   pref.ReminderAlert,
-		RecurringAlert:  pref.RecurringAlert,
+		BudgetAlert:     values[domain.PreferenceBudgetAlert],
+		PartnerActivity: values[domain.PreferencePartnerActivity],
+		WeeklySummary:   values[domain.PreferenceWeeklySummary],
+		ReminderAlert:   values[domain.PreferenceReminderAlert],
+		RecurringAlert:  values[domain.PreferenceRecurringAlert],
 	}
 }

@@ -7,7 +7,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// Logging logs one structured line per request (method, path, status, latency).
 func Logging(logger zerolog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()

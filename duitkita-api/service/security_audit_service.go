@@ -10,10 +10,6 @@ import (
 	"duitkita-api/repository"
 )
 
-// SecurityAuditService is called internally by other services (auth, users,
-// couples) to record security-relevant events. It has no handler/controller
-// of its own — users only ever read their own audit trail via
-// UserService.GetSecurityAudit.
 type SecurityAuditService interface {
 	LogEvent(ctx context.Context, userID *string, eventType domain.SecurityAuditEventType, ipAddress, userAgent string, meta map[string]interface{})
 	ListByUser(ctx context.Context, userID string, limit int) ([]domain.SecurityAuditLog, error)
@@ -27,9 +23,6 @@ func NewSecurityAuditService(repo repository.SecurityAuditRepository) SecurityAu
 	return &securityAuditService{repo: repo}
 }
 
-// LogEvent is fire-and-forget from the caller's perspective: a failure to
-// write an audit row should never block the primary action (login, invite,
-// etc.), so errors are swallowed here rather than propagated.
 func (s *securityAuditService) LogEvent(ctx context.Context, userID *string, eventType domain.SecurityAuditEventType, ipAddress, userAgent string, meta map[string]interface{}) {
 	var metaJSON datatypes.JSON
 	if meta != nil {

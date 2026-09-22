@@ -9,8 +9,6 @@ import (
 	appmw "duitkita-api/middleware"
 )
 
-// RegisterGlobalMiddleware wires the cross-cutting middleware every request
-// goes through, in order: recovery -> logging -> error handling -> CORS.
 func RegisterGlobalMiddleware(r *gin.Engine, logger zerolog.Logger) {
 	r.Use(appmw.Recovery(logger))
 	r.Use(appmw.Logging(logger))
@@ -22,8 +20,6 @@ func RegisterGlobalMiddleware(r *gin.Engine, logger zerolog.Logger) {
 	}))
 }
 
-// AuthRequired is a thin re-export so router.go doesn't need to import both
-// infrastructure and middleware packages just to protect a route group.
 func AuthRequired(jwtCfg config.JWTConfig) gin.HandlerFunc {
 	return appmw.Auth(jwtCfg.AccessSecret)
 }

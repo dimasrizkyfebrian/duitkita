@@ -131,9 +131,6 @@ func (s *budgetService) GetPartnerBudgets(ctx context.Context, userID string, ye
 	return toBudgetResponses(budgets), nil
 }
 
-// Finalize locks the budget so its base amount can no longer change.
-// Rollover-into-next-month calculation lives in ReportService.Rollover,
-// which callers use before creating next month's budget.
 func (s *budgetService) Finalize(ctx context.Context, userID, id string) (*response.BudgetResponse, error) {
 	budget, err := s.mustOwnBudget(ctx, userID, id)
 	if err != nil {

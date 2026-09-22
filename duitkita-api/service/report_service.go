@@ -32,9 +32,6 @@ func (s *reportService) MonthlyReport(ctx context.Context, userID string, year, 
 	return s.buildMonthlyReport(ctx, userID, year, month)
 }
 
-// CoupleReport merges both partners' monthly totals. Per-category
-// breakdown is left as the requesting user's own categories for now since
-// categories aren't shared between partners in the current schema.
 func (s *reportService) CoupleReport(ctx context.Context, userID string, year, month int) (*response.MonthlyReportResponse, error) {
 	couple, err := s.coupleRepo.FindByUserID(ctx, userID)
 	if err != nil {
@@ -99,9 +96,6 @@ func (s *reportService) TrendByCategory(ctx context.Context, userID, categoryID 
 	return &response.TrendResponse{Points: out}, nil
 }
 
-// Forecast is a placeholder moving-average projection (last up-to-3 months).
-// Replace with a proper seasonal/regression model once there's enough
-// historical data and a defined confidence methodology.
 func (s *reportService) Forecast(ctx context.Context, userID string) (*response.ForecastResponse, error) {
 	points, err := s.reportRepo.MonthlyTrend(ctx, userID, 3)
 	if err != nil {
@@ -138,8 +132,6 @@ func (s *reportService) Forecast(ctx context.Context, userID string) (*response.
 	}, nil
 }
 
-// HealthScore is a simple spent/budget ratio heuristic — refine the
-// grading thresholds once product defines what "healthy" means for this app.
 func (s *reportService) HealthScore(ctx context.Context, userID string, year, month int) (*response.HealthScoreResponse, error) {
 	report, err := s.buildMonthlyReport(ctx, userID, year, month)
 	if err != nil {
@@ -178,9 +170,6 @@ func (s *reportService) HealthScore(ctx context.Context, userID string, year, mo
 	return &response.HealthScoreResponse{Score: score, Grade: grade, Reasons: reasons}, nil
 }
 
-// Rollover reports how much of the given category's budget was left unspent
-// for year/month — the amount a caller may choose to carry into next
-// month's BaseAmount when creating that budget.
 func (s *reportService) Rollover(ctx context.Context, userID, categoryID string, year, month int) (int64, error) {
 	budget, err := s.budgetRepo.FindByUserCategoryPeriod(ctx, userID, categoryID, year, month)
 	if err != nil {
