@@ -5,6 +5,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"duitkita-api/config"
+	"duitkita-api/docs"
 	"duitkita-api/handler"
 	"duitkita-api/service"
 )
@@ -12,6 +13,7 @@ import (
 func NewRouter(svcs *service.Services, cfg *config.Config, logger zerolog.Logger) *gin.Engine {
 	r := gin.New()
 	RegisterGlobalMiddleware(r, logger)
+	docs.RegisterRoutes(r)
 
 	authHandler := handler.NewAuthHandler(svcs.Auth)
 	userHandler := handler.NewUserHandler(svcs.User)

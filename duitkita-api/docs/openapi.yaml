@@ -1,0 +1,1885 @@
+openapi: 3.0.3
+info:
+  title: Duitkita API
+  description: >
+    Hand-written OpenAPI spec for the Duitkita Go backend, maintained
+    separately from the handler code for manual/exploratory testing via
+    Swagger UI.
+
+
+    To try protected endpoints: call `POST /auth/register` or
+    `POST /auth/login` below, copy the `access_token` from the response,
+    then click **Authorize** and paste it (without the `Bearer ` prefix).
+  version: "1.0.0"
+servers:
+  - url: /api/v1
+tags:
+  - name: Auth
+  - name: Users
+  - name: Couples
+  - name: Categories
+  - name: Budgets
+  - name: Expenses
+  - name: Recurring Expenses
+  - name: Reminders
+  - name: Notifications
+  - name: Reports
+  - name: Activity
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '201':
+          description: registered successfully
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponseEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in with email and password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: logged in successfully
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponseEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Exchange a refresh token for a new access/refresh token pair
+      description: The refresh token is single-use; each call rotates it.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshTokenRequest' }
+      responses:
+        '200':
+          description: token refreshed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponseEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/sessions:
+    get:
+      tags: [Auth]
+      summary: List active sessions for the current user
+      responses:
+        '200':
+          description: sessions retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/SessionResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/sessions/others:
+    delete:
+      tags: [Auth]
+      summary: Revoke every session except the current one
+      parameters:
+        - in: query
+          name: current_session_id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/sessions/{id}:
+    delete:
+      tags: [Auth]
+      summary: Revoke one session by id
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /users/me:
+    get:
+      tags: [Users]
+      summary: Get the current user's profile
+      responses:
+        '200':
+          description: profile retrieved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserResponseEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Users]
+      summary: Update the current user's profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateProfileRequest' }
+      responses:
+        '200':
+          description: profile updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserResponseEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /users/me/avatar:
+    post:
+      tags: [Users]
+      summary: Upload/replace the current user's avatar
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                avatar:
+                  type: string
+                  format: binary
+              required: [avatar]
+      responses:
+        '200':
+          description: avatar uploaded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserResponseEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    delete:
+      tags: [Users]
+      summary: Delete the current user's avatar
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    get:
+      tags: [Users]
+      summary: Get a signed URL for the current user's avatar
+      responses:
+        '200':
+          description: avatar url retrieved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/URLEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /users/{userId}/avatar:
+    get:
+      tags: [Users]
+      summary: Get a signed URL for any user's avatar by id
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: avatar url retrieved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/URLEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /users/me/password:
+    patch:
+      tags: [Users]
+      summary: Change the current user's password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangePasswordRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /users/me/security-audit:
+    get:
+      tags: [Users]
+      summary: List recent security audit log entries for the current user
+      responses:
+        '200':
+          description: security audit retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/SecurityAuditLog' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /users/me/notification-preferences:
+    get:
+      tags: [Notifications]
+      summary: Get the current user's notification preferences
+      description: Any key never explicitly saved defaults to enabled.
+      responses:
+        '200':
+          description: preferences retrieved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPreferenceResponseEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    patch:
+      tags: [Notifications]
+      summary: Update one or more notification preferences
+      description: Only keys present in the body are changed; omit a key to leave it untouched.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateNotificationPreferenceRequest' }
+      responses:
+        '200':
+          description: preferences updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPreferenceResponseEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /couples/partner:
+    get:
+      tags: [Couples]
+      summary: Get the current user's linked partner
+      responses:
+        '200':
+          description: partner retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/CoupleResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Couples]
+      summary: Unlink from the current partner
+      responses:
+        '204': { description: unlinked, content: {} }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /couples/invitations:
+    post:
+      tags: [Couples]
+      summary: Send a partner invitation by email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SendInvitationRequest' }
+      responses:
+        '201':
+          description: invitation sent
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/InvitationResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /couples/invitations/incoming:
+    get:
+      tags: [Couples]
+      summary: List pending invitations sent to the current user
+      responses:
+        '200':
+          description: incoming invitations retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/InvitationResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /couples/invitations/{id}/accept:
+    post:
+      tags: [Couples]
+      summary: Accept a pending invitation, creating the couple link
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: invitation accepted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/CoupleResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /couples/invitations/{id}/reject:
+    post:
+      tags: [Couples]
+      summary: Reject a pending invitation
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /couples/invitations/{id}/cancel:
+    post:
+      tags: [Couples]
+      summary: Cancel an invitation you sent
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /categories:
+    post:
+      tags: [Categories]
+      summary: Create a category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateCategoryRequest' }
+      responses:
+        '201':
+          description: category created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/CategoryResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    get:
+      tags: [Categories]
+      summary: List the current user's categories
+      responses:
+        '200':
+          description: categories retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/CategoryResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /categories/{id}:
+    get:
+      tags: [Categories]
+      summary: Get one category by id
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: category retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/CategoryResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Categories]
+      summary: Update a category
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateCategoryRequest' }
+      responses:
+        '200':
+          description: category updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/CategoryResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Categories]
+      summary: Delete a category
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204': { description: deleted, content: {} }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /budgets:
+    post:
+      tags: [Budgets]
+      summary: Create a monthly budget for a category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateBudgetRequest' }
+      responses:
+        '201':
+          description: budget created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/BudgetResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    get:
+      tags: [Budgets]
+      summary: List the current user's budgets for a period
+      parameters:
+        - $ref: '#/components/parameters/Year'
+        - $ref: '#/components/parameters/Month'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: budgets retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/BudgetResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /budgets/partner:
+    get:
+      tags: [Budgets]
+      summary: List the linked partner's budgets for a period
+      parameters:
+        - $ref: '#/components/parameters/Year'
+        - $ref: '#/components/parameters/Month'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: partner budgets retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/BudgetResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /budgets/finalize:
+    post:
+      tags: [Budgets]
+      summary: Finalize a budget by id (query param, not path)
+      parameters:
+        - in: query
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: budget finalized
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/BudgetResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /budgets/{id}:
+    get:
+      tags: [Budgets]
+      summary: Get one budget by id
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: budget retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/BudgetResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Budgets]
+      summary: Update a budget's base amount
+      description: Rejected with 409 once the budget has been finalized.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateBudgetRequest' }
+      responses:
+        '200':
+          description: budget updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/BudgetResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [Budgets]
+      summary: Delete a budget
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204': { description: deleted, content: {} }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /expenses:
+    post:
+      tags: [Expenses]
+      summary: Record an expense
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateExpenseRequest' }
+      responses:
+        '201':
+          description: expense created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/ExpenseResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    get:
+      tags: [Expenses]
+      summary: List the current user's expenses
+      parameters:
+        - $ref: '#/components/parameters/CategoryIdQuery'
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: expenses retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/ExpenseResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /expenses/by-budget/{budgetId}:
+    get:
+      tags: [Expenses]
+      summary: List all expenses charged against one budget
+      parameters:
+        - in: path
+          name: budgetId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: expenses retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/ExpenseResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /expenses/partner:
+    get:
+      tags: [Expenses]
+      summary: List the linked partner's expenses
+      parameters:
+        - $ref: '#/components/parameters/CategoryIdQuery'
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: partner expenses retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/ExpenseResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /expenses/{id}:
+    get:
+      tags: [Expenses]
+      summary: Get one expense by id
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: expense retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/ExpenseResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Expenses]
+      summary: Update an expense
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateExpenseRequest' }
+      responses:
+        '200':
+          description: expense updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/ExpenseResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Expenses]
+      summary: Delete an expense
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204': { description: deleted, content: {} }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /recurring-expenses:
+    post:
+      tags: [Recurring Expenses]
+      summary: Create a recurring expense schedule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateRecurringExpenseRequest' }
+      responses:
+        '201':
+          description: recurring expense created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/RecurringExpenseResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    get:
+      tags: [Recurring Expenses]
+      summary: List recurring expense schedules
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: recurring expenses retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/RecurringExpenseResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /recurring-expenses/run-due:
+    post:
+      tags: [Recurring Expenses]
+      summary: Manually trigger processing of every due recurring expense
+      description: Normally run by the cron worker; exposed here for manual testing.
+      responses:
+        '200':
+          description: due recurring expenses processed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          processed: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /recurring-expenses/{id}:
+    get:
+      tags: [Recurring Expenses]
+      summary: Get one recurring expense by id
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: recurring expense retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/RecurringExpenseResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Recurring Expenses]
+      summary: Update a recurring expense schedule
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateRecurringExpenseRequest' }
+      responses:
+        '200':
+          description: recurring expense updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/RecurringExpenseResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Recurring Expenses]
+      summary: Delete a recurring expense schedule
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204': { description: deleted, content: {} }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /recurring-expenses/{id}/pause:
+    post:
+      tags: [Recurring Expenses]
+      summary: Pause a recurring expense schedule
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /recurring-expenses/{id}/resume:
+    post:
+      tags: [Recurring Expenses]
+      summary: Resume a paused recurring expense schedule
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /reminders:
+    post:
+      tags: [Reminders]
+      summary: Create a bill reminder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateReminderRequest' }
+      responses:
+        '201':
+          description: reminder created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/ReminderResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    get:
+      tags: [Reminders]
+      summary: List bill reminders
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: reminders retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/ReminderResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /reminders/{id}:
+    get:
+      tags: [Reminders]
+      summary: Get one reminder by id
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: reminder retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/ReminderResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Reminders]
+      summary: Update a reminder
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateReminderRequest' }
+      responses:
+        '200':
+          description: reminder updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/ReminderResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Reminders]
+      summary: Delete a reminder
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204': { description: deleted, content: {} }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /reminders/{id}/mark-done:
+    post:
+      tags: [Reminders]
+      summary: Mark a reminder as done
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: reminder marked as done
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/ReminderResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /reminders/{id}/snooze:
+    post:
+      tags: [Reminders]
+      summary: Snooze a reminder until a later date
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SnoozeReminderRequest' }
+      responses:
+        '200':
+          description: reminder snoozed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/ReminderResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: List notifications
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: notifications retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/NotificationResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /notifications/read-all:
+    patch:
+      tags: [Notifications]
+      summary: Mark every notification as read
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /notifications/{id}/read:
+    patch:
+      tags: [Notifications]
+      summary: Mark one notification as read
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /reports/monthly:
+    get:
+      tags: [Reports]
+      summary: Monthly spend-vs-budget report for the current user
+      parameters:
+        - $ref: '#/components/parameters/Year'
+        - $ref: '#/components/parameters/Month'
+      responses:
+        '200':
+          description: monthly report retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/MonthlyReportResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /reports/couple:
+    get:
+      tags: [Reports]
+      summary: Monthly report merging the current user and their partner
+      parameters:
+        - $ref: '#/components/parameters/Year'
+        - $ref: '#/components/parameters/Month'
+      responses:
+        '200':
+          description: couple report retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/MonthlyReportResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /reports/trend:
+    get:
+      tags: [Reports]
+      summary: Monthly total-spend trend over N months
+      parameters:
+        - $ref: '#/components/parameters/Months'
+      responses:
+        '200':
+          description: trend retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/TrendResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /reports/trend/category:
+    get:
+      tags: [Reports]
+      summary: Monthly spend trend for one category over N months
+      parameters:
+        - in: query
+          name: category_id
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/Months'
+      responses:
+        '200':
+          description: category trend retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/TrendResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /reports/rollover/{categoryId}:
+    get:
+      tags: [Reports]
+      summary: Compute the leftover (rollover) amount for a category's budget
+      parameters:
+        - in: path
+          name: categoryId
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/Year'
+        - $ref: '#/components/parameters/Month'
+      responses:
+        '200':
+          description: rollover retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          rollover_amount: { type: integer, format: int64 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /reports/forecast:
+    get:
+      tags: [Reports]
+      summary: Next-month spend forecast (experimental, feature-flagged)
+      description: >
+        Only registered when FEATURE_INSIGHTS_ENABLED=true; returns 404 from
+        the router itself when the feature is disabled.
+      responses:
+        '200':
+          description: forecast retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/ForecastResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /reports/health-score:
+    get:
+      tags: [Reports]
+      summary: Budget health score/grade for a period (experimental, feature-flagged)
+      parameters:
+        - $ref: '#/components/parameters/Year'
+        - $ref: '#/components/parameters/Month'
+      responses:
+        '200':
+          description: health score retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/HealthScoreResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /reports/exports:
+    post:
+      tags: [Reports]
+      summary: Queue a report export (PDF)
+      description: >
+        Returns immediately with status "pending"; rendering happens
+        asynchronously on a cron worker. Poll `GET /reports/exports/{id}`
+        until status becomes "completed" or "failed".
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateExportRequest' }
+      responses:
+        '202':
+          description: export queued
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/ExportResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    get:
+      tags: [Reports]
+      summary: List the current user's report exports
+      responses:
+        '200':
+          description: exports retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/ExportResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /reports/exports/{id}:
+    get:
+      tags: [Reports]
+      summary: Get one report export by id
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: export retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/ExportResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /reports/exports/{id}/download:
+    get:
+      tags: [Reports]
+      summary: Get a signed download URL for a completed export
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: download url retrieved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/URLEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /activity:
+    get:
+      tags: [Activity]
+      summary: List couple activity feed entries
+      description: Returns an empty list (not a 404) when the user has no linked partner.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: activity retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/ActivityItem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /activity/recent:
+    get:
+      tags: [Activity]
+      summary: List the most recent couple activity feed entries
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: recent activity retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/ActivityItem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    IdPath:
+      in: path
+      name: id
+      required: true
+      schema: { type: string, format: uuid }
+    Year:
+      in: query
+      name: year
+      schema: { type: integer, example: 2026 }
+    Month:
+      in: query
+      name: month
+      schema: { type: integer, minimum: 1, maximum: 12, example: 1 }
+    Months:
+      in: query
+      name: months
+      description: Defaults to 6 when omitted or non-positive.
+      schema: { type: integer, example: 6 }
+    Limit:
+      in: query
+      name: limit
+      description: Defaults to 20, capped at 100.
+      schema: { type: integer, example: 20 }
+    Offset:
+      in: query
+      name: offset
+      schema: { type: integer, default: 0 }
+    CategoryIdQuery:
+      in: query
+      name: category_id
+      schema: { type: string, format: uuid }
+    From:
+      in: query
+      name: from
+      description: Inclusive start date (YYYY-MM-DD).
+      schema: { type: string, format: date }
+    To:
+      in: query
+      name: to
+      description: Inclusive end date (YYYY-MM-DD).
+      schema: { type: string, format: date }
+
+  responses:
+    OK:
+      description: success
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Envelope' }
+    BadRequest:
+      description: validation error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Unauthorized:
+      description: missing, malformed or expired token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    NotFound:
+      description: resource not found, or not owned by the current user
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Conflict:
+      description: conflicting state (duplicate, already finalized, expired, etc.)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  schemas:
+    Envelope:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        message: { type: string }
+        data: {}
+      required: [success]
+
+    ErrorEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        error: { type: string }
+      required: [success, error]
+
+    AuthResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/AuthResponse' }
+
+    UserResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/UserResponse' }
+
+    NotificationPreferenceResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/NotificationPreferenceResponse' }
+
+    URLEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                url: { type: string, format: uri }
+
+    RegisterRequest:
+      type: object
+      properties:
+        name: { type: string, minLength: 2, maxLength: 100, example: Alice }
+        email: { type: string, format: email, example: alice@example.com }
+        password: { type: string, format: password, minLength: 8, example: password123 }
+      required: [name, email, password]
+
+    LoginRequest:
+      type: object
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+      required: [email, password]
+
+    RefreshTokenRequest:
+      type: object
+      properties:
+        refresh_token: { type: string, description: "Format: <session_id>.<secret>" }
+      required: [refresh_token]
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        name: { type: string, minLength: 2, maxLength: 100 }
+      required: [name]
+
+    ChangePasswordRequest:
+      type: object
+      properties:
+        current_password: { type: string, format: password }
+        new_password: { type: string, format: password, minLength: 8 }
+      required: [current_password, new_password]
+
+    SendInvitationRequest:
+      type: object
+      properties:
+        receiver_email: { type: string, format: email }
+      required: [receiver_email]
+
+    CreateCategoryRequest:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100, example: Food }
+        icon: { type: string, maxLength: 10, example: "🍔" }
+      required: [name]
+
+    UpdateCategoryRequest:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        icon: { type: string, maxLength: 10 }
+
+    CreateBudgetRequest:
+      type: object
+      properties:
+        category_id: { type: string, format: uuid }
+        year: { type: integer, example: 2026 }
+        month: { type: integer, minimum: 1, maximum: 12 }
+        base_amount: { type: integer, format: int64, minimum: 0 }
+      required: [category_id, year, month, base_amount]
+
+    UpdateBudgetRequest:
+      type: object
+      properties:
+        base_amount: { type: integer, format: int64, minimum: 0 }
+      required: [base_amount]
+
+    CreateExpenseRequest:
+      type: object
+      properties:
+        category_id: { type: string, format: uuid }
+        monthly_budget_id: { type: string, format: uuid }
+        amount: { type: integer, format: int64, minimum: 1 }
+        note: { type: string, maxLength: 255 }
+        expense_date: { type: string, format: date, example: "2026-01-15" }
+      required: [category_id, monthly_budget_id, amount, expense_date]
+
+    UpdateExpenseRequest:
+      type: object
+      properties:
+        category_id: { type: string, format: uuid }
+        amount: { type: integer, format: int64, minimum: 1 }
+        note: { type: string, maxLength: 255 }
+        expense_date: { type: string, format: date }
+
+    CreateRecurringExpenseRequest:
+      type: object
+      properties:
+        category_id: { type: string, format: uuid }
+        amount: { type: integer, format: int64, minimum: 1 }
+        note: { type: string, maxLength: 255 }
+        schedule_type: { type: string, enum: [weekly, monthly] }
+        schedule_day:
+          type: integer
+          description: For weekly, 0-6 (Sunday-Saturday); for monthly, day of month (clamped to the last day when out of range).
+      required: [category_id, amount, schedule_type, schedule_day]
+
+    UpdateRecurringExpenseRequest:
+      type: object
+      properties:
+        amount: { type: integer, format: int64, minimum: 1 }
+        note: { type: string, maxLength: 255 }
+        schedule_day: { type: integer }
+
+    CreateReminderRequest:
+      type: object
+      properties:
+        title: { type: string, maxLength: 120 }
+        amount: { type: integer, format: int64, minimum: 1, nullable: true }
+        due_date: { type: string, format: date }
+        remind_before_days: { type: integer, minimum: 0, description: "Defaults to 1 when omitted." }
+      required: [title, due_date]
+
+    UpdateReminderRequest:
+      type: object
+      properties:
+        title: { type: string, maxLength: 120 }
+        amount: { type: integer, format: int64, minimum: 1, nullable: true }
+        due_date: { type: string, format: date }
+        remind_before_days: { type: integer, minimum: 0 }
+
+    SnoozeReminderRequest:
+      type: object
+      properties:
+        snoozed_until: { type: string, format: date }
+      required: [snoozed_until]
+
+    UpdateNotificationPreferenceRequest:
+      type: object
+      description: Every field is optional; omit a key to leave that preference unchanged.
+      properties:
+        budget_alert: { type: boolean, nullable: true }
+        partner_activity: { type: boolean, nullable: true }
+        weekly_summary: { type: boolean, nullable: true }
+        reminder_alert: { type: boolean, nullable: true }
+        recurring_alert: { type: boolean, nullable: true }
+
+    CreateExportRequest:
+      type: object
+      properties:
+        format: { type: string, enum: [pdf] }
+        year: { type: integer }
+        month: { type: integer, minimum: 1, maximum: 12 }
+        scope: { type: string, enum: [personal, couple] }
+      required: [format, year, month, scope]
+
+    UserResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string, format: email }
+        avatar_url: { type: string, format: uri }
+        created_at: { type: string, format: date-time }
+
+    AuthResponse:
+      type: object
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        user: { $ref: '#/components/schemas/UserResponse' }
+
+    SessionResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        device_name: { type: string }
+        ip_address: { type: string }
+        user_agent: { type: string }
+        last_active_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        is_current: { type: boolean }
+
+    SecurityAuditLog:
+      type: object
+      description: Serialized with Go's default (PascalCase) field names - this struct has no json tags.
+      properties:
+        ID: { type: string, format: uuid }
+        UserID: { type: string, format: uuid, nullable: true }
+        EventType:
+          type: string
+          enum:
+            - register_success
+            - login_success
+            - login_failure
+            - password_changed
+            - invitation_sent
+            - invitation_accepted
+            - invitation_rejected
+            - invitation_cancelled
+            - partner_linked
+            - partner_unlinked
+            - session_revoked
+            - sessions_revoked_others
+        IPAddress: { type: string, nullable: true }
+        UserAgent: { type: string, nullable: true }
+        Meta: { type: object, additionalProperties: true, nullable: true }
+        CreatedAt: { type: string, format: date-time }
+
+    CategoryResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        icon: { type: string }
+        created_at: { type: string, format: date-time }
+
+    BudgetResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        category_id: { type: string, format: uuid }
+        year: { type: integer }
+        month: { type: integer }
+        base_amount: { type: integer, format: int64 }
+        rollover_amount: { type: integer, format: int64 }
+        total_amount: { type: integer, format: int64 }
+        is_finalized: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ExpenseResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        category_id: { type: string, format: uuid }
+        monthly_budget_id: { type: string, format: uuid }
+        amount: { type: integer, format: int64 }
+        note: { type: string }
+        expense_date: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+
+    RecurringExpenseResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        category_id: { type: string, format: uuid }
+        amount: { type: integer, format: int64 }
+        note: { type: string }
+        schedule_type: { type: string, enum: [weekly, monthly] }
+        schedule_day: { type: integer }
+        next_run_at: { type: string, format: date-time }
+        last_run_at: { type: string, format: date-time, nullable: true }
+        is_active: { type: boolean }
+        created_at: { type: string, format: date-time }
+
+    ReminderResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        amount: { type: integer, format: int64, nullable: true }
+        due_date: { type: string, format: date-time }
+        remind_before_days: { type: integer }
+        status: { type: string, enum: [upcoming, overdue, done] }
+        snoozed_until: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    NotificationResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        type:
+          type: string
+          enum: [recurring_expense, bill_reminder, budget_alert, partner_activity, weekly_summary]
+        title: { type: string }
+        body: { type: string }
+        is_read: { type: boolean }
+        read_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    NotificationPreferenceResponse:
+      type: object
+      properties:
+        budget_alert: { type: boolean }
+        partner_activity: { type: boolean }
+        weekly_summary: { type: boolean }
+        reminder_alert: { type: boolean }
+        recurring_alert: { type: boolean }
+
+    CoupleResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        partner: { $ref: '#/components/schemas/UserResponse' }
+        linked_at: { type: string, format: date-time }
+
+    InvitationResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        sender_id: { type: string, format: uuid }
+        receiver_id: { type: string, format: uuid }
+        status: { type: string, enum: [pending, accepted, rejected, cancelled, expired] }
+        expires_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+
+    CategorySpend:
+      type: object
+      properties:
+        category_id: { type: string, format: uuid }
+        name: { type: string }
+        spent: { type: integer, format: int64 }
+        budget: { type: integer, format: int64 }
+
+    MonthlyReportResponse:
+      type: object
+      properties:
+        year: { type: integer }
+        month: { type: integer }
+        total_spent: { type: integer, format: int64 }
+        total_budget: { type: integer, format: int64 }
+        by_category:
+          type: array
+          items: { $ref: '#/components/schemas/CategorySpend' }
+
+    TrendPoint:
+      type: object
+      properties:
+        year: { type: integer }
+        month: { type: integer }
+        total: { type: integer, format: int64 }
+
+    TrendResponse:
+      type: object
+      properties:
+        points:
+          type: array
+          items: { $ref: '#/components/schemas/TrendPoint' }
+
+    ForecastResponse:
+      type: object
+      properties:
+        year: { type: integer }
+        month: { type: integer }
+        projected_total: { type: integer, format: int64 }
+        confidence: { type: number, format: double, description: "0.4 with under 3 months of history, else 0.6" }
+
+    HealthScoreResponse:
+      type: object
+      properties:
+        score: { type: integer, minimum: 0, maximum: 100 }
+        grade: { type: string, enum: [A, B, C, D, "n/a"] }
+        reasons:
+          type: array
+          items: { type: string }
+
+    ExportResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        format: { type: string, enum: [pdf] }
+        year: { type: integer }
+        month: { type: integer }
+        scope: { type: string, enum: [personal, couple] }
+        status: { type: string, enum: [pending, processing, completed, failed] }
+        download_url: { type: string, format: uri }
+        requested_at: { type: string, format: date-time }
+        completed_at: { type: string, format: date-time, nullable: true }
+
+    ActivityItem:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        actor_id: { type: string, format: uuid }
+        actor_name: { type: string }
+        action: { type: string, enum: [created, updated, deleted] }
+        entity_type: { type: string, enum: [expense, budget] }
+        entity_id: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
