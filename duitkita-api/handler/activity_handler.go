@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -25,8 +24,7 @@ func (h *ActivityHandler) RegisterRoutes(rg *gin.RouterGroup) {
 }
 
 func (h *ActivityHandler) list(c *gin.Context) {
-	limit, _ := strconv.Atoi(c.Query("limit"))
-	offset, _ := strconv.Atoi(c.Query("offset"))
+	limit, offset := parsePagination(c)
 
 	res, err := h.svc.List(c.Request.Context(), currentUserID(c), limit, offset)
 	if err != nil {
@@ -37,10 +35,7 @@ func (h *ActivityHandler) list(c *gin.Context) {
 }
 
 func (h *ActivityHandler) recent(c *gin.Context) {
-	limit, _ := strconv.Atoi(c.Query("limit"))
-	if limit <= 0 {
-		limit = 10
-	}
+	limit, _ := parsePagination(c)
 
 	res, err := h.svc.Recent(c.Request.Context(), currentUserID(c), limit)
 	if err != nil {

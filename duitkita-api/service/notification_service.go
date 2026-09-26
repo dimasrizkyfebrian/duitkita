@@ -13,7 +13,7 @@ import (
 )
 
 type NotificationService interface {
-	List(ctx context.Context, userID string) ([]response.NotificationResponse, error)
+	List(ctx context.Context, userID string, limit, offset int) ([]response.NotificationResponse, error)
 	MarkRead(ctx context.Context, userID, id string) error
 	MarkAllRead(ctx context.Context, userID string) error
 	GetPreferences(ctx context.Context, userID string) (*response.NotificationPreferenceResponse, error)
@@ -30,8 +30,8 @@ func NewNotificationService(repo repository.NotificationRepository, prefRepo rep
 	return &notificationService{repo: repo, prefRepo: prefRepo}
 }
 
-func (s *notificationService) List(ctx context.Context, userID string) ([]response.NotificationResponse, error) {
-	items, err := s.repo.FindAllByUserID(ctx, userID)
+func (s *notificationService) List(ctx context.Context, userID string, limit, offset int) ([]response.NotificationResponse, error) {
+	items, err := s.repo.FindAllByUserID(ctx, userID, limit, offset)
 	if err != nil {
 		return nil, utils.ErrInternal("failed to list notifications")
 	}

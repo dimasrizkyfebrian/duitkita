@@ -124,7 +124,9 @@ func (h *ReportHandler) createExport(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	utils.Success(c, http.StatusCreated, "export created", res)
+	// 202: the row is created but rendering happens async (worker/report_export_job.go)
+	// — poll GET /reports/exports/:id until status is "completed".
+	utils.Success(c, http.StatusAccepted, "export queued", res)
 }
 
 func (h *ReportHandler) listExports(c *gin.Context) {

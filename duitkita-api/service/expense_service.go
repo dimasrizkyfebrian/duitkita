@@ -16,6 +16,8 @@ type ExpenseListFilter struct {
 	CategoryID string
 	From       string
 	To         string
+	Limit      int
+	Offset     int
 }
 
 type ExpenseService interface {
@@ -29,31 +31,27 @@ type ExpenseService interface {
 }
 
 type expenseService struct {
-	repo         repository.ExpenseRepository
-	categoryRepo repository.CategoryRepository
-	budgetRepo   repository.BudgetRepository
-	coupleRepo   repository.CoupleRepository
-	activitySvc  ActivityService
+	repo        repository.ExpenseRepository
+	budgetRepo  repository.BudgetRepository
+	coupleRepo  repository.CoupleRepository
+	activitySvc ActivityService
 }
 
-func NewExpenseService(repo repository.ExpenseRepository, categoryRepo repository.CategoryRepository, budgetRepo repository.BudgetRepository, coupleRepo repository.CoupleRepository, activitySvc ActivityService) ExpenseService {
-	return &expenseService{repo: repo, categoryRepo: categoryRepo, budgetRepo: budgetRepo, coupleRepo: coupleRepo, activitySvc: activitySvc}
+func NewExpenseService(repo repository.ExpenseRepository, budgetRepo repository.BudgetRepository, coupleRepo repository.CoupleRepository, activitySvc ActivityService) ExpenseService {
+	return &expenseService{repo: repo, budgetRepo: budgetRepo, coupleRepo: coupleRepo, activitySvc: activitySvc}
 }
 
 func (s *expenseService) Create(ctx context.Context, userID string, req request.CreateExpenseRequest) (*response.ExpenseResponse, error) {
-	category, err := s.categoryRepo.FindByID(ctx, req.CategoryID)
+	// One round trip validating both category and budget ownership,
+	// instead of two separate FindByID lookups.
+	categoryOwned, budgetOwned, err := s.repo.ValidateOwnership(ctx, userID, req.CategoryID, req.MonthlyBudgetID)
 	if err != nil {
-		return nil, utils.ErrInternal("failed to look up category")
+		return nil, utils.ErrInternal("failed to validate ownership")
 	}
-	if category == nil || category.UserID != userID {
+	if !categoryOwned {
 		return nil, utils.ErrNotFound("category not found")
 	}
-
-	budget, err := s.budgetRepo.FindByID(ctx, req.MonthlyBudgetID)
-	if err != nil {
-		return nil, utils.ErrInternal("failed to look up budget")
-	}
-	if budget == nil || budget.UserID != userID {
+	if !budgetOwned {
 		return nil, utils.ErrNotFound("budget not found")
 	}
 
@@ -183,13 +181,7 @@ func (s *expenseService) Delete(ctx context.Context, userID, id string) error {
 
 func (s *expenseService) mustOwnExpense(ctx context.Context, userID, id string) (*domain.Expense, error) {
 	expense, err := s.repo.FindByID(ctx, id)
-	if err != nil {
-		return nil, utils.ErrInternal("failed to look up expense")
-	}
-	if expense == nil || expense.UserID != userID {
-		return nil, utils.ErrNotFound("expense not found")
-	}
-	return expense, nil
+	return mustOwn(expense, err, userID, "expense not found")
 }
 
 func toExpenseResponse(expense *domain.Expense) response.ExpenseResponse {

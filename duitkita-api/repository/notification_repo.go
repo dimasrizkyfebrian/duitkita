@@ -12,7 +12,7 @@ import (
 
 type NotificationRepository interface {
 	Create(ctx context.Context, notification *domain.Notification) error
-	FindAllByUserID(ctx context.Context, userID string) ([]domain.Notification, error)
+	FindAllByUserID(ctx context.Context, userID string, limit, offset int) ([]domain.Notification, error)
 	MarkRead(ctx context.Context, id, userID string) error
 	MarkAllRead(ctx context.Context, userID string) error
 	DeleteReadBefore(ctx context.Context, cutoff time.Time) (int64, error)
@@ -30,9 +30,13 @@ func (r *notificationRepository) Create(ctx context.Context, notification *domai
 	return r.db.WithContext(ctx).Create(notification).Error
 }
 
-func (r *notificationRepository) FindAllByUserID(ctx context.Context, userID string) ([]domain.Notification, error) {
+func (r *notificationRepository) FindAllByUserID(ctx context.Context, userID string, limit, offset int) ([]domain.Notification, error) {
 	var items []domain.Notification
-	err := r.db.WithContext(ctx).Where("user_id = ?", userID).Order("created_at DESC").Find(&items).Error
+	err := r.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Order("created_at DESC").
+		Limit(limit).Offset(offset).
+		Find(&items).Error
 	return items, err
 }
 

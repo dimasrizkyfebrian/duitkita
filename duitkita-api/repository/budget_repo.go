@@ -13,7 +13,7 @@ type BudgetRepository interface {
 	Create(ctx context.Context, budget *domain.MonthlyBudget) error
 	FindByID(ctx context.Context, id string) (*domain.MonthlyBudget, error)
 	FindByUserCategoryPeriod(ctx context.Context, userID, categoryID string, year, month int) (*domain.MonthlyBudget, error)
-	FindAllByUserID(ctx context.Context, userID string, year, month int) ([]domain.MonthlyBudget, error)
+	FindAllByUserID(ctx context.Context, userID string, year, month, limit, offset int) ([]domain.MonthlyBudget, error)
 	Update(ctx context.Context, budget *domain.MonthlyBudget) error
 	Delete(ctx context.Context, id string) error
 }
@@ -56,13 +56,19 @@ func (r *budgetRepository) FindByUserCategoryPeriod(ctx context.Context, userID,
 	return &budget, nil
 }
 
-func (r *budgetRepository) FindAllByUserID(ctx context.Context, userID string, year, month int) ([]domain.MonthlyBudget, error) {
+func (r *budgetRepository) FindAllByUserID(ctx context.Context, userID string, year, month, limit, offset int) ([]domain.MonthlyBudget, error) {
 	query := r.db.WithContext(ctx).Where("user_id = ?", userID)
 	if year > 0 {
 		query = query.Where("year = ?", year)
 	}
 	if month > 0 {
 		query = query.Where("month = ?", month)
+	}
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	if offset > 0 {
+		query = query.Offset(offset)
 	}
 
 	var budgets []domain.MonthlyBudget

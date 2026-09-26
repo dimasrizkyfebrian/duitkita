@@ -43,7 +43,8 @@ func (h *ReminderHandler) create(c *gin.Context) {
 }
 
 func (h *ReminderHandler) list(c *gin.Context) {
-	res, err := h.svc.List(c.Request.Context(), currentUserID(c))
+	limit, offset := parsePagination(c)
+	res, err := h.svc.List(c.Request.Context(), currentUserID(c), limit, offset)
 	if err != nil {
 		c.Error(err)
 		return

@@ -21,3 +21,8 @@ type MonthlyBudget struct {
 func (MonthlyBudget) TableName() string {
 	return "monthly_budgets"
 }
+
+// OwnerID satisfies service.Owned for the generic ownership-check helper.
+func (b MonthlyBudget) OwnerID() string {
+	return b.UserID
+}

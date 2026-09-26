@@ -13,7 +13,7 @@ import (
 type ReminderRepository interface {
 	Create(ctx context.Context, reminder *domain.BillReminder) error
 	FindByID(ctx context.Context, id string) (*domain.BillReminder, error)
-	FindAllByUserID(ctx context.Context, userID string) ([]domain.BillReminder, error)
+	FindAllByUserID(ctx context.Context, userID string, limit, offset int) ([]domain.BillReminder, error)
 	FindDueForNotification(ctx context.Context, asOf time.Time) ([]domain.BillReminder, error)
 	Update(ctx context.Context, reminder *domain.BillReminder) error
 	Delete(ctx context.Context, id string) error
@@ -43,9 +43,13 @@ func (r *reminderRepository) FindByID(ctx context.Context, id string) (*domain.B
 	return &reminder, nil
 }
 
-func (r *reminderRepository) FindAllByUserID(ctx context.Context, userID string) ([]domain.BillReminder, error) {
+func (r *reminderRepository) FindAllByUserID(ctx context.Context, userID string, limit, offset int) ([]domain.BillReminder, error) {
 	var reminders []domain.BillReminder
-	err := r.db.WithContext(ctx).Where("user_id = ?", userID).Order("due_date ASC").Find(&reminders).Error
+	err := r.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Order("due_date ASC").
+		Limit(limit).Offset(offset).
+		Find(&reminders).Error
 	return reminders, err
 }
 

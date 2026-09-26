@@ -17,5 +17,12 @@ func RegisterAll(scheduler *infrastructure.Scheduler, svcs *service.Services) er
 	if err := scheduler.Register("cleanup", "0 0 3 * * *", NewCleanupJob(svcs.Maintenance)); err != nil {
 		return err
 	}
+
+	// Every 10 seconds: render pending report exports. Short interval
+	// because, unlike the other jobs, a human is actively waiting on this
+	// one (polling GET /reports/exports/:id for status).
+	if err := scheduler.Register("report-exports", "*/10 * * * * *", NewReportExportJob(svcs.ReportExport)); err != nil {
+		return err
+	}
 	return nil
 }

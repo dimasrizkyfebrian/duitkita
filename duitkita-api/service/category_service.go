@@ -95,13 +95,7 @@ func (s *categoryService) Delete(ctx context.Context, userID, id string) error {
 
 func (s *categoryService) mustOwnCategory(ctx context.Context, userID, id string) (*domain.Category, error) {
 	category, err := s.repo.FindByID(ctx, id)
-	if err != nil {
-		return nil, utils.ErrInternal("failed to look up category")
-	}
-	if category == nil || category.UserID != userID {
-		return nil, utils.ErrNotFound("category not found")
-	}
-	return category, nil
+	return mustOwn(category, err, userID, "category not found")
 }
 
 func toCategoryResponse(category *domain.Category) response.CategoryResponse {

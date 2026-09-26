@@ -29,3 +29,8 @@ type RecurringExpense struct {
 func (RecurringExpense) TableName() string {
 	return "recurring_expenses"
 }
+
+// OwnerID satisfies service.Owned for the generic ownership-check helper.
+func (r RecurringExpense) OwnerID() string {
+	return r.UserID
+}

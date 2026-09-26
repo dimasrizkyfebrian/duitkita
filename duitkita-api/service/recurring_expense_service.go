@@ -16,7 +16,7 @@ import (
 
 type RecurringExpenseService interface {
 	Create(ctx context.Context, userID string, req request.CreateRecurringExpenseRequest) (*response.RecurringExpenseResponse, error)
-	List(ctx context.Context, userID string) ([]response.RecurringExpenseResponse, error)
+	List(ctx context.Context, userID string, limit, offset int) ([]response.RecurringExpenseResponse, error)
 	GetByID(ctx context.Context, userID, id string) (*response.RecurringExpenseResponse, error)
 	Update(ctx context.Context, userID, id string, req request.UpdateRecurringExpenseRequest) (*response.RecurringExpenseResponse, error)
 	Delete(ctx context.Context, userID, id string) error
@@ -65,8 +65,8 @@ func (s *recurringExpenseService) Create(ctx context.Context, userID string, req
 	return &res, nil
 }
 
-func (s *recurringExpenseService) List(ctx context.Context, userID string) ([]response.RecurringExpenseResponse, error) {
-	items, err := s.repo.FindAllByUserID(ctx, userID)
+func (s *recurringExpenseService) List(ctx context.Context, userID string, limit, offset int) ([]response.RecurringExpenseResponse, error) {
+	items, err := s.repo.FindAllByUserID(ctx, userID, limit, offset)
 	if err != nil {
 		return nil, utils.ErrInternal("failed to list recurring expenses")
 	}
@@ -78,7 +78,7 @@ func (s *recurringExpenseService) List(ctx context.Context, userID string) ([]re
 }
 
 func (s *recurringExpenseService) GetByID(ctx context.Context, userID, id string) (*response.RecurringExpenseResponse, error) {
-	re, err := s.mustOwn(ctx, userID, id)
+	re, err := s.mustOwnRecurringExpense(ctx, userID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (s *recurringExpenseService) GetByID(ctx context.Context, userID, id string
 }
 
 func (s *recurringExpenseService) Update(ctx context.Context, userID, id string, req request.UpdateRecurringExpenseRequest) (*response.RecurringExpenseResponse, error) {
-	re, err := s.mustOwn(ctx, userID, id)
+	re, err := s.mustOwnRecurringExpense(ctx, userID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -112,14 +112,14 @@ func (s *recurringExpenseService) Update(ctx context.Context, userID, id string,
 }
 
 func (s *recurringExpenseService) Delete(ctx context.Context, userID, id string) error {
-	if _, err := s.mustOwn(ctx, userID, id); err != nil {
+	if _, err := s.mustOwnRecurringExpense(ctx, userID, id); err != nil {
 		return err
 	}
 	return s.repo.Delete(ctx, id)
 }
 
 func (s *recurringExpenseService) Pause(ctx context.Context, userID, id string) error {
-	re, err := s.mustOwn(ctx, userID, id)
+	re, err := s.mustOwnRecurringExpense(ctx, userID, id)
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func (s *recurringExpenseService) Pause(ctx context.Context, userID, id string) 
 }
 
 func (s *recurringExpenseService) Resume(ctx context.Context, userID, id string) error {
-	re, err := s.mustOwn(ctx, userID, id)
+	re, err := s.mustOwnRecurringExpense(ctx, userID, id)
 	if err != nil {
 		return err
 	}
@@ -183,15 +183,9 @@ func (s *recurringExpenseService) RunDue(ctx context.Context) (int, error) {
 	return processed, nil
 }
 
-func (s *recurringExpenseService) mustOwn(ctx context.Context, userID, id string) (*domain.RecurringExpense, error) {
+func (s *recurringExpenseService) mustOwnRecurringExpense(ctx context.Context, userID, id string) (*domain.RecurringExpense, error) {
 	re, err := s.repo.FindByID(ctx, id)
-	if err != nil {
-		return nil, utils.ErrInternal("failed to look up recurring expense")
-	}
-	if re == nil || re.UserID != userID {
-		return nil, utils.ErrNotFound("recurring expense not found")
-	}
-	return re, nil
+	return mustOwn(re, err, userID, "recurring expense not found")
 }
 
 func computeNextRun(scheduleType domain.RecurringScheduleType, scheduleDay int, from time.Time) time.Time {

@@ -21,6 +21,12 @@ type ReportExportService interface {
 	List(ctx context.Context, userID string) ([]response.ExportResponse, error)
 	GetByID(ctx context.Context, userID, id string) (*response.ExportResponse, error)
 	DownloadURL(ctx context.Context, userID, id string) (string, error)
+	// ProcessPending renders every export still marked "pending". Called by
+	// worker/report_export_job.go on a short cron tick — see Create, which
+	// only inserts the row and returns immediately instead of rendering
+	// inline on the request (PDF generation + upload used to block the
+	// HTTP response; a bigger report could then time it out).
+	ProcessPending(ctx context.Context) (int, error)
 }
 
 type reportExportService struct {
@@ -41,28 +47,58 @@ func (s *reportExportService) Create(ctx context.Context, userID string, req req
 		Year:   req.Year,
 		Month:  req.Month,
 		Scope:  req.Scope,
-		Status: domain.ReportExportStatusProcessing,
+		Status: domain.ReportExportStatusPending,
 	}
 	if err := s.repo.Create(ctx, export); err != nil {
 		return nil, utils.ErrInternal("failed to create export")
 	}
 
-	report, err := s.reportSvc.MonthlyReport(ctx, userID, req.Year, req.Month)
+	return toExportResponse(export, ""), nil
+}
+
+func (s *reportExportService) ProcessPending(ctx context.Context) (int, error) {
+	pending, err := s.repo.FindPending(ctx)
 	if err != nil {
-		s.failExport(ctx, export, err)
-		return nil, err
+		return 0, utils.ErrInternal("failed to load pending exports")
+	}
+
+	processed := 0
+	for i := range pending {
+		export := &pending[i]
+
+		export.Status = domain.ReportExportStatusProcessing
+		if err := s.repo.Update(ctx, export); err != nil {
+			log.Error().Err(err).Str("export_id", export.ID).Msg("failed to mark export as processing")
+			continue
+		}
+
+		if err := s.render(ctx, export); err != nil {
+			s.failExport(ctx, export, err)
+			continue
+		}
+		processed++
+	}
+
+	return processed, nil
+}
+
+// render builds the PDF and uploads it, leaving export ready for the
+// caller to mark completed. Split out of ProcessPending so a failure
+// midway always goes through failExport with the actual cause.
+func (s *reportExportService) render(ctx context.Context, export *domain.ReportExport) error {
+	report, err := s.reportSvc.MonthlyReport(ctx, export.UserID, export.Year, export.Month)
+	if err != nil {
+		return err
 	}
 
 	pdfBytes, err := renderMonthlyReportPDF(report)
 	if err != nil {
-		s.failExport(ctx, export, err)
-		return nil, utils.ErrInternal("failed to render report pdf")
+		return fmt.Errorf("render report pdf: %w", err)
 	}
 
-	objectKey := fmt.Sprintf("reports/%s/%s.pdf", userID, export.ID)
+	objectKey := fmt.Sprintf("reports/%s/%s.pdf", export.UserID, export.ID)
 	if _, err := s.storage.Upload(ctx, objectKey, bytes.NewReader(pdfBytes), "application/pdf"); err != nil {
-		s.failExport(ctx, export, err)
-		return nil, utils.ErrInternal("failed to upload report pdf")
+		return fmt.Errorf("upload report pdf: %w", err)
 	}
 
 	now := time.Now()
@@ -70,10 +106,10 @@ func (s *reportExportService) Create(ctx context.Context, userID string, req req
 	export.FilePath = &objectKey
 	export.CompletedAt = &now
 	if err := s.repo.Update(ctx, export); err != nil {
-		return nil, utils.ErrInternal("failed to save export status")
+		return fmt.Errorf("save export status: %w", err)
 	}
 
-	return toExportResponse(export, ""), nil
+	return nil
 }
 
 func (s *reportExportService) List(ctx context.Context, userID string) ([]response.ExportResponse, error) {
@@ -124,6 +160,8 @@ func (s *reportExportService) mustOwn(ctx context.Context, userID, id string) (*
 }
 
 func (s *reportExportService) failExport(ctx context.Context, export *domain.ReportExport, cause error) {
+	log.Error().Err(cause).Str("export_id", export.ID).Msg("report export failed")
+
 	export.Status = domain.ReportExportStatusFailed
 	export.ErrorMessage = utils.StringPtr(cause.Error())
 	if err := s.repo.Update(ctx, export); err != nil {

@@ -14,11 +14,11 @@ import (
 
 type BudgetService interface {
 	Create(ctx context.Context, userID string, req request.CreateBudgetRequest) (*response.BudgetResponse, error)
-	List(ctx context.Context, userID string, year, month int) ([]response.BudgetResponse, error)
+	List(ctx context.Context, userID string, year, month, limit, offset int) ([]response.BudgetResponse, error)
 	GetByID(ctx context.Context, userID, id string) (*response.BudgetResponse, error)
 	Update(ctx context.Context, userID, id string, req request.UpdateBudgetRequest) (*response.BudgetResponse, error)
 	Delete(ctx context.Context, userID, id string) error
-	GetPartnerBudgets(ctx context.Context, userID string, year, month int) ([]response.BudgetResponse, error)
+	GetPartnerBudgets(ctx context.Context, userID string, year, month, limit, offset int) ([]response.BudgetResponse, error)
 	Finalize(ctx context.Context, userID, id string) (*response.BudgetResponse, error)
 }
 
@@ -67,8 +67,8 @@ func (s *budgetService) Create(ctx context.Context, userID string, req request.C
 	return &res, nil
 }
 
-func (s *budgetService) List(ctx context.Context, userID string, year, month int) ([]response.BudgetResponse, error) {
-	budgets, err := s.repo.FindAllByUserID(ctx, userID, year, month)
+func (s *budgetService) List(ctx context.Context, userID string, year, month, limit, offset int) ([]response.BudgetResponse, error) {
+	budgets, err := s.repo.FindAllByUserID(ctx, userID, year, month, limit, offset)
 	if err != nil {
 		return nil, utils.ErrInternal("failed to list budgets")
 	}
@@ -118,7 +118,7 @@ func (s *budgetService) Delete(ctx context.Context, userID, id string) error {
 	return nil
 }
 
-func (s *budgetService) GetPartnerBudgets(ctx context.Context, userID string, year, month int) ([]response.BudgetResponse, error) {
+func (s *budgetService) GetPartnerBudgets(ctx context.Context, userID string, year, month, limit, offset int) ([]response.BudgetResponse, error) {
 	couple, err := s.coupleRepo.FindByUserID(ctx, userID)
 	if err != nil {
 		return nil, utils.ErrInternal("failed to look up partner")
@@ -132,7 +132,7 @@ func (s *budgetService) GetPartnerBudgets(ctx context.Context, userID string, ye
 		partnerID = couple.User1ID
 	}
 
-	budgets, err := s.repo.FindAllByUserID(ctx, partnerID, year, month)
+	budgets, err := s.repo.FindAllByUserID(ctx, partnerID, year, month, limit, offset)
 	if err != nil {
 		return nil, utils.ErrInternal("failed to list partner budgets")
 	}
@@ -156,13 +156,7 @@ func (s *budgetService) Finalize(ctx context.Context, userID, id string) (*respo
 
 func (s *budgetService) mustOwnBudget(ctx context.Context, userID, id string) (*domain.MonthlyBudget, error) {
 	budget, err := s.repo.FindByID(ctx, id)
-	if err != nil {
-		return nil, utils.ErrInternal("failed to look up budget")
-	}
-	if budget == nil || budget.UserID != userID {
-		return nil, utils.ErrNotFound("budget not found")
-	}
-	return budget, nil
+	return mustOwn(budget, err, userID, "budget not found")
 }
 
 func toBudgetResponse(budget *domain.MonthlyBudget) response.BudgetResponse {

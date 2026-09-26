@@ -43,10 +43,13 @@ func (h *ExpenseHandler) create(c *gin.Context) {
 }
 
 func (h *ExpenseHandler) list(c *gin.Context) {
+	limit, offset := parsePagination(c)
 	filter := service.ExpenseListFilter{
 		CategoryID: c.Query("category_id"),
 		From:       c.Query("from"),
 		To:         c.Query("to"),
+		Limit:      limit,
+		Offset:     offset,
 	}
 	res, err := h.svc.List(c.Request.Context(), currentUserID(c), filter)
 	if err != nil {
@@ -66,10 +69,13 @@ func (h *ExpenseHandler) listByBudget(c *gin.Context) {
 }
 
 func (h *ExpenseHandler) partner(c *gin.Context) {
+	limit, offset := parsePagination(c)
 	filter := service.ExpenseListFilter{
 		CategoryID: c.Query("category_id"),
 		From:       c.Query("from"),
 		To:         c.Query("to"),
+		Limit:      limit,
+		Offset:     offset,
 	}
 	res, err := h.svc.ListPartnerExpenses(c.Request.Context(), currentUserID(c), filter)
 	if err != nil {

@@ -13,7 +13,7 @@ import (
 type RecurringExpenseRepository interface {
 	Create(ctx context.Context, re *domain.RecurringExpense) error
 	FindByID(ctx context.Context, id string) (*domain.RecurringExpense, error)
-	FindAllByUserID(ctx context.Context, userID string) ([]domain.RecurringExpense, error)
+	FindAllByUserID(ctx context.Context, userID string, limit, offset int) ([]domain.RecurringExpense, error)
 	FindDue(ctx context.Context, asOf time.Time) ([]domain.RecurringExpense, error)
 	Update(ctx context.Context, re *domain.RecurringExpense) error
 	Delete(ctx context.Context, id string) error
@@ -43,9 +43,13 @@ func (r *recurringExpenseRepository) FindByID(ctx context.Context, id string) (*
 	return &re, nil
 }
 
-func (r *recurringExpenseRepository) FindAllByUserID(ctx context.Context, userID string) ([]domain.RecurringExpense, error) {
+func (r *recurringExpenseRepository) FindAllByUserID(ctx context.Context, userID string, limit, offset int) ([]domain.RecurringExpense, error) {
 	var items []domain.RecurringExpense
-	err := r.db.WithContext(ctx).Where("user_id = ?", userID).Order("next_run_at ASC").Find(&items).Error
+	err := r.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Order("next_run_at ASC").
+		Limit(limit).Offset(offset).
+		Find(&items).Error
 	return items, err
 }
 

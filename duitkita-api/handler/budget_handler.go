@@ -45,7 +45,8 @@ func (h *BudgetHandler) create(c *gin.Context) {
 
 func (h *BudgetHandler) list(c *gin.Context) {
 	year, month := parseYearMonth(c)
-	res, err := h.svc.List(c.Request.Context(), currentUserID(c), year, month)
+	limit, offset := parsePagination(c)
+	res, err := h.svc.List(c.Request.Context(), currentUserID(c), year, month, limit, offset)
 	if err != nil {
 		c.Error(err)
 		return
@@ -55,7 +56,8 @@ func (h *BudgetHandler) list(c *gin.Context) {
 
 func (h *BudgetHandler) partner(c *gin.Context) {
 	year, month := parseYearMonth(c)
-	res, err := h.svc.GetPartnerBudgets(c.Request.Context(), currentUserID(c), year, month)
+	limit, offset := parsePagination(c)
+	res, err := h.svc.GetPartnerBudgets(c.Request.Context(), currentUserID(c), year, month, limit, offset)
 	if err != nil {
 		c.Error(err)
 		return

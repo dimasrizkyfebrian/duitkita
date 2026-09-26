@@ -27,3 +27,8 @@ type BillReminder struct {
 func (BillReminder) TableName() string {
 	return "bill_reminders"
 }
+
+// OwnerID satisfies service.Owned for the generic ownership-check helper.
+func (r BillReminder) OwnerID() string {
+	return r.UserID
+}

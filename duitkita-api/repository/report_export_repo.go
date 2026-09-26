@@ -13,6 +13,9 @@ type ReportExportRepository interface {
 	Create(ctx context.Context, export *domain.ReportExport) error
 	FindByID(ctx context.Context, id string) (*domain.ReportExport, error)
 	FindAllByUserID(ctx context.Context, userID string) ([]domain.ReportExport, error)
+	// FindPending returns exports still waiting to be rendered — picked up
+	// by worker/report_export_job.go on its short cron tick.
+	FindPending(ctx context.Context) ([]domain.ReportExport, error)
 	Update(ctx context.Context, export *domain.ReportExport) error
 }
 
@@ -43,6 +46,15 @@ func (r *reportExportRepository) FindByID(ctx context.Context, id string) (*doma
 func (r *reportExportRepository) FindAllByUserID(ctx context.Context, userID string) ([]domain.ReportExport, error) {
 	var exports []domain.ReportExport
 	err := r.db.WithContext(ctx).Where("user_id = ?", userID).Order("requested_at DESC").Find(&exports).Error
+	return exports, err
+}
+
+func (r *reportExportRepository) FindPending(ctx context.Context) ([]domain.ReportExport, error) {
+	var exports []domain.ReportExport
+	err := r.db.WithContext(ctx).
+		Where("status = ?", domain.ReportExportStatusPending).
+		Order("requested_at ASC").
+		Find(&exports).Error
 	return exports, err
 }
 

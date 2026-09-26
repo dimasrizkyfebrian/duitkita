@@ -19,3 +19,8 @@ type Expense struct {
 func (Expense) TableName() string {
 	return "expenses"
 }
+
+// OwnerID satisfies service.Owned for the generic ownership-check helper.
+func (e Expense) OwnerID() string {
+	return e.UserID
+}

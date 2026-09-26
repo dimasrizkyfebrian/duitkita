@@ -14,3 +14,8 @@ type Category struct {
 func (Category) TableName() string {
 	return "categories"
 }
+
+// OwnerID satisfies service.Owned for the generic ownership-check helper.
+func (c Category) OwnerID() string {
+	return c.UserID
+}

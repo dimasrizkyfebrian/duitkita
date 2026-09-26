@@ -17,7 +17,7 @@ import (
 
 type ReminderService interface {
 	Create(ctx context.Context, userID string, req request.CreateReminderRequest) (*response.ReminderResponse, error)
-	List(ctx context.Context, userID string) ([]response.ReminderResponse, error)
+	List(ctx context.Context, userID string, limit, offset int) ([]response.ReminderResponse, error)
 	GetByID(ctx context.Context, userID, id string) (*response.ReminderResponse, error)
 	Update(ctx context.Context, userID, id string, req request.UpdateReminderRequest) (*response.ReminderResponse, error)
 	Delete(ctx context.Context, userID, id string) error
@@ -65,8 +65,8 @@ func (s *reminderService) Create(ctx context.Context, userID string, req request
 	return &res, nil
 }
 
-func (s *reminderService) List(ctx context.Context, userID string) ([]response.ReminderResponse, error) {
-	items, err := s.repo.FindAllByUserID(ctx, userID)
+func (s *reminderService) List(ctx context.Context, userID string, limit, offset int) ([]response.ReminderResponse, error) {
+	items, err := s.repo.FindAllByUserID(ctx, userID, limit, offset)
 	if err != nil {
 		return nil, utils.ErrInternal("failed to list reminders")
 	}
@@ -78,7 +78,7 @@ func (s *reminderService) List(ctx context.Context, userID string) ([]response.R
 }
 
 func (s *reminderService) GetByID(ctx context.Context, userID, id string) (*response.ReminderResponse, error) {
-	reminder, err := s.mustOwn(ctx, userID, id)
+	reminder, err := s.mustOwnReminder(ctx, userID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (s *reminderService) GetByID(ctx context.Context, userID, id string) (*resp
 }
 
 func (s *reminderService) Update(ctx context.Context, userID, id string, req request.UpdateReminderRequest) (*response.ReminderResponse, error) {
-	reminder, err := s.mustOwn(ctx, userID, id)
+	reminder, err := s.mustOwnReminder(ctx, userID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -117,14 +117,14 @@ func (s *reminderService) Update(ctx context.Context, userID, id string, req req
 }
 
 func (s *reminderService) Delete(ctx context.Context, userID, id string) error {
-	if _, err := s.mustOwn(ctx, userID, id); err != nil {
+	if _, err := s.mustOwnReminder(ctx, userID, id); err != nil {
 		return err
 	}
 	return s.repo.Delete(ctx, id)
 }
 
 func (s *reminderService) MarkDone(ctx context.Context, userID, id string) (*response.ReminderResponse, error) {
-	reminder, err := s.mustOwn(ctx, userID, id)
+	reminder, err := s.mustOwnReminder(ctx, userID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func (s *reminderService) MarkDone(ctx context.Context, userID, id string) (*res
 }
 
 func (s *reminderService) Snooze(ctx context.Context, userID, id string, req request.SnoozeReminderRequest) (*response.ReminderResponse, error) {
-	reminder, err := s.mustOwn(ctx, userID, id)
+	reminder, err := s.mustOwnReminder(ctx, userID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -185,15 +185,9 @@ func (s *reminderService) ProcessDue(ctx context.Context) (int, error) {
 	return processed, nil
 }
 
-func (s *reminderService) mustOwn(ctx context.Context, userID, id string) (*domain.BillReminder, error) {
+func (s *reminderService) mustOwnReminder(ctx context.Context, userID, id string) (*domain.BillReminder, error) {
 	reminder, err := s.repo.FindByID(ctx, id)
-	if err != nil {
-		return nil, utils.ErrInternal("failed to look up reminder")
-	}
-	if reminder == nil || reminder.UserID != userID {
-		return nil, utils.ErrNotFound("reminder not found")
-	}
-	return reminder, nil
+	return mustOwn(reminder, err, userID, "reminder not found")
 }
 
 func toReminderResponse(reminder *domain.BillReminder) response.ReminderResponse {
