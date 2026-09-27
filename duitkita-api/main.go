@@ -12,7 +12,6 @@ import (
 	"duitkita-api/config"
 	"duitkita-api/infrastructure"
 	"duitkita-api/service"
-	"duitkita-api/worker"
 )
 
 type fileStorage interface {
@@ -63,14 +62,22 @@ func main() {
 
 	mailer := infrastructure.NewMailer(cfg.SMTP)
 
-	services := service.NewServices(db, cfg.JWT, cfg.Retention, cfg.OTP, storage, redisClient, mailer)
-
-	scheduler := infrastructure.NewScheduler(logger)
-	if err := worker.RegisterAll(scheduler, services); err != nil {
-		logger.Fatal().Err(err).Msg("failed to register scheduled jobs")
+	var taskEnqueuer service.TaskEnqueuer
+	if cfg.CloudTasks.Enabled {
+		cte, err := infrastructure.NewCloudTasksEnqueuer(context.Background(), cfg.CloudTasks, cfg.Internal.JobsSecret)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("failed to create cloud tasks client")
+		}
+		defer cte.Close()
+		taskEnqueuer = cte
+	} else {
+		logger.Warn().Msg("CLOUD_TASKS_ENABLED=false — report exports render inline instead of via Cloud Tasks (fine for local dev)")
 	}
-	scheduler.Start()
-	defer scheduler.Stop()
+	if cfg.Internal.JobsSecret == "" {
+		logger.Warn().Msg("INTERNAL_JOBS_SECRET is empty — /internal/jobs/* routes will reject every request until it's set")
+	}
+
+	services := service.NewServices(db, cfg.JWT, cfg.Retention, cfg.OTP, storage, redisClient, mailer, taskEnqueuer)
 
 	router := infrastructure.NewRouter(services, cfg, logger, redisClient)
 

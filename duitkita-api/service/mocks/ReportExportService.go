@@ -316,6 +316,53 @@ func (_c *ReportExportService_ProcessPending_Call) RunAndReturn(run func(context
 	return _c
 }
 
+// RenderOne provides a mock function with given fields: ctx, exportID
+func (_m *ReportExportService) RenderOne(ctx context.Context, exportID string) error {
+	ret := _m.Called(ctx, exportID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RenderOne")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, exportID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ReportExportService_RenderOne_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RenderOne'
+type ReportExportService_RenderOne_Call struct {
+	*mock.Call
+}
+
+// RenderOne is a helper method to define mock.On call
+//   - ctx context.Context
+//   - exportID string
+func (_e *ReportExportService_Expecter) RenderOne(ctx interface{}, exportID interface{}) *ReportExportService_RenderOne_Call {
+	return &ReportExportService_RenderOne_Call{Call: _e.mock.On("RenderOne", ctx, exportID)}
+}
+
+func (_c *ReportExportService_RenderOne_Call) Run(run func(ctx context.Context, exportID string)) *ReportExportService_RenderOne_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *ReportExportService_RenderOne_Call) Return(_a0 error) *ReportExportService_RenderOne_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ReportExportService_RenderOne_Call) RunAndReturn(run func(context.Context, string) error) *ReportExportService_RenderOne_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewReportExportService creates a new instance of ReportExportService. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewReportExportService(t interface {

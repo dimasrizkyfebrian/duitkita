@@ -30,6 +30,7 @@ func NewRouter(svcs *service.Services, cfg *config.Config, logger zerolog.Logger
 	notificationHandler := handler.NewNotificationHandler(svcs.Notification)
 	reportHandler := handler.NewReportHandler(svcs.Report, svcs.Insights, svcs.ReportExport, cfg.Feature.InsightsEnabled)
 	activityHandler := handler.NewActivityHandler(svcs.Activity)
+	internalHandler := handler.NewInternalHandler(svcs.RecurringExpense, svcs.Reminder, svcs.Maintenance, svcs.ReportExport)
 
 	api := r.Group("/api/v1")
 
@@ -57,6 +58,10 @@ func NewRouter(svcs *service.Services, cfg *config.Config, logger zerolog.Logger
 	notificationHandler.RegisterRoutes(protected)
 	reportHandler.RegisterRoutes(protected)
 	activityHandler.RegisterRoutes(protected)
+
+	internal := r.Group("/internal")
+	internal.Use(appmw.InternalAuth(cfg.Internal.JobsSecret))
+	internalHandler.RegisterRoutes(internal)
 
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})

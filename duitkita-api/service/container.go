@@ -26,7 +26,7 @@ type Services struct {
 	Maintenance      MaintenanceService
 }
 
-func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.RetentionConfig, otpCfg config.OTPConfig, storage FileStorage, redisClient *redis.Client, mailer Mailer) *Services {
+func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.RetentionConfig, otpCfg config.OTPConfig, storage FileStorage, redisClient *redis.Client, mailer Mailer, cloudTasksEnqueuer TaskEnqueuer) *Services {
 	userRepo := repository.NewUserRepository(db)
 	sessionRepo := repository.NewUserSessionRepository(db)
 	coupleRepo := repository.NewCoupleRepository(db)
@@ -61,7 +61,7 @@ func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.Reten
 		Notification:     notificationSvc,
 		Report:           reportSvc,
 		Insights:         NewInsightsService(reportRepo, reportSvc),
-		ReportExport:     NewReportExportService(reportExportRepo, reportSvc, storage),
+		ReportExport:     NewReportExportService(reportExportRepo, reportSvc, storage, cloudTasksEnqueuer),
 		Activity:         activitySvc,
 		SecurityAudit:    securityAuditSvc,
 		Maintenance:      NewMaintenanceService(sessionRepo, notificationRepo, activityRepo, securityAuditRepo, retentionCfg),

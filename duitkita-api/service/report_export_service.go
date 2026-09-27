@@ -21,22 +21,25 @@ type ReportExportService interface {
 	List(ctx context.Context, userID string) ([]response.ExportResponse, error)
 	GetByID(ctx context.Context, userID, id string) (*response.ExportResponse, error)
 	DownloadURL(ctx context.Context, userID, id string) (string, error)
-	// ProcessPending renders every export still marked "pending". Called by
-	// worker/report_export_job.go on a short cron tick — see Create, which
-	// only inserts the row and returns immediately instead of rendering
-	// inline on the request (PDF generation + upload used to block the
-	// HTTP response; a bigger report could then time it out).
 	ProcessPending(ctx context.Context) (int, error)
+	RenderOne(ctx context.Context, exportID string) error
 }
 
 type reportExportService struct {
 	repo      repository.ReportExportRepository
 	reportSvc ReportService
 	storage   FileStorage
+	enqueuer  TaskEnqueuer
 }
 
-func NewReportExportService(repo repository.ReportExportRepository, reportSvc ReportService, storage FileStorage) ReportExportService {
-	return &reportExportService{repo: repo, reportSvc: reportSvc, storage: storage}
+func NewReportExportService(repo repository.ReportExportRepository, reportSvc ReportService, storage FileStorage, cloudTasksEnqueuer TaskEnqueuer) ReportExportService {
+	svc := &reportExportService{repo: repo, reportSvc: reportSvc, storage: storage}
+	if cloudTasksEnqueuer != nil {
+		svc.enqueuer = cloudTasksEnqueuer
+	} else {
+		svc.enqueuer = NewInlineEnqueuer(svc)
+	}
+	return svc
 }
 
 func (s *reportExportService) Create(ctx context.Context, userID string, req request.CreateExportRequest) (*response.ExportResponse, error) {
@@ -53,6 +56,10 @@ func (s *reportExportService) Create(ctx context.Context, userID string, req req
 		return nil, utils.ErrInternal("failed to create export")
 	}
 
+	if err := s.enqueuer.EnqueueReportExportRender(ctx, export.ID); err != nil {
+		log.Error().Err(err).Str("export_id", export.ID).Msg("failed to enqueue report export render")
+	}
+
 	return toExportResponse(export, ""), nil
 }
 
@@ -64,16 +71,7 @@ func (s *reportExportService) ProcessPending(ctx context.Context) (int, error) {
 
 	processed := 0
 	for i := range pending {
-		export := &pending[i]
-
-		export.Status = domain.ReportExportStatusProcessing
-		if err := s.repo.Update(ctx, export); err != nil {
-			log.Error().Err(err).Str("export_id", export.ID).Msg("failed to mark export as processing")
-			continue
-		}
-
-		if err := s.render(ctx, export); err != nil {
-			s.failExport(ctx, export, err)
+		if err := s.renderPendingExport(ctx, &pending[i]); err != nil {
 			continue
 		}
 		processed++
@@ -82,9 +80,35 @@ func (s *reportExportService) ProcessPending(ctx context.Context) (int, error) {
 	return processed, nil
 }
 
-// render builds the PDF and uploads it, leaving export ready for the
-// caller to mark completed. Split out of ProcessPending so a failure
-// midway always goes through failExport with the actual cause.
+func (s *reportExportService) RenderOne(ctx context.Context, exportID string) error {
+	export, err := s.repo.FindByID(ctx, exportID)
+	if err != nil {
+		return utils.ErrInternal("failed to load export")
+	}
+	if export == nil {
+		return utils.ErrNotFound("export not found")
+	}
+	if export.Status != domain.ReportExportStatusPending {
+		return nil
+	}
+
+	return s.renderPendingExport(ctx, export)
+}
+
+func (s *reportExportService) renderPendingExport(ctx context.Context, export *domain.ReportExport) error {
+	export.Status = domain.ReportExportStatusProcessing
+	if err := s.repo.Update(ctx, export); err != nil {
+		log.Error().Err(err).Str("export_id", export.ID).Msg("failed to mark export as processing")
+		return err
+	}
+
+	if err := s.render(ctx, export); err != nil {
+		s.failExport(ctx, export, err)
+		return err
+	}
+	return nil
+}
+
 func (s *reportExportService) render(ctx context.Context, export *domain.ReportExport) error {
 	report, err := s.reportSvc.MonthlyReport(ctx, export.UserID, export.Year, export.Month)
 	if err != nil {

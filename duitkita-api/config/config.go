@@ -9,18 +9,20 @@ import (
 )
 
 type Config struct {
-	App       AppConfig
-	Database  DatabaseConfig
-	JWT       JWTConfig
-	GCS       GCSConfig
-	Redis     RedisConfig
-	RateLimit RateLimitConfig
-	CORS      CORSConfig
-	SMTP      SMTPConfig
-	OTP       OTPConfig
-	Log       LogConfig
-	Retention RetentionConfig
-	Feature   FeatureConfig
+	App        AppConfig
+	Database   DatabaseConfig
+	JWT        JWTConfig
+	GCS        GCSConfig
+	Redis      RedisConfig
+	RateLimit  RateLimitConfig
+	CORS       CORSConfig
+	SMTP       SMTPConfig
+	OTP        OTPConfig
+	Internal   InternalConfig
+	CloudTasks CloudTasksConfig
+	Log        LogConfig
+	Retention  RetentionConfig
+	Feature    FeatureConfig
 }
 
 type AppConfig struct {
@@ -79,6 +81,24 @@ type OTPConfig struct {
 	TTLMinutes            int
 	MaxAttempts           int
 	ResendCooldownSeconds int
+}
+
+// InternalConfig guards the /internal/jobs/* routes used by Cloud
+// Scheduler/Cloud Tasks — there's no "current user" on those calls, so they
+// can't go through the normal JWT middleware.
+type InternalConfig struct {
+	JobsSecret string
+}
+
+// CloudTasksConfig controls how POST /reports/exports triggers rendering.
+// When Enabled is false (local dev default), the render runs inline
+// instead — see service.NewInlineEnqueuer.
+type CloudTasksConfig struct {
+	Enabled       bool
+	ProjectID     string
+	LocationID    string
+	QueueID       string
+	TargetBaseURL string
 }
 
 type LogConfig struct {
@@ -148,6 +168,16 @@ func Load() (*Config, error) {
 			TTLMinutes:            getEnvAsInt("OTP_TTL_MINUTES", 10),
 			MaxAttempts:           getEnvAsInt("OTP_MAX_ATTEMPTS", 5),
 			ResendCooldownSeconds: getEnvAsInt("OTP_RESEND_COOLDOWN_SECONDS", 60),
+		},
+		Internal: InternalConfig{
+			JobsSecret: getEnv("INTERNAL_JOBS_SECRET", ""),
+		},
+		CloudTasks: CloudTasksConfig{
+			Enabled:       getEnvAsBool("CLOUD_TASKS_ENABLED", false),
+			ProjectID:     getEnv("CLOUD_TASKS_PROJECT_ID", ""),
+			LocationID:    getEnv("CLOUD_TASKS_LOCATION_ID", ""),
+			QueueID:       getEnv("CLOUD_TASKS_QUEUE_ID", "report-exports-queue"),
+			TargetBaseURL: getEnv("CLOUD_TASKS_TARGET_BASE_URL", ""),
 		},
 		Log: LogConfig{
 			Level: getEnv("LOG_LEVEL", "info"),
