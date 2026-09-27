@@ -1,0 +1,22 @@
+# Normalize everything to LF in the repo, and check it out as LF too —
+# overrides core.autocrlf=true so Git stops warning that it'll convert
+# newly-added files to CRLF on the next checkout.
+* text=auto eol=lf
+
+*.go     text eol=lf
+go.mod   text eol=lf
+go.sum   text eol=lf
+*.sh     text eol=lf
+*.yml    text eol=lf
+*.yaml   text eol=lf
+*.json   text eol=lf
+*.md     text eol=lf
+Dockerfile text eol=lf
+
+# Binary files — leave untouched
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary

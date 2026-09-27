@@ -1,0 +1,56 @@
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - "duitkita-api/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    paths:
+      - "duitkita-api/**"
+      - ".github/workflows/backend-ci.yml"
+
+defaults:
+  run:
+    working-directory: duitkita-api
+
+jobs:
+  build-and-test:
+    name: Build, vet, format, test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: duitkita-api/go.mod
+          cache: true
+          cache-dependency-path: duitkita-api/go.sum
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Check formatting (gofmt)
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "The following files are not gofmt-formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Check go.mod/go.sum are tidy
+        run: |
+          go mod tidy
+          if ! git diff --exit-code go.mod go.sum; then
+            echo "go.mod/go.sum are out of date - run 'go mod tidy' and commit the result."
+            exit 1
+          fi
+
+      - name: Test
+        run: go test ./... -race -cover
