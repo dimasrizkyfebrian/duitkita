@@ -1,18 +1,22 @@
 package infrastructure
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 
 	"duitkita-api/config"
 	"duitkita-api/docs"
 	"duitkita-api/handler"
+	appmw "duitkita-api/middleware"
 	"duitkita-api/service"
 )
 
-func NewRouter(svcs *service.Services, cfg *config.Config, logger zerolog.Logger) *gin.Engine {
+func NewRouter(svcs *service.Services, cfg *config.Config, logger zerolog.Logger, redisClient *redis.Client) *gin.Engine {
 	r := gin.New()
-	RegisterGlobalMiddleware(r, logger)
+	RegisterGlobalMiddleware(r, cfg, logger)
 	docs.RegisterRoutes(r)
 
 	authHandler := handler.NewAuthHandler(svcs.Auth)
@@ -29,7 +33,12 @@ func NewRouter(svcs *service.Services, cfg *config.Config, logger zerolog.Logger
 
 	api := r.Group("/api/v1")
 
-	authHandler.RegisterPublicRoutes(api)
+	authPublic := api.Group("")
+	if cfg.RateLimit.Enabled && redisClient != nil {
+		window := time.Duration(cfg.RateLimit.AuthWindowSeconds) * time.Second
+		authPublic.Use(appmw.RateLimit(redisClient, "auth", cfg.RateLimit.AuthMax, window))
+	}
+	authHandler.RegisterPublicRoutes(authPublic)
 
 	protected := api.Group("")
 	protected.Use(AuthRequired(cfg.JWT))

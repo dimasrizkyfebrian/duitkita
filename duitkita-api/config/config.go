@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -12,6 +13,9 @@ type Config struct {
 	Database  DatabaseConfig
 	JWT       JWTConfig
 	GCS       GCSConfig
+	Redis     RedisConfig
+	RateLimit RateLimitConfig
+	CORS      CORSConfig
 	Log       LogConfig
 	Retention RetentionConfig
 	Feature   FeatureConfig
@@ -32,16 +36,33 @@ type DatabaseConfig struct {
 }
 
 type JWTConfig struct {
-	AccessSecret     string
-	RefreshSecret    string
-	AccessTTLMinutes int
-	RefreshTTLDays   int
+	AccessSecret string
+	AccessSecretPrevious string
+	AccessTTLMinutes     int
+	RefreshTTLDays       int
 }
 
 type GCSConfig struct {
 	Enabled         bool
 	BucketName      string
 	CredentialsFile string
+}
+
+type RedisConfig struct {
+	Host     string
+	Port     string
+	Password string
+	DB       int
+}
+
+type RateLimitConfig struct {
+	Enabled           bool
+	AuthMax           int
+	AuthWindowSeconds int
+}
+
+type CORSConfig struct {
+	AllowedOrigins []string
 }
 
 type LogConfig struct {
@@ -76,15 +97,29 @@ func Load() (*Config, error) {
 			SSLMode:  getEnv("DB_SSLMODE", "disable"),
 		},
 		JWT: JWTConfig{
-			AccessSecret:     getEnv("JWT_ACCESS_SECRET", ""),
-			RefreshSecret:    getEnv("JWT_REFRESH_SECRET", ""),
-			AccessTTLMinutes: getEnvAsInt("JWT_ACCESS_TTL_MINUTES", 15),
-			RefreshTTLDays:   getEnvAsInt("JWT_REFRESH_TTL_DAYS", 30),
+			AccessSecret:         getEnv("JWT_ACCESS_SECRET", ""),
+			AccessSecretPrevious: getEnv("JWT_ACCESS_SECRET_PREVIOUS", ""),
+			AccessTTLMinutes:     getEnvAsInt("JWT_ACCESS_TTL_MINUTES", 15),
+			RefreshTTLDays:       getEnvAsInt("JWT_REFRESH_TTL_DAYS", 30),
 		},
 		GCS: GCSConfig{
 			Enabled:         getEnvAsBool("GCS_ENABLED", true),
 			BucketName:      getEnv("GCS_BUCKET_NAME", ""),
 			CredentialsFile: getEnv("GCS_CREDENTIALS_FILE", ""),
+		},
+		Redis: RedisConfig{
+			Host:     getEnv("REDIS_HOST", "localhost"),
+			Port:     getEnv("REDIS_PORT", "6379"),
+			Password: getEnv("REDIS_PASSWORD", ""),
+			DB:       getEnvAsInt("REDIS_DB", 0),
+		},
+		RateLimit: RateLimitConfig{
+			Enabled:           getEnvAsBool("RATE_LIMIT_ENABLED", true),
+			AuthMax:           getEnvAsInt("RATE_LIMIT_AUTH_MAX", 20),
+			AuthWindowSeconds: getEnvAsInt("RATE_LIMIT_AUTH_WINDOW_SECONDS", 60),
+		},
+		CORS: CORSConfig{
+			AllowedOrigins: getEnvAsSlice("CORS_ALLOWED_ORIGINS", []string{"http://localhost:5173", "http://localhost:3000"}),
 		},
 		Log: LogConfig{
 			Level: getEnv("LOG_LEVEL", "info"),
@@ -120,6 +155,21 @@ func getEnvAsBool(key string, fallback bool) bool {
 		return fallback
 	}
 	return parsed
+}
+
+func getEnvAsSlice(key string, fallback []string) []string {
+	v, ok := os.LookupEnv(key)
+	if !ok || v == "" {
+		return fallback
+	}
+	parts := strings.Split(v, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 func getEnvAsInt(key string, fallback int) int {

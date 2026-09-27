@@ -9,17 +9,17 @@ import (
 	appmw "duitkita-api/middleware"
 )
 
-func RegisterGlobalMiddleware(r *gin.Engine, logger zerolog.Logger) {
+func RegisterGlobalMiddleware(r *gin.Engine, cfg *config.Config, logger zerolog.Logger) {
 	r.Use(appmw.Recovery(logger))
 	r.Use(appmw.Logging(logger))
 	r.Use(appmw.ErrorHandler())
 	r.Use(cors.New(cors.Config{
-		AllowAllOrigins: true,
-		AllowMethods:    []string{"GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:    []string{"Origin", "Content-Type", "Authorization"},
+		AllowOrigins: cfg.CORS.AllowedOrigins,
+		AllowMethods: []string{"GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders: []string{"Origin", "Content-Type", "Authorization"},
 	}))
 }
 
 func AuthRequired(jwtCfg config.JWTConfig) gin.HandlerFunc {
-	return appmw.Auth(jwtCfg.AccessSecret)
+	return appmw.Auth(jwtCfg.AccessSecret, jwtCfg.AccessSecretPrevious)
 }

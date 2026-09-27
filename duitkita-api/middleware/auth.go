@@ -9,7 +9,7 @@ import (
 	"duitkita-api/utils"
 )
 
-func Auth(accessSecret string) gin.HandlerFunc {
+func Auth(accessSecret, previousAccessSecret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")
 		if header == "" || !strings.HasPrefix(header, "Bearer ") {
@@ -19,7 +19,7 @@ func Auth(accessSecret string) gin.HandlerFunc {
 		}
 
 		tokenString := strings.TrimPrefix(header, "Bearer ")
-		claims, err := utils.ParseAccessToken(accessSecret, tokenString)
+		claims, err := utils.ParseAccessToken(accessSecret, previousAccessSecret, tokenString)
 		if err != nil {
 			utils.Fail(c, http.StatusUnauthorized, "invalid or expired token")
 			c.Abort()

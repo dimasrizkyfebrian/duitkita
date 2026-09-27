@@ -29,7 +29,18 @@ func GenerateAccessToken(secret, userID string, ttl time.Duration) (string, erro
 	return token.SignedString([]byte(secret))
 }
 
-func ParseAccessToken(secret, tokenString string) (*Claims, error) {
+func ParseAccessToken(secret, previousSecret, tokenString string) (*Claims, error) {
+	claims, err := parseWithSecret(secret, tokenString)
+	if err == nil {
+		return claims, nil
+	}
+	if previousSecret == "" {
+		return nil, err
+	}
+	return parseWithSecret(previousSecret, tokenString)
+}
+
+func parseWithSecret(secret, tokenString string) (*Claims, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
 		return []byte(secret), nil
@@ -43,10 +54,6 @@ func ParseAccessToken(secret, tokenString string) (*Claims, error) {
 	return claims, nil
 }
 
-// GenerateOpaqueSecret returns a random, high-entropy string suitable for
-// use as a refresh-token secret. Refresh tokens are handed to the client as
-// "<sessionID>.<secret>" — the raw secret is never stored, only its hash
-// (see HashToken), so a leaked database dump can't be replayed as a token.
 func GenerateOpaqueSecret() (string, error) {
 	buf := make([]byte, 32)
 	if _, err := rand.Read(buf); err != nil {
