@@ -9,8 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/redis/go-redis/v9"
-
 	"duitkita-api/config"
 	"duitkita-api/infrastructure"
 	"duitkita-api/service"
@@ -57,15 +55,15 @@ func main() {
 	}
 	defer storage.Close()
 
-	var redisClient *redis.Client
-	if cfg.RateLimit.Enabled {
-		redisClient = infrastructure.NewRedisClient(cfg.Redis, logger)
-		defer redisClient.Close()
-	} else {
+	redisClient := infrastructure.NewRedisClient(cfg.Redis, logger)
+	defer redisClient.Close()
+	if !cfg.RateLimit.Enabled {
 		logger.Warn().Msg("RATE_LIMIT_ENABLED=false — auth endpoints are not rate limited")
 	}
 
-	services := service.NewServices(db, cfg.JWT, cfg.Retention, storage)
+	mailer := infrastructure.NewMailer(cfg.SMTP)
+
+	services := service.NewServices(db, cfg.JWT, cfg.Retention, cfg.OTP, storage, redisClient, mailer)
 
 	scheduler := infrastructure.NewScheduler(logger)
 	if err := worker.RegisterAll(scheduler, services); err != nil {

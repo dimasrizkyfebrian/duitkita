@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"math/big"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -65,4 +66,17 @@ func GenerateOpaqueSecret() (string, error) {
 func HashToken(raw string) string {
 	sum := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(sum[:])
+}
+
+func GenerateOTPCode(length int) (string, error) {
+	digits := make([]byte, length)
+	max := big.NewInt(10)
+	for i := range digits {
+		n, err := rand.Int(rand.Reader, max)
+		if err != nil {
+			return "", err
+		}
+		digits[i] = byte('0' + n.Int64())
+	}
+	return string(digits), nil
 }

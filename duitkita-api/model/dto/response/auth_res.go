@@ -8,6 +8,10 @@ type AuthResponse struct {
 	User         UserResponse `json:"user"`
 }
 
+type RegisterResponse struct {
+	Email string `json:"email"`
+}
+
 type SessionResponse struct {
 	ID           string    `json:"id"`
 	DeviceName   string    `json:"device_name,omitempty"`

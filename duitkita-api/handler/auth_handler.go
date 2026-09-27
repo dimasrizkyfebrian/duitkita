@@ -18,12 +18,20 @@ func NewAuthHandler(svc service.AuthService) *AuthHandler {
 	return &AuthHandler{svc: svc}
 }
 
-// RegisterPublicRoutes wires the endpoints that don't require a valid access token.
+// RegisterPublicRoutes wires the credential endpoints that don't require a valid access token.
 func (h *AuthHandler) RegisterPublicRoutes(rg *gin.RouterGroup) {
 	auth := rg.Group("/auth")
 	auth.POST("/register", h.register)
 	auth.POST("/login", h.login)
 	auth.POST("/refresh", h.refresh)
+}
+
+func (h *AuthHandler) RegisterOTPRoutes(rg *gin.RouterGroup) {
+	auth := rg.Group("/auth")
+	auth.POST("/verify-otp", h.verifyOTP)
+	auth.POST("/resend-otp", h.resendOTP)
+	auth.POST("/forgot-password", h.forgotPassword)
+	auth.POST("/reset-password", h.resetPassword)
 }
 
 // RegisterProtectedRoutes wires the endpoints that require a valid access token.
@@ -45,7 +53,60 @@ func (h *AuthHandler) register(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	utils.Success(c, http.StatusCreated, "registered successfully", res)
+	utils.Success(c, http.StatusCreated, "registered successfully, please check your email for the verification code", res)
+}
+
+func (h *AuthHandler) verifyOTP(c *gin.Context) {
+	var req request.VerifyOTPRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+
+	res, err := h.svc.VerifyOTP(c.Request.Context(), req, c.ClientIP(), c.Request.UserAgent())
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	utils.Success(c, http.StatusOK, "account verified", res)
+}
+
+func (h *AuthHandler) resendOTP(c *gin.Context) {
+	var req request.ResendOTPRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+
+	if err := h.svc.ResendOTP(c.Request.Context(), req); err != nil {
+		c.Error(err)
+		return
+	}
+	utils.Success(c, http.StatusOK, "otp resent if the account exists", nil)
+}
+
+func (h *AuthHandler) forgotPassword(c *gin.Context) {
+	var req request.ForgotPasswordRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+
+	if err := h.svc.ForgotPassword(c.Request.Context(), req); err != nil {
+		c.Error(err)
+		return
+	}
+	utils.Success(c, http.StatusOK, "if the email is registered, a reset code has been sent", nil)
+}
+
+func (h *AuthHandler) resetPassword(c *gin.Context) {
+	var req request.ResetPasswordRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+
+	if err := h.svc.ResetPassword(c.Request.Context(), req); err != nil {
+		c.Error(err)
+		return
+	}
+	utils.Success(c, http.StatusOK, "password reset successfully", nil)
 }
 
 func (h *AuthHandler) login(c *gin.Context) {

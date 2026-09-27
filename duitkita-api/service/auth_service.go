@@ -18,7 +18,11 @@ import (
 )
 
 type AuthService interface {
-	Register(ctx context.Context, req request.RegisterRequest, ip, userAgent string) (*response.AuthResponse, error)
+	Register(ctx context.Context, req request.RegisterRequest, ip, userAgent string) (*response.RegisterResponse, error)
+	VerifyOTP(ctx context.Context, req request.VerifyOTPRequest, ip, userAgent string) (*response.AuthResponse, error)
+	ResendOTP(ctx context.Context, req request.ResendOTPRequest) error
+	ForgotPassword(ctx context.Context, req request.ForgotPasswordRequest) error
+	ResetPassword(ctx context.Context, req request.ResetPasswordRequest) error
 	Login(ctx context.Context, req request.LoginRequest, ip, userAgent string) (*response.AuthResponse, error)
 	Refresh(ctx context.Context, req request.RefreshTokenRequest) (*response.AuthResponse, error)
 	ListSessions(ctx context.Context, userID string) ([]response.SessionResponse, error)
@@ -30,19 +34,21 @@ type authService struct {
 	userRepo    repository.UserRepository
 	sessionRepo repository.UserSessionRepository
 	auditSvc    SecurityAuditService
+	otpSvc      OTPService
 	jwtCfg      config.JWTConfig
 }
 
-func NewAuthService(userRepo repository.UserRepository, sessionRepo repository.UserSessionRepository, auditSvc SecurityAuditService, jwtCfg config.JWTConfig) AuthService {
+func NewAuthService(userRepo repository.UserRepository, sessionRepo repository.UserSessionRepository, auditSvc SecurityAuditService, otpSvc OTPService, jwtCfg config.JWTConfig) AuthService {
 	return &authService{
 		userRepo:    userRepo,
 		sessionRepo: sessionRepo,
 		auditSvc:    auditSvc,
+		otpSvc:      otpSvc,
 		jwtCfg:      jwtCfg,
 	}
 }
 
-func (s *authService) Register(ctx context.Context, req request.RegisterRequest, ip, userAgent string) (*response.AuthResponse, error) {
+func (s *authService) Register(ctx context.Context, req request.RegisterRequest, ip, userAgent string) (*response.RegisterResponse, error) {
 	exists, err := s.userRepo.ExistsByEmail(ctx, req.Email)
 	if err != nil {
 		return nil, utils.ErrInternal("failed to check existing user")
@@ -61,14 +67,104 @@ func (s *authService) Register(ctx context.Context, req request.RegisterRequest,
 		Name:         req.Name,
 		Email:        req.Email,
 		PasswordHash: string(hash),
+		IsVerified:   false,
 	}
 	if err := s.userRepo.Create(ctx, user); err != nil {
 		return nil, utils.ErrInternal("failed to create user")
 	}
 
+	if err := s.otpSvc.Generate(ctx, user.Email, OTPPurposeRegister); err != nil {
+		return nil, err
+	}
+
 	s.auditSvc.LogEvent(ctx, &user.ID, domain.SecurityAuditEventRegisterSuccess, ip, userAgent, nil)
 
+	return &response.RegisterResponse{Email: user.Email}, nil
+}
+
+func (s *authService) VerifyOTP(ctx context.Context, req request.VerifyOTPRequest, ip, userAgent string) (*response.AuthResponse, error) {
+	user, err := s.userRepo.FindByEmail(ctx, req.Email)
+	if err != nil {
+		return nil, utils.ErrInternal("failed to look up user")
+	}
+	if user == nil {
+		return nil, utils.ErrNotFound("user not found")
+	}
+	if user.IsVerified {
+		return nil, utils.ErrConflict("account already verified")
+	}
+
+	if err := s.otpSvc.Verify(ctx, req.Email, OTPPurposeRegister, req.OTP); err != nil {
+		return nil, err
+	}
+
+	user.IsVerified = true
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return nil, utils.ErrInternal("failed to update user")
+	}
+
 	return s.issueTokens(ctx, user, ip, userAgent)
+}
+
+func (s *authService) ResendOTP(ctx context.Context, req request.ResendOTPRequest) error {
+	user, err := s.userRepo.FindByEmail(ctx, req.Email)
+	if err != nil {
+		return utils.ErrInternal("failed to look up user")
+	}
+	if user == nil {
+		// Don't reveal whether the email is registered.
+		return nil
+	}
+
+	purpose := OTPPurpose(req.Purpose)
+	if purpose == OTPPurposeRegister && user.IsVerified {
+		return utils.ErrConflict("account already verified")
+	}
+
+	return s.otpSvc.Generate(ctx, req.Email, purpose)
+}
+
+func (s *authService) ForgotPassword(ctx context.Context, req request.ForgotPasswordRequest) error {
+	user, err := s.userRepo.FindByEmail(ctx, req.Email)
+	if err != nil {
+		return utils.ErrInternal("failed to look up user")
+	}
+	if user == nil {
+		// Don't reveal whether the email is registered.
+		return nil
+	}
+
+	return s.otpSvc.Generate(ctx, req.Email, OTPPurposeResetPassword)
+}
+
+func (s *authService) ResetPassword(ctx context.Context, req request.ResetPasswordRequest) error {
+	user, err := s.userRepo.FindByEmail(ctx, req.Email)
+	if err != nil {
+		return utils.ErrInternal("failed to look up user")
+	}
+	if user == nil {
+		return utils.ErrNotFound("user not found")
+	}
+
+	if err := s.otpSvc.Verify(ctx, req.Email, OTPPurposeResetPassword, req.OTP); err != nil {
+		return err
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return utils.ErrInternal("failed to hash password")
+	}
+	user.PasswordHash = string(hash)
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return utils.ErrInternal("failed to update user")
+	}
+
+	if err := s.sessionRepo.RevokeAllByUserID(ctx, user.ID); err != nil {
+		return utils.ErrInternal("failed to revoke sessions")
+	}
+
+	s.auditSvc.LogEvent(ctx, &user.ID, domain.SecurityAuditEventPasswordChanged, "", "", map[string]interface{}{"via": "otp_reset"})
+	return nil
 }
 
 func (s *authService) Login(ctx context.Context, req request.LoginRequest, ip, userAgent string) (*response.AuthResponse, error) {
@@ -83,6 +179,10 @@ func (s *authService) Login(ctx context.Context, req request.LoginRequest, ip, u
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
 		s.auditSvc.LogEvent(ctx, &user.ID, domain.SecurityAuditEventLoginFailure, ip, userAgent, nil)
 		return nil, utils.ErrUnauthorized("invalid email or password")
+	}
+
+	if !user.IsVerified {
+		return nil, utils.ErrForbidden("email not verified, please verify your account first")
 	}
 
 	s.auditSvc.LogEvent(ctx, &user.ID, domain.SecurityAuditEventLoginSuccess, ip, userAgent, nil)

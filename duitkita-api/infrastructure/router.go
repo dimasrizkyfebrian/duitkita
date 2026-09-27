@@ -34,11 +34,14 @@ func NewRouter(svcs *service.Services, cfg *config.Config, logger zerolog.Logger
 	api := r.Group("/api/v1")
 
 	authPublic := api.Group("")
+	authOTP := api.Group("")
 	if cfg.RateLimit.Enabled && redisClient != nil {
 		window := time.Duration(cfg.RateLimit.AuthWindowSeconds) * time.Second
 		authPublic.Use(appmw.RateLimit(redisClient, "auth", cfg.RateLimit.AuthMax, window))
+		authOTP.Use(appmw.RateLimit(redisClient, "auth-otp", cfg.RateLimit.AuthMax, window))
 	}
 	authHandler.RegisterPublicRoutes(authPublic)
+	authHandler.RegisterOTPRoutes(authOTP)
 
 	protected := api.Group("")
 	protected.Use(AuthRequired(cfg.JWT))

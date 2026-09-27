@@ -1,6 +1,7 @@
 package service
 
 import (
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
 	"duitkita-api/config"
@@ -25,7 +26,7 @@ type Services struct {
 	Maintenance      MaintenanceService
 }
 
-func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.RetentionConfig, storage FileStorage) *Services {
+func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.RetentionConfig, otpCfg config.OTPConfig, storage FileStorage, redisClient *redis.Client, mailer Mailer) *Services {
 	userRepo := repository.NewUserRepository(db)
 	sessionRepo := repository.NewUserSessionRepository(db)
 	coupleRepo := repository.NewCoupleRepository(db)
@@ -46,9 +47,10 @@ func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.Reten
 	notificationSvc := NewNotificationService(notificationRepo, notificationPrefRepo)
 	activitySvc := NewActivityService(activityRepo, coupleRepo, notificationSvc)
 	reportSvc := NewReportService(reportRepo, budgetRepo, coupleRepo)
+	otpSvc := NewOTPService(redisClient, mailer, otpCfg)
 
 	return &Services{
-		Auth:             NewAuthService(userRepo, sessionRepo, securityAuditSvc, jwtCfg),
+		Auth:             NewAuthService(userRepo, sessionRepo, securityAuditSvc, otpSvc, jwtCfg),
 		User:             NewUserService(userRepo, securityAuditSvc, storage),
 		Couple:           NewCoupleService(coupleRepo, invitationRepo, userRepo, securityAuditSvc),
 		Category:         NewCategoryService(categoryRepo),

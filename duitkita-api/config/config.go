@@ -16,6 +16,8 @@ type Config struct {
 	Redis     RedisConfig
 	RateLimit RateLimitConfig
 	CORS      CORSConfig
+	SMTP      SMTPConfig
+	OTP       OTPConfig
 	Log       LogConfig
 	Retention RetentionConfig
 	Feature   FeatureConfig
@@ -36,7 +38,7 @@ type DatabaseConfig struct {
 }
 
 type JWTConfig struct {
-	AccessSecret string
+	AccessSecret         string
 	AccessSecretPrevious string
 	AccessTTLMinutes     int
 	RefreshTTLDays       int
@@ -63,6 +65,20 @@ type RateLimitConfig struct {
 
 type CORSConfig struct {
 	AllowedOrigins []string
+}
+
+type SMTPConfig struct {
+	Host        string
+	Port        string
+	User        string
+	AppPassword string
+	FromName    string
+}
+
+type OTPConfig struct {
+	TTLMinutes            int
+	MaxAttempts           int
+	ResendCooldownSeconds int
 }
 
 type LogConfig struct {
@@ -120,6 +136,18 @@ func Load() (*Config, error) {
 		},
 		CORS: CORSConfig{
 			AllowedOrigins: getEnvAsSlice("CORS_ALLOWED_ORIGINS", []string{"http://localhost:5173", "http://localhost:3000"}),
+		},
+		SMTP: SMTPConfig{
+			Host:        getEnv("SMTP_HOST", "smtp.gmail.com"),
+			Port:        getEnv("SMTP_PORT", "587"),
+			User:        getEnv("SMTP_USER", ""),
+			AppPassword: getEnv("SMTP_APP_PASSWORD", ""),
+			FromName:    getEnv("SMTP_FROM_NAME", "DuitKita"),
+		},
+		OTP: OTPConfig{
+			TTLMinutes:            getEnvAsInt("OTP_TTL_MINUTES", 10),
+			MaxAttempts:           getEnvAsInt("OTP_MAX_ATTEMPTS", 5),
+			ResendCooldownSeconds: getEnvAsInt("OTP_RESEND_COOLDOWN_SECONDS", 60),
 		},
 		Log: LogConfig{
 			Level: getEnv("LOG_LEVEL", "info"),

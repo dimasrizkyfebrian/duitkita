@@ -246,6 +246,53 @@ func (_c *UserSessionRepository_FindByID_Call) RunAndReturn(run func(context.Con
 	return _c
 }
 
+// RevokeAllByUserID provides a mock function with given fields: ctx, userID
+func (_m *UserSessionRepository) RevokeAllByUserID(ctx context.Context, userID string) error {
+	ret := _m.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RevokeAllByUserID")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, userID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UserSessionRepository_RevokeAllByUserID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RevokeAllByUserID'
+type UserSessionRepository_RevokeAllByUserID_Call struct {
+	*mock.Call
+}
+
+// RevokeAllByUserID is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+func (_e *UserSessionRepository_Expecter) RevokeAllByUserID(ctx interface{}, userID interface{}) *UserSessionRepository_RevokeAllByUserID_Call {
+	return &UserSessionRepository_RevokeAllByUserID_Call{Call: _e.mock.On("RevokeAllByUserID", ctx, userID)}
+}
+
+func (_c *UserSessionRepository_RevokeAllByUserID_Call) Run(run func(ctx context.Context, userID string)) *UserSessionRepository_RevokeAllByUserID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *UserSessionRepository_RevokeAllByUserID_Call) Return(_a0 error) *UserSessionRepository_RevokeAllByUserID_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *UserSessionRepository_RevokeAllByUserID_Call) RunAndReturn(run func(context.Context, string) error) *UserSessionRepository_RevokeAllByUserID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // RevokeAllExcept provides a mock function with given fields: ctx, userID, exceptSessionID
 func (_m *UserSessionRepository) RevokeAllExcept(ctx context.Context, userID string, exceptSessionID string) error {
 	ret := _m.Called(ctx, userID, exceptSessionID)

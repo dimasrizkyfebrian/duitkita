@@ -41,3 +41,7 @@ func ErrConflict(message string) *AppError {
 func ErrInternal(message string) *AppError {
 	return NewAppError(http.StatusInternalServerError, message)
 }
+
+func ErrTooManyRequests(message string) *AppError {
+	return NewAppError(http.StatusTooManyRequests, message)
+}
