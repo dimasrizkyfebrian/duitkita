@@ -10,10 +10,6 @@ import (
 	"duitkita-api/config"
 )
 
-// CloudTasksEnqueuer enqueues report-export rendering as an HTTP task that
-// Cloud Tasks delivers to this service's own /internal/jobs/... endpoint —
-// giving retry/backoff on failure for free. Structurally satisfies
-// service.TaskEnqueuer.
 type CloudTasksEnqueuer struct {
 	client       *cloudtasks.Client
 	queuePath    string
@@ -21,9 +17,6 @@ type CloudTasksEnqueuer struct {
 	internalAuth string
 }
 
-// NewCloudTasksEnqueuer builds a Cloud Tasks client using application
-// default credentials (see infrastructure setup docs — no key file needed
-// on Cloud Run, it uses the attached service account).
 func NewCloudTasksEnqueuer(ctx context.Context, cfg config.CloudTasksConfig, internalSecret string) (*CloudTasksEnqueuer, error) {
 	client, err := cloudtasks.NewClient(ctx)
 	if err != nil {

@@ -83,16 +83,10 @@ type OTPConfig struct {
 	ResendCooldownSeconds int
 }
 
-// InternalConfig guards the /internal/jobs/* routes used by Cloud
-// Scheduler/Cloud Tasks — there's no "current user" on those calls, so they
-// can't go through the normal JWT middleware.
 type InternalConfig struct {
 	JobsSecret string
 }
 
-// CloudTasksConfig controls how POST /reports/exports triggers rendering.
-// When Enabled is false (local dev default), the render runs inline
-// instead — see service.NewInlineEnqueuer.
 type CloudTasksConfig struct {
 	Enabled       bool
 	ProjectID     string
