@@ -24,6 +24,7 @@ func (h *AuthHandler) RegisterPublicRoutes(rg *gin.RouterGroup) {
 	auth.POST("/register", h.register)
 	auth.POST("/login", h.login)
 	auth.POST("/refresh", h.refresh)
+	auth.POST("/logout", h.logout)
 }
 
 func (h *AuthHandler) RegisterOTPRoutes(rg *gin.RouterGroup) {
@@ -135,6 +136,19 @@ func (h *AuthHandler) refresh(c *gin.Context) {
 		return
 	}
 	utils.Success(c, http.StatusOK, "token refreshed", res)
+}
+
+func (h *AuthHandler) logout(c *gin.Context) {
+	var req request.RefreshTokenRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+
+	if err := h.svc.Logout(c.Request.Context(), req); err != nil {
+		c.Error(err)
+		return
+	}
+	utils.Success(c, http.StatusOK, "logged out successfully", nil)
 }
 
 func (h *AuthHandler) listSessions(c *gin.Context) {

@@ -25,6 +25,7 @@ type AuthService interface {
 	ResetPassword(ctx context.Context, req request.ResetPasswordRequest) error
 	Login(ctx context.Context, req request.LoginRequest, ip, userAgent string) (*response.AuthResponse, error)
 	Refresh(ctx context.Context, req request.RefreshTokenRequest) (*response.AuthResponse, error)
+	Logout(ctx context.Context, req request.RefreshTokenRequest) error
 	ListSessions(ctx context.Context, userID string) ([]response.SessionResponse, error)
 	RevokeSession(ctx context.Context, userID, sessionID string) error
 	RevokeOtherSessions(ctx context.Context, userID, currentSessionID string) error
@@ -233,6 +234,31 @@ func (s *authService) Refresh(ctx context.Context, req request.RefreshTokenReque
 		RefreshToken: fmt.Sprintf("%s.%s", session.ID, newSecret),
 		User:         toUserResponse(user),
 	}, nil
+}
+
+func (s *authService) Logout(ctx context.Context, req request.RefreshTokenRequest) error {
+	sessionID, secret, ok := splitRefreshToken(req.RefreshToken)
+	if !ok {
+		return nil
+	}
+
+	session, err := s.sessionRepo.FindByID(ctx, sessionID)
+	if err != nil {
+		return utils.ErrInternal("failed to look up session")
+	}
+	if session == nil || session.RevokedAt != nil {
+		return nil
+	}
+	if utils.HashToken(secret) != session.RefreshTokenHash {
+		return nil
+	}
+
+	if err := s.sessionRepo.RevokeByID(ctx, sessionID); err != nil {
+		return utils.ErrInternal("failed to revoke session")
+	}
+
+	s.auditSvc.LogEvent(ctx, &session.UserID, domain.SecurityAuditEventSessionRevoked, "", "", map[string]interface{}{"session_id": sessionID, "via": "logout"})
+	return nil
 }
 
 func (s *authService) ListSessions(ctx context.Context, userID string) ([]response.SessionResponse, error) {
