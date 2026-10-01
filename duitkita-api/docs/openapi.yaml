@@ -182,6 +182,29 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke the session tied to the given refresh token
+      description: >-
+        Idempotent and always returns 200 even if the refresh token is
+        malformed, unknown, or already revoked — it never reveals session
+        state to the caller. Does not require a valid access token, since the
+        access token may already be expired when the user logs out.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshTokenRequest' }
+      responses:
+        '200':
+          description: logged out successfully
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Envelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
   /auth/sessions:
     get:
       tags: [Auth]

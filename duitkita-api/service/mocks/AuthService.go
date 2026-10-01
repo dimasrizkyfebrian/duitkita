@@ -190,6 +190,53 @@ func (_c *AuthService_Login_Call) RunAndReturn(run func(context.Context, request
 	return _c
 }
 
+// Logout provides a mock function with given fields: ctx, req
+func (_m *AuthService) Logout(ctx context.Context, req request.RefreshTokenRequest) error {
+	ret := _m.Called(ctx, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Logout")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, request.RefreshTokenRequest) error); ok {
+		r0 = rf(ctx, req)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// AuthService_Logout_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Logout'
+type AuthService_Logout_Call struct {
+	*mock.Call
+}
+
+// Logout is a helper method to define mock.On call
+//   - ctx context.Context
+//   - req request.RefreshTokenRequest
+func (_e *AuthService_Expecter) Logout(ctx interface{}, req interface{}) *AuthService_Logout_Call {
+	return &AuthService_Logout_Call{Call: _e.mock.On("Logout", ctx, req)}
+}
+
+func (_c *AuthService_Logout_Call) Run(run func(ctx context.Context, req request.RefreshTokenRequest)) *AuthService_Logout_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(request.RefreshTokenRequest))
+	})
+	return _c
+}
+
+func (_c *AuthService_Logout_Call) Return(_a0 error) *AuthService_Logout_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *AuthService_Logout_Call) RunAndReturn(run func(context.Context, request.RefreshTokenRequest) error) *AuthService_Logout_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Refresh provides a mock function with given fields: ctx, req
 func (_m *AuthService) Refresh(ctx context.Context, req request.RefreshTokenRequest) (*response.AuthResponse, error) {
 	ret := _m.Called(ctx, req)
