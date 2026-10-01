@@ -1,5 +1,9 @@
 name: Backend CI
 
+# Re-trigger marker for main after the history cutover (force-push) — see
+# conversation notes; GitHub's push event can go dark on main right after a
+# non-fast-forward replace of unrelated history. Remove this comment once
+# a normal push to main is confirmed to trigger CI/CD again.
 on:
   push:
     paths:
