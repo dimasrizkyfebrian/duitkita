@@ -2,6 +2,7 @@ package infrastructure
 
 import (
 	"context"
+	"crypto/tls"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -17,11 +18,15 @@ import (
 // briefly-unreachable Redis doesn't take the whole API down (see
 // middleware.RateLimit's fail-open behavior).
 func NewRedisClient(cfg config.RedisConfig, logger zerolog.Logger) *redis.Client {
-	client := redis.NewClient(&redis.Options{
+	opts := &redis.Options{
 		Addr:     cfg.Host + ":" + cfg.Port,
 		Password: cfg.Password,
 		DB:       cfg.DB,
-	})
+	}
+	if cfg.TLSEnabled {
+		opts.TLSConfig = &tls.Config{ServerName: cfg.Host}
+	}
+	client := redis.NewClient(opts)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()

@@ -53,10 +53,11 @@ type GCSConfig struct {
 }
 
 type RedisConfig struct {
-	Host     string
-	Port     string
-	Password string
-	DB       int
+	Host       string
+	Port       string
+	Password   string
+	DB         int
+	TLSEnabled bool
 }
 
 type RateLimitConfig struct {
@@ -138,10 +139,11 @@ func Load() (*Config, error) {
 			CredentialsFile: getEnv("GCS_CREDENTIALS_FILE", ""),
 		},
 		Redis: RedisConfig{
-			Host:     getEnv("REDIS_HOST", "localhost"),
-			Port:     getEnv("REDIS_PORT", "6379"),
-			Password: getEnv("REDIS_PASSWORD", ""),
-			DB:       getEnvAsInt("REDIS_DB", 0),
+			Host:       getEnv("REDIS_HOST", "localhost"),
+			Port:       getEnv("REDIS_PORT", "6379"),
+			Password:   getEnv("REDIS_PASSWORD", ""),
+			DB:         getEnvAsInt("REDIS_DB", 0),
+			TLSEnabled: getEnvAsBool("REDIS_TLS_ENABLED", false),
 		},
 		RateLimit: RateLimitConfig{
 			Enabled:           getEnvAsBool("RATE_LIMIT_ENABLED", true),
