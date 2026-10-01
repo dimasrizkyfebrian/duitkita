@@ -1,24 +1,43 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { ApiError } from '@/lib/request'
+import AuthLayout from '@/shared/layouts/AuthLayout.vue'
+import BaseButton from '@/shared/components/BaseButton.vue'
+import BaseInput from '@/shared/components/BaseInput.vue'
+import { apiErrorMessage } from '@/shared/utils/apiError'
+import { useToast } from '@/shared/composables/useToast'
 import { useAuthStore } from '../stores/auth.store'
 
+const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const toast = useToast()
 
 const email = ref('')
 const password = ref('')
-const error = ref('')
 const loading = ref(false)
 
+if (route.query.reset === '1') {
+  toast.success('Password kamu udah diganti. Masuk pakai yang baru ya.')
+}
+
 async function onSubmit() {
-  error.value = ''
   loading.value = true
   try {
     await auth.login(email.value, password.value)
-    router.push('/')
-  } catch {
-    error.value = 'Email atau password salah.'
+    toast.success('Yes, kamu berhasil masuk!')
+    const redirect = route.query.redirect
+    router.push(typeof redirect === 'string' ? redirect : '/')
+  } catch (err) {
+    // 403 means the account exists but was never verified — send them straight
+    // to the OTP screen instead of making them figure that out themselves.
+    if (err instanceof ApiError && err.status === 403) {
+      toast.error('Email kamu belum diverifikasi. Kami bantu arahkan ya.')
+      router.push({ name: 'verify-otp', query: { email: email.value } })
+      return
+    }
+    toast.error(apiErrorMessage(err, 'Email atau password-nya belum cocok. Coba cek lagi ya.'))
   } finally {
     loading.value = false
   }
@@ -26,32 +45,46 @@ async function onSubmit() {
 </script>
 
 <template>
-  <main class="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-4 p-4">
-    <h1 class="text-2xl font-semibold text-slate-900">Masuk ke DuitKita</h1>
-
-    <form class="flex flex-col gap-3" @submit.prevent="onSubmit">
-      <input
+  <AuthLayout
+    eyebrow="Selamat datang kembali"
+    title="Masuk ke DuitKita"
+    subtitle="Lanjut atur keuangan bareng, dari mana aja."
+  >
+    <form class="flex flex-col gap-5" @submit.prevent="onSubmit">
+      <BaseInput
         v-model="email"
+        label="Email"
         type="email"
+        autocomplete="email"
+        placeholder="kamu@email.com"
         required
-        placeholder="Email"
-        class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
       />
-      <input
+      <BaseInput
         v-model="password"
+        label="Password"
         type="password"
+        autocomplete="current-password"
+        placeholder="••••••••"
         required
-        placeholder="Password"
-        class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
       />
-      <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
-      <button
-        type="submit"
-        :disabled="loading"
-        class="rounded-lg bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+
+      <BaseButton type="submit" :loading="loading" loading-label="Sebentar ya...">
+        Masuk
+      </BaseButton>
+
+      <RouterLink
+        :to="{ name: 'forgot-password' }"
+        class="text-azure -mt-1 text-center text-[0.8125rem] font-semibold"
       >
-        {{ loading ? 'Memproses...' : 'Masuk' }}
-      </button>
+        Lupa password?
+      </RouterLink>
     </form>
-  </main>
+
+    <template #footer>
+      Belum punya akun?
+      <RouterLink :to="{ name: 'register' }" class="text-navy font-extrabold">
+        Daftar dulu
+      </RouterLink>
+    </template>
+  </AuthLayout>
 </template>

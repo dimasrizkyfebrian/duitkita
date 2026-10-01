@@ -1,5 +1,4 @@
-import { publicHttp } from '@/lib/publicHttp'
-import type { ApiEnvelope } from '@/types/api'
+import { request } from '@/lib/request'
 import type {
   AuthResponse,
   ForgotPasswordRequest,
@@ -11,40 +10,40 @@ import type {
   VerifyOtpRequest,
 } from '../types'
 
-export async function register(payload: RegisterRequest) {
-  const res = await publicHttp.post<ApiEnvelope<RegisterResponse>>('/auth/register', payload)
-  return res.data.data!
+// These all run before a session exists (or, for logout, when the access token
+// may already be expired), so they use the plain client with no auth header.
+
+export function register(payload: RegisterRequest) {
+  return request<RegisterResponse>('/auth/register', { method: 'POST', body: payload })
 }
 
-export async function login(payload: LoginRequest) {
-  const res = await publicHttp.post<ApiEnvelope<AuthResponse>>('/auth/login', payload)
-  return res.data.data!
+export function login(payload: LoginRequest) {
+  return request<AuthResponse>('/auth/login', { method: 'POST', body: payload })
 }
 
-export async function verifyOtp(payload: VerifyOtpRequest) {
-  const res = await publicHttp.post<ApiEnvelope<AuthResponse>>('/auth/verify-otp', payload)
-  return res.data.data!
+export function verifyOtp(payload: VerifyOtpRequest) {
+  return request<AuthResponse>('/auth/verify-otp', { method: 'POST', body: payload })
 }
 
-export async function resendOtp(payload: ResendOtpRequest) {
-  await publicHttp.post<ApiEnvelope<null>>('/auth/resend-otp', payload)
+export function resendOtp(payload: ResendOtpRequest) {
+  return request<void>('/auth/resend-otp', { method: 'POST', body: payload })
 }
 
-export async function forgotPassword(payload: ForgotPasswordRequest) {
-  await publicHttp.post<ApiEnvelope<null>>('/auth/forgot-password', payload)
+export function forgotPassword(payload: ForgotPasswordRequest) {
+  return request<void>('/auth/forgot-password', { method: 'POST', body: payload })
 }
 
-export async function resetPassword(payload: ResetPasswordRequest) {
-  await publicHttp.post<ApiEnvelope<null>>('/auth/reset-password', payload)
+export function resetPassword(payload: ResetPasswordRequest) {
+  return request<void>('/auth/reset-password', { method: 'POST', body: payload })
 }
 
-export async function refresh(refreshToken: string) {
-  const res = await publicHttp.post<ApiEnvelope<AuthResponse>>('/auth/refresh', {
-    refresh_token: refreshToken,
+export function refresh(refreshToken: string) {
+  return request<AuthResponse>('/auth/refresh', {
+    method: 'POST',
+    body: { refresh_token: refreshToken },
   })
-  return res.data.data!
 }
 
-export async function logout(refreshToken: string) {
-  await publicHttp.post<ApiEnvelope<null>>('/auth/logout', { refresh_token: refreshToken })
+export function logout(refreshToken: string) {
+  return request<void>('/auth/logout', { method: 'POST', body: { refresh_token: refreshToken } })
 }

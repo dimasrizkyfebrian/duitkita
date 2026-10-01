@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as authApi from '../api/auth.api'
-import type { User } from '../types'
+import type { RegisterRequest, User } from '../types'
 
 const REFRESH_TOKEN_KEY = 'duitkita.refresh_token'
 
@@ -27,6 +27,17 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function login(email: string, password: string) {
     const res = await authApi.login({ email, password })
+    setSession({ accessToken: res.access_token, refreshToken: res.refresh_token, user: res.user })
+  }
+
+  /** Creates the account. No session yet — the email still has to be verified
+   * with the OTP, which is what actually logs the user in. */
+  async function register(payload: RegisterRequest) {
+    await authApi.register(payload)
+  }
+
+  async function verifyOtp(email: string, otp: string) {
+    const res = await authApi.verifyOtp({ email, otp })
     setSession({ accessToken: res.access_token, refreshToken: res.refresh_token, user: res.user })
   }
 
@@ -56,6 +67,8 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     isAuthenticated,
     login,
+    register,
+    verifyOtp,
     logout,
     clearSession,
     refreshSession,

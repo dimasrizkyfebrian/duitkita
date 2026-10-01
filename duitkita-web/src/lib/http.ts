@@ -1,51 +1,39 @@
-import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
+import { ApiError, request, type RequestOptions } from './request'
 
-export const http = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
-})
-
-http.interceptors.request.use((config) => {
-  const auth = useAuthStore()
-  if (auth.accessToken) {
-    config.headers.Authorization = `Bearer ${auth.accessToken}`
-  }
-  return config
-})
-
+// Shared so parallel requests that all hit a stale access token trigger exactly
+// one refresh instead of a stampede.
 let refreshPromise: Promise<void> | null = null
 
-http.interceptors.response.use(
-  (response) => response,
-  async (error: AxiosError) => {
-    const originalRequest = error.config as
-      (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined
-    const auth = useAuthStore()
+/**
+ * Authenticated request: attaches the access token and, on a 401, refreshes
+ * the session once and replays the call with the new token.
+ */
+export async function authRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const auth = useAuthStore()
 
-    const isAuthEndpoint =
-      originalRequest?.url?.includes('/auth/login') ||
-      originalRequest?.url?.includes('/auth/refresh')
+  const withAuth = (): RequestOptions => ({
+    ...options,
+    headers: { ...options.headers, Authorization: `Bearer ${auth.accessToken}` },
+  })
 
-    if (
-      error.response?.status !== 401 ||
-      !originalRequest ||
-      originalRequest._retry ||
-      isAuthEndpoint
-    ) {
+  try {
+    return await request<T>(path, withAuth())
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 401) {
       throw error
     }
-
-    originalRequest._retry = true
 
     try {
       refreshPromise ??= auth.refreshSession().finally(() => {
         refreshPromise = null
       })
       await refreshPromise
-      return http(originalRequest)
     } catch (refreshError) {
       auth.clearSession()
       throw refreshError
     }
-  },
-)
+
+    return await request<T>(path, withAuth())
+  }
+}

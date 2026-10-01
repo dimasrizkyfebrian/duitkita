@@ -11,6 +11,30 @@ const router = createRouter({
       meta: { requiresAuth: false },
     },
     {
+      path: '/register',
+      name: 'register',
+      component: () => import('@/features/auth/views/RegisterView.vue'),
+      meta: { requiresAuth: false },
+    },
+    {
+      path: '/verify-otp',
+      name: 'verify-otp',
+      component: () => import('@/features/auth/views/VerifyOtpView.vue'),
+      meta: { requiresAuth: false },
+    },
+    {
+      path: '/forgot-password',
+      name: 'forgot-password',
+      component: () => import('@/features/auth/views/ForgotPasswordView.vue'),
+      meta: { requiresAuth: false },
+    },
+    {
+      path: '/reset-password',
+      name: 'reset-password',
+      component: () => import('@/features/auth/views/ResetPasswordView.vue'),
+      meta: { requiresAuth: false },
+    },
+    {
       path: '/',
       name: 'home',
       component: () => import('@/features/dashboard/views/DashboardView.vue'),
@@ -25,6 +49,11 @@ router.beforeEach((to) => {
 
   if (requiresAuth && !auth.isAuthenticated) {
     return { name: 'login', query: { redirect: to.fullPath } }
+  }
+
+  // Already signed in — the auth screens have nothing to offer.
+  if (!requiresAuth && auth.isAuthenticated) {
+    return { name: 'home' }
   }
 })
 
