@@ -1,0 +1,156 @@
+name: Backend CD
+
+# Gated on Backend CI succeeding on main — never deploy something CI hasn't
+# already validated. See CD_CLOUD_DEPLOYMENT_PLAN.md for the full design.
+on:
+  workflow_run:
+    workflows: ["Backend CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write # required for Workload Identity Federation
+
+env:
+  PROJECT_ID: duitkita-v2
+  REGION: asia-southeast2
+  REPOSITORY: duitkita
+  SERVICE: duitkita-api
+  RUNTIME_SERVICE_ACCOUNT: duitkita-api-runtime@duitkita-v2.iam.gserviceaccount.com
+
+jobs:
+  deploy:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/853648687197/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider
+          service_account: github-deployer@duitkita-v2.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build production image
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}"
+          docker build \
+            --target production \
+            -t "$IMAGE:${{ github.event.workflow_run.head_sha }}" \
+            -t "$IMAGE:latest" \
+            duitkita-api
+
+      - name: Push image
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}"
+          docker push "$IMAGE:${{ github.event.workflow_run.head_sha }}"
+          docker push "$IMAGE:latest"
+
+      # Non-secret runtime config. CORS_ALLOWED_ORIGINS, CLOUD_TASKS_ENABLED
+      # and CLOUD_TASKS_TARGET_BASE_URL are placeholders — see the TODOs
+      # below, fill in once the frontend domain and this service's own
+      # Cloud Run URL are known (chicken-and-egg on the first deploy).
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE }}
+          region: ${{ env.REGION }}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.event.workflow_run.head_sha }}
+          service_account: ${{ env.RUNTIME_SERVICE_ACCOUNT }}
+          flags: --allow-unauthenticated --port=8080
+          secrets: |
+            JWT_ACCESS_SECRET=jwt-access-secret:latest
+            SMTP_APP_PASSWORD=smtp-app-password:latest
+            INTERNAL_JOBS_SECRET=internal-jobs-secret:latest
+            DB_PASSWORD=db-password:latest
+            REDIS_PASSWORD=redis-password:latest
+          env_vars: |
+            APP_ENV=production
+            APP_PORT=8080
+            LOG_LEVEL=info
+            DB_HOST=aws-0-ap-southeast-1.pooler.supabase.com
+            DB_PORT=5432
+            DB_USER=postgres.qpegnspgubdlgytlegpt
+            DB_NAME=postgres
+            DB_SSLMODE=require
+            JWT_ACCESS_SECRET_PREVIOUS=
+            JWT_ACCESS_TTL_MINUTES=15
+            JWT_REFRESH_TTL_DAYS=30
+            GCS_ENABLED=false
+            REDIS_HOST=subtle-turkey-324896.upstash.io
+            REDIS_PORT=6379
+            REDIS_DB=0
+            REDIS_TLS_ENABLED=true
+            RATE_LIMIT_ENABLED=true
+            RATE_LIMIT_AUTH_MAX=20
+            RATE_LIMIT_AUTH_WINDOW_SECONDS=60
+            SMTP_HOST=smtp.gmail.com
+            SMTP_PORT=587
+            SMTP_USER=dimzky.project@gmail.com
+            SMTP_FROM_NAME=DuitKita
+            OTP_TTL_MINUTES=10
+            OTP_MAX_ATTEMPTS=5
+            OTP_RESEND_COOLDOWN_SECONDS=60
+            RETENTION_SESSION_DAYS=30
+            RETENTION_NOTIFICATION_DAYS=90
+            RETENTION_ACTIVITY_DAYS=180
+            RETENTION_SECURITY_AUDIT_DAYS=365
+            FEATURE_INSIGHTS_ENABLED=true
+            CLOUD_TASKS_ENABLED=true
+            CLOUD_TASKS_PROJECT_ID=duitkita-v2
+            CLOUD_TASKS_LOCATION_ID=asia-southeast2
+            CLOUD_TASKS_QUEUE_ID=report-exports-queue
+            CLOUD_TASKS_TARGET_BASE_URL=https://duitkita-api-853648687197.asia-southeast2.run.app
+            CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
+          # TODO (once the frontend is deployed):
+          #   CORS_ALLOWED_ORIGINS=<the real frontend origin(s)>
+
+      - name: Notify success
+        if: success()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: dimzky.project@gmail.com
+          password: ${{ secrets.SMTP_APP_PASSWORD }}
+          subject: "✅ DuitKita backend deployed successfully"
+          to: dimzky.project@gmail.com
+          from: DuitKita CD <dimzky.project@gmail.com>
+          body: |
+            Deploy ke Cloud Run sukses.
+
+            Commit: ${{ github.event.workflow_run.head_sha }}
+            Service: ${{ env.SERVICE }} (${{ env.REGION }})
+            URL: https://duitkita-api-853648687197.asia-southeast2.run.app
+
+            Detail run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Notify failure
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: dimzky.project@gmail.com
+          password: ${{ secrets.SMTP_APP_PASSWORD }}
+          subject: "❌ DuitKita backend deploy FAILED"
+          to: dimzky.project@gmail.com
+          from: DuitKita CD <dimzky.project@gmail.com>
+          body: |
+            Deploy ke Cloud Run gagal.
+
+            Commit: ${{ github.event.workflow_run.head_sha }}
+            Service: ${{ env.SERVICE }} (${{ env.REGION }})
+
+            Cek log lengkap (step mana yang gagal + error-nya) di sini:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
