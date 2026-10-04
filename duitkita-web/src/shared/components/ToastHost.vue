@@ -23,18 +23,16 @@ const { items, dismiss } = useToast()
         :key="toast.id"
         :role="toast.type === 'error' ? 'alert' : 'status'"
         :aria-live="toast.type === 'error' ? 'assertive' : 'polite'"
-        class="rounded-control bg-sheet pointer-events-auto flex w-full max-w-sm items-start gap-3 border px-4 py-3.5 shadow-[0_10px_30px_-10px_rgba(7,28,60,0.55)]"
-        :class="toast.type === 'success' ? 'border-success/25' : 'border-danger/25'"
+        class="rounded-control pointer-events-auto flex w-full max-w-sm items-center gap-3 px-4 py-3 text-white shadow-[0_14px_32px_-12px_rgba(7,28,60,0.55)]"
+        :class="toast.type === 'success' ? 'bg-success' : 'bg-danger'"
       >
         <span
-          class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
-          :class="toast.type === 'success' ? 'bg-success/12' : 'bg-danger/12'"
+          class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/20"
           aria-hidden="true"
         >
           <svg
             viewBox="0 0 24 24"
-            class="h-3.5 w-3.5"
-            :class="toast.type === 'success' ? 'text-success' : 'text-danger'"
+            class="h-3.5 w-3.5 text-white"
             fill="none"
             stroke="currentColor"
             stroke-width="3"
@@ -49,13 +47,13 @@ const { items, dismiss } = useToast()
           </svg>
         </span>
 
-        <p class="text-ink flex-1 text-[0.8125rem] leading-snug font-semibold">
+        <p class="flex-1 text-[0.8125rem] leading-snug font-semibold text-white">
           {{ toast.message }}
         </p>
 
         <button
           type="button"
-          class="text-muted hover:text-ink -mt-0.5 -mr-1 shrink-0 rounded p-1 transition-colors"
+          class="text-white/75 hover:text-white -mr-1 shrink-0 rounded p-1 transition-colors"
           aria-label="Tutup notifikasi"
           @click="dismiss(toast.id)"
         >

@@ -24,6 +24,21 @@ const MESSAGES: Record<string, string> = {
   'malformed refresh token': 'Sesi kamu bermasalah. Masuk lagi ya.',
   'current password is incorrect': 'Password lama kamu belum pas.',
   'too many requests': 'Kebanyakan percobaan. Tunggu sebentar ya.',
+  'category not found': 'Kategorinya gak ketemu. Coba refresh dulu ya.',
+  'budget already exists for this category and period': 'Budget kategori ini bulan ini udah ada.',
+  'budget is already finalized': 'Budget ini udah dikunci, gak bisa diubah lagi.',
+  'no linked partner': 'Kamu belum nyambung sama pasangan.',
+  'invalid expense_date': 'Tanggalnya belum valid.',
+  'you already have a linked partner': 'Kamu udah punya pasangan yang nyambung.',
+  'no user found with that email': 'Gak ketemu akun dengan email itu.',
+  'cannot invite yourself': 'Gak bisa ngundang diri sendiri ya.',
+  'invitation not found': 'Undangannya gak ketemu.',
+  'invitation is no longer pending': 'Undangan ini udah gak berlaku lagi.',
+  'invitation has expired': 'Undangannya udah kedaluwarsa.',
+  'category still has budgets set, delete those first':
+    'Kategori ini masih punya budget yang diatur. Hapus budgetnya dulu ya.',
+  'budget still has expenses recorded, delete those first':
+    'Budget ini masih punya pengeluaran yang tercatat. Hapus pengeluarannya dulu ya.',
 }
 
 const FIELD_LABELS: Record<string, string> = {
@@ -32,6 +47,7 @@ const FIELD_LABELS: Record<string, string> = {
   password: 'Password',
   newpassword: 'Password baru',
   otp: 'Kode OTP',
+  icon: 'Ikon',
 }
 
 /** Turns "Password: must be at least 8" into "Password minimal 8 karakter." */
@@ -41,17 +57,21 @@ function translateValidation(raw: string): string | null {
     return null
   }
 
-  const field = FIELD_LABELS[match[1].toLowerCase()] ?? match[1]
-  const rule = match[2]
+  const [, rawField, rawRule] = match
+  if (!rawField || !rawRule) {
+    return null
+  }
 
-  if (rule === 'is required') return `${field} belum diisi.`
-  if (rule === 'must be a valid email') return 'Format emailnya belum benar.'
+  const field = FIELD_LABELS[rawField.toLowerCase()] ?? rawField
 
-  const min = rule.match(/^must be at least (\d+)$/)
-  if (min) return `${field} minimal ${min[1]} karakter.`
+  if (rawRule === 'is required') return `${field} belum diisi.`
+  if (rawRule === 'must be a valid email') return 'Format emailnya belum benar.'
 
-  const max = rule.match(/^must be at most (\d+)$/)
-  if (max) return `${field} maksimal ${max[1]} karakter.`
+  const min = rawRule.match(/^must be at least (\d+)$/)
+  if (min?.[1]) return `${field} minimal ${min[1]} karakter.`
+
+  const max = rawRule.match(/^must be at most (\d+)$/)
+  if (max?.[1]) return `${field} maksimal ${max[1]} karakter.`
 
   return null
 }
