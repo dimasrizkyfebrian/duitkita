@@ -22,6 +22,7 @@ func (h *CategoryHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	categories := rg.Group("/categories")
 	categories.POST("", h.create)
 	categories.GET("", h.list)
+	categories.GET("/partner", h.partner)
 	categories.GET("/:id", h.getByID)
 	categories.PATCH("/:id", h.update)
 	categories.DELETE("/:id", h.delete)
@@ -47,6 +48,15 @@ func (h *CategoryHandler) list(c *gin.Context) {
 		return
 	}
 	utils.Success(c, http.StatusOK, "categories retrieved", res)
+}
+
+func (h *CategoryHandler) partner(c *gin.Context) {
+	res, err := h.svc.GetPartnerCategories(c.Request.Context(), currentUserID(c))
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	utils.Success(c, http.StatusOK, "partner categories retrieved", res)
 }
 
 func (h *CategoryHandler) getByID(c *gin.Context) {

@@ -27,10 +27,11 @@ type budgetService struct {
 	categoryRepo repository.CategoryRepository
 	coupleRepo   repository.CoupleRepository
 	activitySvc  ActivityService
+	expenseRepo  repository.ExpenseRepository
 }
 
-func NewBudgetService(repo repository.BudgetRepository, categoryRepo repository.CategoryRepository, coupleRepo repository.CoupleRepository, activitySvc ActivityService) BudgetService {
-	return &budgetService{repo: repo, categoryRepo: categoryRepo, coupleRepo: coupleRepo, activitySvc: activitySvc}
+func NewBudgetService(repo repository.BudgetRepository, categoryRepo repository.CategoryRepository, coupleRepo repository.CoupleRepository, activitySvc ActivityService, expenseRepo repository.ExpenseRepository) BudgetService {
+	return &budgetService{repo: repo, categoryRepo: categoryRepo, coupleRepo: coupleRepo, activitySvc: activitySvc, expenseRepo: expenseRepo}
 }
 
 func (s *budgetService) Create(ctx context.Context, userID string, req request.CreateBudgetRequest) (*response.BudgetResponse, error) {
@@ -110,6 +111,15 @@ func (s *budgetService) Delete(ctx context.Context, userID, id string) error {
 	if err != nil {
 		return err
 	}
+
+	expenses, err := s.expenseRepo.FindAllByBudgetID(ctx, id)
+	if err != nil {
+		return utils.ErrInternal("failed to check budget usage")
+	}
+	if len(expenses) > 0 {
+		return utils.ErrConflict("budget still has expenses recorded, delete those first")
+	}
+
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return utils.ErrInternal("failed to delete budget")
 	}

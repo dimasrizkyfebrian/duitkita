@@ -191,6 +191,65 @@ func (_c *CategoryService_GetByID_Call) RunAndReturn(run func(context.Context, s
 	return _c
 }
 
+// GetPartnerCategories provides a mock function with given fields: ctx, userID
+func (_m *CategoryService) GetPartnerCategories(ctx context.Context, userID string) ([]response.CategoryResponse, error) {
+	ret := _m.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetPartnerCategories")
+	}
+
+	var r0 []response.CategoryResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) ([]response.CategoryResponse, error)); ok {
+		return rf(ctx, userID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) []response.CategoryResponse); ok {
+		r0 = rf(ctx, userID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]response.CategoryResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// CategoryService_GetPartnerCategories_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetPartnerCategories'
+type CategoryService_GetPartnerCategories_Call struct {
+	*mock.Call
+}
+
+// GetPartnerCategories is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+func (_e *CategoryService_Expecter) GetPartnerCategories(ctx interface{}, userID interface{}) *CategoryService_GetPartnerCategories_Call {
+	return &CategoryService_GetPartnerCategories_Call{Call: _e.mock.On("GetPartnerCategories", ctx, userID)}
+}
+
+func (_c *CategoryService_GetPartnerCategories_Call) Run(run func(ctx context.Context, userID string)) *CategoryService_GetPartnerCategories_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *CategoryService_GetPartnerCategories_Call) Return(_a0 []response.CategoryResponse, _a1 error) *CategoryService_GetPartnerCategories_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *CategoryService_GetPartnerCategories_Call) RunAndReturn(run func(context.Context, string) ([]response.CategoryResponse, error)) *CategoryService_GetPartnerCategories_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // List provides a mock function with given fields: ctx, userID
 func (_m *CategoryService) List(ctx context.Context, userID string) ([]response.CategoryResponse, error) {
 	ret := _m.Called(ctx, userID)

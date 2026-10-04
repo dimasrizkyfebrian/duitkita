@@ -15,4 +15,5 @@ type InvitationResponse struct {
 	Status     string    `json:"status"`
 	ExpiresAt  time.Time `json:"expires_at"`
 	CreatedAt  time.Time `json:"created_at"`
+	Sender *UserResponse `json:"sender,omitempty"`
 }
