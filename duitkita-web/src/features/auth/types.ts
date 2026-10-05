@@ -9,6 +9,9 @@ export interface User {
 export interface AuthResponse {
   access_token: string
   refresh_token: string
+  // Identifies this login's own row in the sessions list — the access
+  // token itself carries no session identity, only the user's.
+  session_id: string
   user: User
 }
 

@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import BrandMark from '@/shared/components/BrandMark.vue'
 import BottomNav from '@/shared/components/BottomNav.vue'
 import BaseButton from '@/shared/components/BaseButton.vue'
-import { useToast } from '@/shared/composables/useToast'
 import { formatRupiah, formatRupiahShort } from '@/shared/utils/currency'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import CreateCategorySheet from '@/features/category/components/CreateCategorySheet.vue'
@@ -13,11 +11,9 @@ import SetBudgetSheet from '@/features/budget/components/SetBudgetSheet.vue'
 import ManageBudgetsSheet from '@/features/budget/components/ManageBudgetsSheet.vue'
 import CreateExpenseSheet from '@/features/expense/components/CreateExpenseSheet.vue'
 import PartnerSheet from '@/features/couple/components/PartnerSheet.vue'
-import ConfirmSheet from '@/shared/components/ConfirmSheet.vue'
 import IconWallet from '@/shared/icons/IconWallet.vue'
 import IconCategory from '@/shared/icons/IconCategory.vue'
 import IconPartner from '@/shared/icons/IconPartner.vue'
-import IconLogout from '@/shared/icons/IconLogout.vue'
 import IconChevronDown from '@/shared/icons/IconChevronDown.vue'
 import type { CategorySpend } from '@/features/report/types'
 import { useMonthlyOverview } from '../composables/useMonthlyOverview'
@@ -25,9 +21,7 @@ import { usePartnerOverview } from '../composables/usePartnerOverview'
 import { useRecentExpenses } from '../composables/useRecentExpenses'
 import type { CategoryOverviewItem } from '../types'
 
-const router = useRouter()
 const auth = useAuthStore()
-const toast = useToast()
 
 const { year, month, report, loading, error, usage, remaining, budgeted, unbudgeted, reload } =
   useMonthlyOverview()
@@ -51,21 +45,6 @@ const periodLabel = new Date(year, month - 1).toLocaleDateString('id-ID', {
   month: 'long',
   year: 'numeric',
 })
-
-const logoutConfirmOpen = ref(false)
-const loggingOut = ref(false)
-
-async function onConfirmLogout() {
-  loggingOut.value = true
-  try {
-    await auth.logout()
-    toast.success('Kamu udah keluar. Sampai ketemu lagi!')
-    router.push({ name: 'login' })
-  } finally {
-    loggingOut.value = false
-    logoutConfirmOpen.value = false
-  }
-}
 
 const createCategoryOpen = ref(false)
 const categoriesSheetOpen = ref(false)
@@ -147,17 +126,7 @@ const visibleRecentItems = computed(() => recentItems.value.slice(0, recentExpan
 <template>
   <main class="bg-ink flex min-h-screen flex-col">
     <header class="safe-top px-5 pb-6">
-      <div class="flex items-start justify-between">
-        <BrandMark />
-        <button
-          type="button"
-          class="text-sky/70 hover:text-white -mt-1 rounded-lg p-2 transition-colors"
-          aria-label="Keluar"
-          @click="logoutConfirmOpen = true"
-        >
-          <IconLogout class="h-5 w-5" />
-        </button>
-      </div>
+      <BrandMark />
 
       <p class="text-sky/80 mt-7 text-[0.8125rem]">Hai, {{ auth.user?.name }}</p>
       <h1 class="mt-1 text-[1.5rem] font-extrabold tracking-tight text-white capitalize">
@@ -512,13 +481,5 @@ const visibleRecentItems = computed(() => recentItems.value.slice(0, recentExpan
       @created="afterExpenseCreated"
     />
     <PartnerSheet v-model:open="partnerSheetOpen" @changed="afterPartnerChanged" />
-    <ConfirmSheet
-      v-model:open="logoutConfirmOpen"
-      title="Yakin mau keluar?"
-      message="Nanti kamu bisa login lagi kapan aja kok."
-      confirm-label="Ya, keluar"
-      :loading="loggingOut"
-      @confirm="onConfirmLogout"
-    />
   </main>
 </template>

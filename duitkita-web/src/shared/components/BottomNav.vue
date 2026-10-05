@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useToast } from '@/shared/composables/useToast'
 import IconHome from '@/shared/icons/IconHome.vue'
 import IconChart from '@/shared/icons/IconChart.vue'
@@ -7,29 +8,36 @@ import IconBell from '@/shared/icons/IconBell.vue'
 
 defineProps<{
   // The signed-in user's avatar, passed down by whichever page renders this
-  // nav (today only DashboardView, which already fetches it for the recent-
-  // expenses feed) — keeps this component a dumb prop-driven shell instead
-  // of reaching into feature stores/APIs itself.
+  // nav — keeps this component a dumb prop-driven shell instead of reaching
+  // into feature stores/APIs itself.
   avatarUrl?: string | null
   avatarName?: string
 }>()
 
 const emit = defineEmits<{ catat: [] }>()
 
+const route = useRoute()
+const router = useRouter()
 const toast = useToast()
 
-// Only Beranda exists so far. The rest are shown so the shell reads as a real
-// app, but they say so plainly instead of failing silently when tapped.
+// Beranda and Profil are real pages; Laporan/Pengingat aren't built yet, so
+// they stay as "belum jadi" placeholders instead of routing anywhere.
 const items = [
-  { key: 'beranda', label: 'Beranda', active: true, icon: IconHome },
-  { key: 'laporan', label: 'Laporan', active: false, icon: IconChart },
+  { key: 'beranda', label: 'Beranda', routeName: 'home', icon: IconHome },
+  { key: 'laporan', label: 'Laporan', routeName: null, icon: IconChart },
 ] as const
 
-const pengingat = { key: 'pengingat', label: 'Pengingat', active: false, icon: IconBell } as const
+const pengingat = { key: 'pengingat', label: 'Pengingat', routeName: null, icon: IconBell } as const
 
-function onTap(label: string, active: boolean) {
-  if (!active) {
-    toast.error(`${label} belum jadi, masih kami garap ya.`)
+function isActive(routeName: string | null) {
+  return routeName !== null && route.name === routeName
+}
+
+function onTap(item: { label: string; routeName: string | null }) {
+  if (item.routeName) {
+    router.push({ name: item.routeName })
+  } else {
+    toast.error(`${item.label} belum jadi, masih kami garap ya.`)
   }
 }
 
@@ -50,9 +58,9 @@ const avatarBroken = ref(false)
         :key="item.key"
         type="button"
         class="flex flex-col items-center gap-1 rounded-lg py-1.5 text-[0.625rem] font-bold transition-colors"
-        :class="item.active ? 'text-navy' : 'text-muted/70'"
-        :aria-current="item.active ? 'page' : undefined"
-        @click="onTap(item.label, item.active)"
+        :class="isActive(item.routeName) ? 'text-navy' : 'text-muted/70'"
+        :aria-current="isActive(item.routeName) ? 'page' : undefined"
+        @click="onTap(item)"
       >
         <component :is="item.icon" class="h-5 w-5" />
         {{ item.label }}
@@ -87,8 +95,8 @@ const avatarBroken = ref(false)
       <button
         type="button"
         class="flex flex-col items-center gap-1 rounded-lg py-1.5 text-[0.625rem] font-bold transition-colors"
-        :class="pengingat.active ? 'text-navy' : 'text-muted/70'"
-        @click="onTap(pengingat.label, pengingat.active)"
+        :class="isActive(pengingat.routeName) ? 'text-navy' : 'text-muted/70'"
+        @click="onTap(pengingat)"
       >
         <component :is="pengingat.icon" class="h-5 w-5" />
         {{ pengingat.label }}
@@ -96,8 +104,9 @@ const avatarBroken = ref(false)
 
       <button
         type="button"
-        class="text-muted/70 flex flex-col items-center gap-1 rounded-lg py-1.5 text-[0.625rem] font-bold transition-colors"
-        @click="onTap('Profil', false)"
+        class="flex flex-col items-center gap-1 rounded-lg py-1.5 text-[0.625rem] font-bold transition-colors"
+        :class="isActive('profile') ? 'text-navy' : 'text-muted/70'"
+        @click="router.push({ name: 'profile' })"
       >
         <img
           v-if="avatarUrl && !avatarBroken"

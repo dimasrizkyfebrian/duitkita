@@ -25,6 +25,10 @@ export interface RequestOptions {
   headers?: Record<string, string>
 }
 
+function isFormData(body: unknown): body is FormData {
+  return body instanceof FormData
+}
+
 const baseURL = import.meta.env.VITE_API_BASE_URL
 
 /**
@@ -37,12 +41,19 @@ const baseURL = import.meta.env.VITE_API_BASE_URL
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, headers = {} } = options
 
+  // FormData (file uploads) must keep its own multipart boundary — letting
+  // the browser set Content-Type itself, not forcing application/json.
+  const formData = isFormData(body)
+
   let response: Response
   try {
     response = await fetch(`${baseURL}${path}`, {
       method,
-      headers: body === undefined ? headers : { 'Content-Type': 'application/json', ...headers },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      headers:
+        body === undefined || formData
+          ? headers
+          : { 'Content-Type': 'application/json', ...headers },
+      body: body === undefined ? undefined : formData ? body : JSON.stringify(body),
     })
   } catch {
     throw new NetworkError()

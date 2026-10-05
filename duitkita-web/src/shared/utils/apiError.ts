@@ -46,6 +46,7 @@ const FIELD_LABELS: Record<string, string> = {
   email: 'Email',
   password: 'Password',
   newpassword: 'Password baru',
+  currentpassword: 'Password lama',
   otp: 'Kode OTP',
   icon: 'Ikon',
 }
