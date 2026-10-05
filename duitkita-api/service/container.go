@@ -51,7 +51,7 @@ func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.Reten
 
 	return &Services{
 		Auth:             NewAuthService(userRepo, sessionRepo, securityAuditSvc, otpSvc, jwtCfg),
-		User:             NewUserService(userRepo, securityAuditSvc, storage),
+		User:             NewUserService(userRepo, securityAuditSvc, storage, redisClient),
 		Couple:           NewCoupleService(coupleRepo, invitationRepo, userRepo, securityAuditSvc),
 		Category:         NewCategoryService(categoryRepo, coupleRepo, budgetRepo),
 		Budget:           NewBudgetService(budgetRepo, categoryRepo, coupleRepo, activitySvc, expenseRepo),

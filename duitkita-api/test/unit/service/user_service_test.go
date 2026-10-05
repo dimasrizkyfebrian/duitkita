@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
@@ -23,7 +25,19 @@ func newUserService(t *testing.T) (service.UserService, *mocks.UserRepository, *
 	userRepo := mocks.NewUserRepository(t)
 	auditSvc := svcmocks.NewSecurityAuditService(t)
 	storage := svcmocks.NewFileStorage(t)
-	return service.NewUserService(userRepo, auditSvc, storage), userRepo, auditSvc, storage
+	// Deliberately unreachable rather than mocked — the service treats any
+	// Redis error as a cache miss/best-effort write failure, so pointing at
+	// a closed port exercises exactly that fallback path for free instead
+	// of needing a fake Redis server. Retries disabled and dial timeout cut
+	// short so that fallback stays fast instead of burning through
+	// go-redis's default 5-attempt backoff on every call.
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:        "127.0.0.1:1",
+		MaxRetries:  -1,
+		DialTimeout: 100 * time.Millisecond,
+	})
+	t.Cleanup(func() { _ = redisClient.Close() })
+	return service.NewUserService(userRepo, auditSvc, storage, redisClient), userRepo, auditSvc, storage
 }
 
 // openMultipartFile builds a real multipart form in memory and parses it
@@ -196,6 +210,50 @@ func TestUserService_GetAvatarURL(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "https://signed.example/avatar.png", url)
 	})
+}
+
+func TestUserService_GetAvatarURL_CachesAndInvalidates(t *testing.T) {
+	mr := miniredis.RunT(t)
+	redisClient := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = redisClient.Close() })
+
+	userRepo := mocks.NewUserRepository(t)
+	auditSvc := svcmocks.NewSecurityAuditService(t)
+	storage := svcmocks.NewFileStorage(t)
+	svc := service.NewUserService(userRepo, auditSvc, storage, redisClient)
+
+	key := "avatars/user-1.png"
+	user := &domain.User{ID: "user-1", AvatarStorageKey: &key}
+
+	userRepo.EXPECT().FindByID(context.Background(), "user-1").Return(user, nil)
+	storage.EXPECT().SignedURL(key, 15*time.Minute).Return("https://signed.example/v1.png", nil).Once()
+
+	url1, err := svc.GetAvatarURL(context.Background(), "user-1")
+	require.NoError(t, err)
+	require.Equal(t, "https://signed.example/v1.png", url1)
+
+	// Second call should hit the cache — SignedURL is mocked .Once() above,
+	// so a second call to it would fail this test.
+	userRepo.EXPECT().FindByID(context.Background(), "user-1").Return(user, nil)
+	url2, err := svc.GetAvatarURL(context.Background(), "user-1")
+	require.NoError(t, err)
+	require.Equal(t, url1, url2)
+
+	// Replacing the avatar invalidates the cache.
+	userRepo.EXPECT().FindByID(context.Background(), "user-1").Return(user, nil)
+	storage.EXPECT().Upload(context.Background(), key, mock.Anything, mock.Anything).Return("", nil)
+	userRepo.EXPECT().Update(context.Background(), user).Return(nil)
+	file, header := openMultipartFile(t, "avatar", "photo.png", "image/png", []byte("new-bytes"))
+	_, err = svc.UploadAvatar(context.Background(), "user-1", file, header)
+	require.NoError(t, err)
+
+	// So the next read regenerates instead of reusing the stale cache entry.
+	userRepo.EXPECT().FindByID(context.Background(), "user-1").Return(user, nil)
+	storage.EXPECT().SignedURL(key, 15*time.Minute).Return("https://signed.example/v2.png", nil).Once()
+
+	url3, err := svc.GetAvatarURL(context.Background(), "user-1")
+	require.NoError(t, err)
+	require.Equal(t, "https://signed.example/v2.png", url3)
 }
 
 func TestUserService_GetSecurityAudit(t *testing.T) {
