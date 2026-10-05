@@ -6,6 +6,7 @@ import (
 	"mime/multipart"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 
 	"duitkita-api/model/domain"
@@ -13,6 +14,13 @@ import (
 	"duitkita-api/model/dto/response"
 	"duitkita-api/repository"
 	"duitkita-api/utils"
+)
+
+const (
+	avatarSignedURLTTL = 15 * time.Minute
+	// Shorter than avatarSignedURLTTL so a cache hit is never served right
+	// up against (or past) the real signed URL's own expiry.
+	avatarURLCacheTTL = 10 * time.Minute
 )
 
 type UserService interface {
@@ -29,10 +37,11 @@ type userService struct {
 	userRepo repository.UserRepository
 	auditSvc SecurityAuditService
 	storage  FileStorage
+	redis    *redis.Client
 }
 
-func NewUserService(userRepo repository.UserRepository, auditSvc SecurityAuditService, storage FileStorage) UserService {
-	return &userService{userRepo: userRepo, auditSvc: auditSvc, storage: storage}
+func NewUserService(userRepo repository.UserRepository, auditSvc SecurityAuditService, storage FileStorage, redisClient *redis.Client) UserService {
+	return &userService{userRepo: userRepo, auditSvc: auditSvc, storage: storage, redis: redisClient}
 }
 
 func (s *userService) GetProfile(ctx context.Context, userID string) (*response.UserResponse, error) {
@@ -103,6 +112,7 @@ func (s *userService) UploadAvatar(ctx context.Context, userID string, file mult
 	if err := s.userRepo.Update(ctx, user); err != nil {
 		return nil, utils.ErrInternal("failed to save avatar reference")
 	}
+	s.redis.Del(ctx, avatarURLCacheKey(userID))
 
 	res := toUserResponse(user)
 	return &res, nil
@@ -122,9 +132,19 @@ func (s *userService) DeleteAvatar(ctx context.Context, userID string) error {
 	}
 
 	user.AvatarStorageKey = nil
-	return s.userRepo.Update(ctx, user)
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return err
+	}
+	s.redis.Del(ctx, avatarURLCacheKey(userID))
+	return nil
 }
 
+// GetAvatarURL is called on essentially every page nav that renders an
+// avatar, but the signed URL it returns only actually changes when the
+// avatar itself does — so it's cached in Redis (invalidated by
+// UploadAvatar/DeleteAvatar above) to skip the GCS signBlob round-trip on
+// every hit. Caching is best-effort: a Redis miss or outage just falls
+// through to generating a fresh signed URL, same as before this existed.
 func (s *userService) GetAvatarURL(ctx context.Context, userID string) (string, error) {
 	user, err := s.mustFindUser(ctx, userID)
 	if err != nil {
@@ -134,10 +154,17 @@ func (s *userService) GetAvatarURL(ctx context.Context, userID string) (string, 
 		return "", utils.ErrNotFound("user has no avatar")
 	}
 
-	url, err := s.storage.SignedURL(*user.AvatarStorageKey, 15*time.Minute)
+	cacheKey := avatarURLCacheKey(userID)
+	if cached, err := s.redis.Get(ctx, cacheKey).Result(); err == nil {
+		return cached, nil
+	}
+
+	url, err := s.storage.SignedURL(*user.AvatarStorageKey, avatarSignedURLTTL)
 	if err != nil {
 		return "", utils.ErrInternal("failed to generate avatar url")
 	}
+
+	s.redis.Set(ctx, cacheKey, url, avatarURLCacheTTL)
 	return url, nil
 }
 
@@ -175,6 +202,10 @@ func (s *userService) mustFindUser(ctx context.Context, userID string) (*domain.
 		return nil, utils.ErrNotFound("user not found")
 	}
 	return user, nil
+}
+
+func avatarURLCacheKey(userID string) string {
+	return fmt.Sprintf("avatar_url:%s", userID)
 }
 
 func fileExt(filename string) string {
