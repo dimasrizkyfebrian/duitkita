@@ -118,10 +118,16 @@ jobs:
             CLOUD_TASKS_LOCATION_ID=asia-southeast2
             CLOUD_TASKS_QUEUE_ID=report-exports-queue
             CLOUD_TASKS_TARGET_BASE_URL=https://duitkita-api-853648687197.asia-southeast2.run.app
-            CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,https://duitkita-web-853648687197.asia-southeast2.run.app
+            CORS_ALLOWED_ORIGINS=http://localhost:5173;http://localhost:3000;https://duitkita-web-853648687197.asia-southeast2.run.app
+          # Semicolon-delimited, not comma - gcloud's env var deploy
+          # mechanism treats a bare comma as the separator *between*
+          # key=value pairs, silently truncating this at the first one.
+          # See the comment on getEnvAsSlice in duitkita-api/config/config.go.
+          #
           # The frontend origin above follows Cloud Run's predictable
           # <service>-<project-number>.<region>.run.app URL format, same as
-          # this service's own CLOUD_TASKS_TARGET_BASE_URL — unverified
+          # this service's own CLOUD_TASKS_TARGET_BASE_URL - and confirmed
+          # correct against the live duitkita-web deploy.
           # until frontend-cd.yml's first deploy actually confirms it.
 
       - name: Notify success
