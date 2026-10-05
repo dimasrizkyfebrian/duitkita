@@ -71,6 +71,20 @@ jobs:
           image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.event.workflow_run.head_sha }}
           flags: --allow-unauthenticated --port=8080
 
+      # Belt and suspenders: --allow-unauthenticated above only auto-grants
+      # public access the very first time a service is created - gcloud
+      # doesn't re-apply it on later updates. If this deploy ever follows a
+      # fresh service creation that got interrupted before that binding
+      # landed (exactly what happened on this service's first deploy), the
+      # service would otherwise stay stuck requiring auth. This is
+      # idempotent, so it's safe to run on every deploy regardless.
+      - name: Ensure public access
+        run: |
+          gcloud run services add-iam-policy-binding ${{ env.SERVICE }} \
+            --region=${{ env.REGION }} \
+            --member=allUsers \
+            --role=roles/run.invoker
+
       - name: Notify success
         if: success()
         uses: dawidd6/action-send-mail@v3
