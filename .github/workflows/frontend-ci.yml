@@ -9,6 +9,9 @@ on:
     paths:
       - "duitkita-web/**"
       - ".github/workflows/frontend-ci.yml"
+  # Same reasoning as backend-ci.yml: lets a CD-only change still deploy by
+  # manually re-running CI from the Actions tab.
+  workflow_dispatch:
 
 defaults:
   run:

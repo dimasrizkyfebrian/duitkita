@@ -9,6 +9,11 @@ on:
     paths:
       - "duitkita-api/**"
       - ".github/workflows/backend-ci.yml"
+  # Lets a CD-only change (e.g. backend-cd.yml env vars, with no
+  # duitkita-api diff to trigger the push filter above) still deploy, by
+  # manually re-running CI from the Actions tab - its completion is what
+  # backend-cd.yml's workflow_run trigger is gated on.
+  workflow_dispatch:
 
 defaults:
   run:
