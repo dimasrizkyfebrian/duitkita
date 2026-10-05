@@ -1,5 +1,7 @@
 .env
 docker-compose.override.yml
+gcs-service-account.json
+*.service-account.json
 *.log
 tmp/
 bin/

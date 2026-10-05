@@ -22,7 +22,7 @@ type UserService interface {
 	UploadAvatar(ctx context.Context, userID string, file multipart.File, header *multipart.FileHeader) (*response.UserResponse, error)
 	DeleteAvatar(ctx context.Context, userID string) error
 	GetAvatarURL(ctx context.Context, userID string) (string, error)
-	GetSecurityAudit(ctx context.Context, userID string) ([]domain.SecurityAuditLog, error)
+	GetSecurityAudit(ctx context.Context, userID string) ([]response.SecurityAuditLogResponse, error)
 }
 
 type userService struct {
@@ -141,8 +141,29 @@ func (s *userService) GetAvatarURL(ctx context.Context, userID string) (string, 
 	return url, nil
 }
 
-func (s *userService) GetSecurityAudit(ctx context.Context, userID string) ([]domain.SecurityAuditLog, error) {
-	return s.auditSvc.ListByUser(ctx, userID, 50)
+func (s *userService) GetSecurityAudit(ctx context.Context, userID string) ([]response.SecurityAuditLogResponse, error) {
+	logs, err := s.auditSvc.ListByUser(ctx, userID, 50)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]response.SecurityAuditLogResponse, 0, len(logs))
+	for _, log := range logs {
+		item := response.SecurityAuditLogResponse{
+			ID:        log.ID,
+			EventType: string(log.EventType),
+			Meta:      log.Meta,
+			CreatedAt: log.CreatedAt,
+		}
+		if log.IPAddress != nil {
+			item.IPAddress = *log.IPAddress
+		}
+		if log.UserAgent != nil {
+			item.UserAgent = *log.UserAgent
+		}
+		out = append(out, item)
+	}
+	return out, nil
 }
 
 func (s *userService) mustFindUser(ctx context.Context, userID string) (*domain.User, error) {
