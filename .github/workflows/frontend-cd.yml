@@ -1,0 +1,111 @@
+name: Frontend CD
+
+# Gated on Frontend CI succeeding on main — never deploy something CI hasn't
+# already validated. Mirrors backend-cd.yml's shape; see that file's
+# comments and CD_CLOUD_DEPLOYMENT_PLAN.md for the general design.
+on:
+  workflow_run:
+    workflows: ["Frontend CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write # required for Workload Identity Federation
+
+env:
+  PROJECT_ID: duitkita-v2
+  REGION: asia-southeast2
+  REPOSITORY: duitkita
+  SERVICE: duitkita-web
+  # Baked into the built JS at image-build time (Vite env vars aren't
+  # runtime-configurable) — this is the backend's own Cloud Run URL.
+  VITE_API_BASE_URL: https://duitkita-api-853648687197.asia-southeast2.run.app/api/v1
+
+jobs:
+  deploy:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/853648687197/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider
+          service_account: github-deployer@duitkita-v2.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build production image
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}"
+          docker build \
+            --target production \
+            --build-arg VITE_API_BASE_URL=${{ env.VITE_API_BASE_URL }} \
+            -t "$IMAGE:${{ github.event.workflow_run.head_sha }}" \
+            -t "$IMAGE:latest" \
+            duitkita-web
+
+      - name: Push image
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}"
+          docker push "$IMAGE:${{ github.event.workflow_run.head_sha }}"
+          docker push "$IMAGE:latest"
+
+      # No runtime service account and no env_vars/secrets — this is a
+      # static file server with zero GCP API calls at runtime, unlike the
+      # backend. Everything it needs was already baked into the image above.
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE }}
+          region: ${{ env.REGION }}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.event.workflow_run.head_sha }}
+          flags: --allow-unauthenticated --port=8080
+
+      - name: Notify success
+        if: success()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: dimzky.project@gmail.com
+          password: ${{ secrets.SMTP_APP_PASSWORD }}
+          subject: "✅ DuitKita frontend deployed successfully"
+          to: dimzky.project@gmail.com
+          from: DuitKita CD <dimzky.project@gmail.com>
+          body: |
+            Deploy ke Cloud Run sukses.
+
+            Commit: ${{ github.event.workflow_run.head_sha }}
+            Service: ${{ env.SERVICE }} (${{ env.REGION }})
+
+            Detail run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Notify failure
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: dimzky.project@gmail.com
+          password: ${{ secrets.SMTP_APP_PASSWORD }}
+          subject: "❌ DuitKita frontend deploy FAILED"
+          to: dimzky.project@gmail.com
+          from: DuitKita CD <dimzky.project@gmail.com>
+          body: |
+            Deploy ke Cloud Run gagal.
+
+            Commit: ${{ github.event.workflow_run.head_sha }}
+            Service: ${{ env.SERVICE }} (${{ env.REGION }})
+
+            Cek log lengkap (step mana yang gagal + error-nya) di sini:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
