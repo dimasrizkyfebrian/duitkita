@@ -18,14 +18,17 @@ type CategoryService interface {
 	GetByID(ctx context.Context, userID, id string) (*response.CategoryResponse, error)
 	Update(ctx context.Context, userID, id string, req request.UpdateCategoryRequest) (*response.CategoryResponse, error)
 	Delete(ctx context.Context, userID, id string) error
+	GetPartnerCategories(ctx context.Context, userID string) ([]response.CategoryResponse, error)
 }
 
 type categoryService struct {
-	repo repository.CategoryRepository
+	repo       repository.CategoryRepository
+	coupleRepo repository.CoupleRepository
+	budgetRepo repository.BudgetRepository
 }
 
-func NewCategoryService(repo repository.CategoryRepository) CategoryService {
-	return &categoryService{repo: repo}
+func NewCategoryService(repo repository.CategoryRepository, coupleRepo repository.CoupleRepository, budgetRepo repository.BudgetRepository) CategoryService {
+	return &categoryService{repo: repo, coupleRepo: coupleRepo, budgetRepo: budgetRepo}
 }
 
 func (s *categoryService) Create(ctx context.Context, userID string, req request.CreateCategoryRequest) (*response.CategoryResponse, error) {
@@ -87,10 +90,44 @@ func (s *categoryService) Delete(ctx context.Context, userID, id string) error {
 	if _, err := s.mustOwnCategory(ctx, userID, id); err != nil {
 		return err
 	}
+
+	hasBudgets, err := s.budgetRepo.ExistsByCategoryID(ctx, id)
+	if err != nil {
+		return utils.ErrInternal("failed to check category usage")
+	}
+	if hasBudgets {
+		return utils.ErrConflict("category still has budgets set, delete those first")
+	}
+
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return utils.ErrInternal("failed to delete category")
 	}
 	return nil
+}
+
+func (s *categoryService) GetPartnerCategories(ctx context.Context, userID string) ([]response.CategoryResponse, error) {
+	couple, err := s.coupleRepo.FindByUserID(ctx, userID)
+	if err != nil {
+		return nil, utils.ErrInternal("failed to look up partner")
+	}
+	if couple == nil {
+		return nil, utils.ErrNotFound("no linked partner")
+	}
+
+	partnerID := couple.User2ID
+	if partnerID == userID {
+		partnerID = couple.User1ID
+	}
+
+	categories, err := s.repo.FindAllByUserID(ctx, partnerID)
+	if err != nil {
+		return nil, utils.ErrInternal("failed to list partner categories")
+	}
+	out := make([]response.CategoryResponse, 0, len(categories))
+	for i := range categories {
+		out = append(out, toCategoryResponse(&categories[i]))
+	}
+	return out, nil
 }
 
 func (s *categoryService) mustOwnCategory(ctx context.Context, userID, id string) (*domain.Category, error) {

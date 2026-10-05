@@ -60,6 +60,12 @@ jobs:
       # and CLOUD_TASKS_TARGET_BASE_URL are placeholders — see the TODOs
       # below, fill in once the frontend domain and this service's own
       # Cloud Run URL are known (chicken-and-egg on the first deploy).
+      #
+      # No GCS_CREDENTIALS_FILE here on purpose — the GCS client falls back
+      # to Application Default Credentials, which on Cloud Run resolves to
+      # RUNTIME_SERVICE_ACCOUNT via the metadata server. That account needs
+      # "Service Account Token Creator" granted to itself (for signBlob) and
+      # object access on the bucket, same as the local Cloud Shell setup.
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
         with:
@@ -86,7 +92,8 @@ jobs:
             JWT_ACCESS_SECRET_PREVIOUS=
             JWT_ACCESS_TTL_MINUTES=15
             JWT_REFRESH_TTL_DAYS=30
-            GCS_ENABLED=false
+            GCS_ENABLED=true
+            GCS_BUCKET_NAME=duitkita-storage
             REDIS_HOST=subtle-turkey-324896.upstash.io
             REDIS_PORT=6379
             REDIS_DB=0

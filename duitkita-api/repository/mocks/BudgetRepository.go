@@ -116,6 +116,63 @@ func (_c *BudgetRepository_Delete_Call) RunAndReturn(run func(context.Context, s
 	return _c
 }
 
+// ExistsByCategoryID provides a mock function with given fields: ctx, categoryID
+func (_m *BudgetRepository) ExistsByCategoryID(ctx context.Context, categoryID string) (bool, error) {
+	ret := _m.Called(ctx, categoryID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ExistsByCategoryID")
+	}
+
+	var r0 bool
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (bool, error)); ok {
+		return rf(ctx, categoryID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) bool); ok {
+		r0 = rf(ctx, categoryID)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, categoryID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// BudgetRepository_ExistsByCategoryID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ExistsByCategoryID'
+type BudgetRepository_ExistsByCategoryID_Call struct {
+	*mock.Call
+}
+
+// ExistsByCategoryID is a helper method to define mock.On call
+//   - ctx context.Context
+//   - categoryID string
+func (_e *BudgetRepository_Expecter) ExistsByCategoryID(ctx interface{}, categoryID interface{}) *BudgetRepository_ExistsByCategoryID_Call {
+	return &BudgetRepository_ExistsByCategoryID_Call{Call: _e.mock.On("ExistsByCategoryID", ctx, categoryID)}
+}
+
+func (_c *BudgetRepository_ExistsByCategoryID_Call) Run(run func(ctx context.Context, categoryID string)) *BudgetRepository_ExistsByCategoryID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *BudgetRepository_ExistsByCategoryID_Call) Return(_a0 bool, _a1 error) *BudgetRepository_ExistsByCategoryID_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *BudgetRepository_ExistsByCategoryID_Call) RunAndReturn(run func(context.Context, string) (bool, error)) *BudgetRepository_ExistsByCategoryID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FindAllByUserID provides a mock function with given fields: ctx, userID, year, month, limit, offset
 func (_m *BudgetRepository) FindAllByUserID(ctx context.Context, userID string, year int, month int, limit int, offset int) ([]domain.MonthlyBudget, error) {
 	ret := _m.Called(ctx, userID, year, month, limit, offset)

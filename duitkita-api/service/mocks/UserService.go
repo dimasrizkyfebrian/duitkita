@@ -4,7 +4,6 @@ package mocks
 
 import (
 	context "context"
-	domain "duitkita-api/model/domain"
 	request "duitkita-api/model/dto/request"
 	response "duitkita-api/model/dto/response"
 	multipart "mime/multipart"
@@ -237,23 +236,23 @@ func (_c *UserService_GetProfile_Call) RunAndReturn(run func(context.Context, st
 }
 
 // GetSecurityAudit provides a mock function with given fields: ctx, userID
-func (_m *UserService) GetSecurityAudit(ctx context.Context, userID string) ([]domain.SecurityAuditLog, error) {
+func (_m *UserService) GetSecurityAudit(ctx context.Context, userID string) ([]response.SecurityAuditLogResponse, error) {
 	ret := _m.Called(ctx, userID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetSecurityAudit")
 	}
 
-	var r0 []domain.SecurityAuditLog
+	var r0 []response.SecurityAuditLogResponse
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) ([]domain.SecurityAuditLog, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) ([]response.SecurityAuditLogResponse, error)); ok {
 		return rf(ctx, userID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) []domain.SecurityAuditLog); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) []response.SecurityAuditLogResponse); ok {
 		r0 = rf(ctx, userID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]domain.SecurityAuditLog)
+			r0 = ret.Get(0).([]response.SecurityAuditLogResponse)
 		}
 	}
 
@@ -285,12 +284,12 @@ func (_c *UserService_GetSecurityAudit_Call) Run(run func(ctx context.Context, u
 	return _c
 }
 
-func (_c *UserService_GetSecurityAudit_Call) Return(_a0 []domain.SecurityAuditLog, _a1 error) *UserService_GetSecurityAudit_Call {
+func (_c *UserService_GetSecurityAudit_Call) Return(_a0 []response.SecurityAuditLogResponse, _a1 error) *UserService_GetSecurityAudit_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *UserService_GetSecurityAudit_Call) RunAndReturn(run func(context.Context, string) ([]domain.SecurityAuditLog, error)) *UserService_GetSecurityAudit_Call {
+func (_c *UserService_GetSecurityAudit_Call) RunAndReturn(run func(context.Context, string) ([]response.SecurityAuditLogResponse, error)) *UserService_GetSecurityAudit_Call {
 	_c.Call.Return(run)
 	return _c
 }

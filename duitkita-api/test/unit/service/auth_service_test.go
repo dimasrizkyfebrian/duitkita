@@ -314,6 +314,57 @@ func TestAuthService_Refresh(t *testing.T) {
 	})
 }
 
+func TestAuthService_Logout(t *testing.T) {
+	t.Run("malformed token is a no-op", func(t *testing.T) {
+		svc, _, _, _, _ := newAuthService(t)
+
+		err := svc.Logout(context.Background(), request.RefreshTokenRequest{RefreshToken: "no-dot-here"})
+
+		require.NoError(t, err)
+	})
+
+	t.Run("unknown session is a no-op", func(t *testing.T) {
+		svc, _, sessionRepo, _, _ := newAuthService(t)
+		sessionRepo.EXPECT().FindByID(context.Background(), "sess-1").Return(nil, nil)
+
+		err := svc.Logout(context.Background(), request.RefreshTokenRequest{RefreshToken: "sess-1.secret"})
+
+		require.NoError(t, err)
+	})
+
+	t.Run("already revoked session is a no-op", func(t *testing.T) {
+		svc, _, sessionRepo, _, _ := newAuthService(t)
+		revokedAt := time.Now()
+		sessionRepo.EXPECT().FindByID(context.Background(), "sess-1").Return(&domain.UserSession{ID: "sess-1", RevokedAt: &revokedAt}, nil)
+
+		err := svc.Logout(context.Background(), request.RefreshTokenRequest{RefreshToken: "sess-1.secret"})
+
+		require.NoError(t, err)
+	})
+
+	t.Run("wrong secret is a no-op, does not revoke someone else's session", func(t *testing.T) {
+		svc, _, sessionRepo, _, _ := newAuthService(t)
+		session := &domain.UserSession{ID: "sess-1", UserID: "user-1", RefreshTokenHash: utils.HashToken("correct-secret")}
+		sessionRepo.EXPECT().FindByID(context.Background(), "sess-1").Return(session, nil)
+
+		err := svc.Logout(context.Background(), request.RefreshTokenRequest{RefreshToken: "sess-1.wrong-secret"})
+
+		require.NoError(t, err)
+	})
+
+	t.Run("success revokes the session", func(t *testing.T) {
+		svc, _, sessionRepo, auditSvc, _ := newAuthService(t)
+		session := &domain.UserSession{ID: "sess-1", UserID: "user-1", RefreshTokenHash: utils.HashToken("correct-secret")}
+		sessionRepo.EXPECT().FindByID(context.Background(), "sess-1").Return(session, nil)
+		sessionRepo.EXPECT().RevokeByID(context.Background(), "sess-1").Return(nil)
+		auditSvc.EXPECT().LogEvent(context.Background(), mock.Anything, domain.SecurityAuditEventSessionRevoked, "", "", mock.Anything).Return()
+
+		err := svc.Logout(context.Background(), request.RefreshTokenRequest{RefreshToken: "sess-1.correct-secret"})
+
+		require.NoError(t, err)
+	})
+}
+
 func TestAuthService_ListSessions(t *testing.T) {
 	svc, _, sessionRepo, _, _ := newAuthService(t)
 	device := "iPhone"

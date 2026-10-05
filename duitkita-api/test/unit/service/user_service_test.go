@@ -200,10 +200,15 @@ func TestUserService_GetAvatarURL(t *testing.T) {
 
 func TestUserService_GetSecurityAudit(t *testing.T) {
 	svc, _, auditSvc, _ := newUserService(t)
-	auditSvc.EXPECT().ListByUser(context.Background(), "user-1", 50).Return([]domain.SecurityAuditLog{{ID: "log-1"}}, nil)
+	auditSvc.EXPECT().ListByUser(context.Background(), "user-1", 50).Return([]domain.SecurityAuditLog{
+		{ID: "log-1", EventType: domain.SecurityAuditEventLoginSuccess, IPAddress: strPtr("1.2.3.4")},
+	}, nil)
 
 	res, err := svc.GetSecurityAudit(context.Background(), "user-1")
 
 	require.NoError(t, err)
 	require.Len(t, res, 1)
+	require.Equal(t, "log-1", res[0].ID)
+	require.Equal(t, "login_success", res[0].EventType)
+	require.Equal(t, "1.2.3.4", res[0].IPAddress)
 }

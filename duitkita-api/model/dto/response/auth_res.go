@@ -3,9 +3,14 @@ package response
 import "time"
 
 type AuthResponse struct {
-	AccessToken  string       `json:"access_token"`
-	RefreshToken string       `json:"refresh_token"`
-	User         UserResponse `json:"user"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	// SessionID lets the client recognize its own entry in the sessions list
+	// (e.g. to label it "this device" or pass it as the current session when
+	// logging out other devices) — the access token itself carries no
+	// session identity, only the user's.
+	SessionID string       `json:"session_id"`
+	User      UserResponse `json:"user"`
 }
 
 type RegisterResponse struct {
