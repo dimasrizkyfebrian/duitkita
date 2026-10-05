@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"testing"
 	"time"
@@ -129,13 +130,34 @@ func TestCoupleService_AcceptInvitation(t *testing.T) {
 }
 
 func TestCoupleService_ListIncomingInvitations(t *testing.T) {
-	svc, _, invitationRepo, _, _ := newCoupleService(t)
-	invitationRepo.EXPECT().FindIncomingPending(context.Background(), "user-1").Return([]domain.CoupleInvitation{{ID: "inv-1"}}, nil)
+	t.Run("enriches each invitation with the sender's identity", func(t *testing.T) {
+		svc, _, invitationRepo, userRepo, _ := newCoupleService(t)
+		invitationRepo.EXPECT().FindIncomingPending(context.Background(), "user-1").Return([]domain.CoupleInvitation{
+			{ID: "inv-1", SenderUserID: "sender-1"},
+		}, nil)
+		userRepo.EXPECT().FindByID(context.Background(), "sender-1").Return(&domain.User{ID: "sender-1", Name: "Alice", Email: "alice@example.com"}, nil)
 
-	res, err := svc.ListIncomingInvitations(context.Background(), "user-1")
+		res, err := svc.ListIncomingInvitations(context.Background(), "user-1")
 
-	require.NoError(t, err)
-	require.Len(t, res, 1)
+		require.NoError(t, err)
+		require.Len(t, res, 1)
+		require.NotNil(t, res[0].Sender)
+		require.Equal(t, "Alice", res[0].Sender.Name)
+	})
+
+	t.Run("sender lookup failure degrades gracefully instead of failing the list", func(t *testing.T) {
+		svc, _, invitationRepo, userRepo, _ := newCoupleService(t)
+		invitationRepo.EXPECT().FindIncomingPending(context.Background(), "user-1").Return([]domain.CoupleInvitation{
+			{ID: "inv-1", SenderUserID: "sender-1"},
+		}, nil)
+		userRepo.EXPECT().FindByID(context.Background(), "sender-1").Return(nil, errors.New("db down"))
+
+		res, err := svc.ListIncomingInvitations(context.Background(), "user-1")
+
+		require.NoError(t, err)
+		require.Len(t, res, 1)
+		require.Nil(t, res[0].Sender)
+	})
 }
 
 func TestCoupleService_RejectInvitation(t *testing.T) {

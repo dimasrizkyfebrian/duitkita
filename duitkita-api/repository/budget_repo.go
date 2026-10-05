@@ -16,6 +16,7 @@ type BudgetRepository interface {
 	FindAllByUserID(ctx context.Context, userID string, year, month, limit, offset int) ([]domain.MonthlyBudget, error)
 	Update(ctx context.Context, budget *domain.MonthlyBudget) error
 	Delete(ctx context.Context, id string) error
+	ExistsByCategoryID(ctx context.Context, categoryID string) (bool, error)
 }
 
 type budgetRepository struct {
@@ -82,4 +83,12 @@ func (r *budgetRepository) Update(ctx context.Context, budget *domain.MonthlyBud
 
 func (r *budgetRepository) Delete(ctx context.Context, id string) error {
 	return r.db.WithContext(ctx).Delete(&domain.MonthlyBudget{}, "id = ?", id).Error
+}
+
+func (r *budgetRepository) ExistsByCategoryID(ctx context.Context, categoryID string) (bool, error) {
+	var exists bool
+	err := r.db.WithContext(ctx).
+		Raw(`SELECT EXISTS (SELECT 1 FROM monthly_budgets WHERE category_id = ?)`, categoryID).
+		Scan(&exists).Error
+	return exists, err
 }

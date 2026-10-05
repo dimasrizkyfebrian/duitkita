@@ -83,7 +83,12 @@ func (s *coupleService) ListIncomingInvitations(ctx context.Context, userID stri
 
 	out := make([]response.InvitationResponse, 0, len(invitations))
 	for i := range invitations {
-		out = append(out, *toInvitationResponse(&invitations[i]))
+		item := *toInvitationResponse(&invitations[i])
+		if sender, err := s.userRepo.FindByID(ctx, invitations[i].SenderUserID); err == nil && sender != nil {
+			res := toUserResponse(sender)
+			item.Sender = &res
+		}
+		out = append(out, item)
 	}
 	return out, nil
 }

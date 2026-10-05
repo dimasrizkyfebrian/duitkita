@@ -553,6 +553,31 @@ paths:
                         items: { $ref: '#/components/schemas/CategoryResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /categories/partner:
+    get:
+      tags: [Categories]
+      summary: List the linked partner's categories
+      description: >-
+        Read-only — categories are strictly per-user, there's no shared/merged
+        category set between partners. Lets the client resolve a category
+        name/icon for an expense returned by GET /expenses/partner, which
+        otherwise only carries a category_id the caller doesn't own.
+      responses:
+        '200':
+          description: partner categories retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/CategoryResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /categories/{id}:
     get:
       tags: [Categories]
@@ -1972,6 +1997,13 @@ components:
         status: { type: string, enum: [pending, accepted, rejected, cancelled, expired] }
         expires_at: { type: string, format: date-time }
         created_at: { type: string, format: date-time }
+        sender:
+          allOf:
+            - $ref: '#/components/schemas/UserResponse'
+          description: >-
+            Only populated on GET /couples/invitations/incoming — the
+            receiver needs to know who sent it, since sender_id alone is
+            just an opaque uuid.
 
     CategorySpend:
       type: object

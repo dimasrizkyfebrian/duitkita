@@ -232,6 +232,7 @@ func (s *authService) Refresh(ctx context.Context, req request.RefreshTokenReque
 	return &response.AuthResponse{
 		AccessToken:  accessToken,
 		RefreshToken: fmt.Sprintf("%s.%s", session.ID, newSecret),
+		SessionID:    session.ID,
 		User:         toUserResponse(user),
 	}, nil
 }
@@ -344,6 +345,7 @@ func (s *authService) issueTokens(ctx context.Context, user *domain.User, ip, us
 	return &response.AuthResponse{
 		AccessToken:  accessToken,
 		RefreshToken: fmt.Sprintf("%s.%s", session.ID, refreshSecret),
+		SessionID:    session.ID,
 		User:         toUserResponse(user),
 	}, nil
 }
