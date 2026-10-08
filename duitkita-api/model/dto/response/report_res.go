@@ -17,6 +17,27 @@ type CategorySpend struct {
 	Budget     int64  `json:"budget"`
 }
 
+// CoupleCategorySpend tags each row with whose category it is — a plain
+// CategorySpend row alone doesn't say, and the frontend had been recovering
+// that by diffing against a separately-fetched category list.
+type CoupleCategorySpend struct {
+	CategorySpend
+	Owner string `json:"owner"` // "me" or "partner"
+}
+
+// CoupleReportResponse mirrors MonthlyReportResponse's totals but keeps
+// each partner's own subtotal too — the combined total alone can't say who
+// spent how much without the caller re-deriving it from ByCategory.
+type CoupleReportResponse struct {
+	Year         int                   `json:"year"`
+	Month        int                   `json:"month"`
+	MyTotal      int64                 `json:"my_total"`
+	PartnerTotal int64                 `json:"partner_total"`
+	TotalSpent   int64                 `json:"total_spent"`
+	TotalBudget  int64                 `json:"total_budget"`
+	ByCategory   []CoupleCategorySpend `json:"by_category"`
+}
+
 type TrendPoint struct {
 	Year  int   `json:"year"`
 	Month int   `json:"month"`
@@ -25,6 +46,17 @@ type TrendPoint struct {
 
 type TrendResponse struct {
 	Points []TrendPoint `json:"points"`
+}
+
+type DayPoint struct {
+	Day   int   `json:"day"`
+	Total int64 `json:"total"`
+}
+
+type DailyReportResponse struct {
+	Year   int        `json:"year"`
+	Month  int        `json:"month"`
+	Points []DayPoint `json:"points"`
 }
 
 type ForecastResponse struct {
