@@ -23,23 +23,23 @@ func (_m *ReportService) EXPECT() *ReportService_Expecter {
 }
 
 // CoupleReport provides a mock function with given fields: ctx, userID, year, month
-func (_m *ReportService) CoupleReport(ctx context.Context, userID string, year int, month int) (*response.MonthlyReportResponse, error) {
+func (_m *ReportService) CoupleReport(ctx context.Context, userID string, year int, month int) (*response.CoupleReportResponse, error) {
 	ret := _m.Called(ctx, userID, year, month)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CoupleReport")
 	}
 
-	var r0 *response.MonthlyReportResponse
+	var r0 *response.CoupleReportResponse
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, int, int) (*response.MonthlyReportResponse, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, int, int) (*response.CoupleReportResponse, error)); ok {
 		return rf(ctx, userID, year, month)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, int, int) *response.MonthlyReportResponse); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, int, int) *response.CoupleReportResponse); ok {
 		r0 = rf(ctx, userID, year, month)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*response.MonthlyReportResponse)
+			r0 = ret.Get(0).(*response.CoupleReportResponse)
 		}
 	}
 
@@ -73,12 +73,133 @@ func (_c *ReportService_CoupleReport_Call) Run(run func(ctx context.Context, use
 	return _c
 }
 
-func (_c *ReportService_CoupleReport_Call) Return(_a0 *response.MonthlyReportResponse, _a1 error) *ReportService_CoupleReport_Call {
+func (_c *ReportService_CoupleReport_Call) Return(_a0 *response.CoupleReportResponse, _a1 error) *ReportService_CoupleReport_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ReportService_CoupleReport_Call) RunAndReturn(run func(context.Context, string, int, int) (*response.MonthlyReportResponse, error)) *ReportService_CoupleReport_Call {
+func (_c *ReportService_CoupleReport_Call) RunAndReturn(run func(context.Context, string, int, int) (*response.CoupleReportResponse, error)) *ReportService_CoupleReport_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CoupleTrend provides a mock function with given fields: ctx, userID, months
+func (_m *ReportService) CoupleTrend(ctx context.Context, userID string, months int) (*response.TrendResponse, error) {
+	ret := _m.Called(ctx, userID, months)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CoupleTrend")
+	}
+
+	var r0 *response.TrendResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, int) (*response.TrendResponse, error)); ok {
+		return rf(ctx, userID, months)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, int) *response.TrendResponse); ok {
+		r0 = rf(ctx, userID, months)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*response.TrendResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, int) error); ok {
+		r1 = rf(ctx, userID, months)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ReportService_CoupleTrend_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CoupleTrend'
+type ReportService_CoupleTrend_Call struct {
+	*mock.Call
+}
+
+// CoupleTrend is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - months int
+func (_e *ReportService_Expecter) CoupleTrend(ctx interface{}, userID interface{}, months interface{}) *ReportService_CoupleTrend_Call {
+	return &ReportService_CoupleTrend_Call{Call: _e.mock.On("CoupleTrend", ctx, userID, months)}
+}
+
+func (_c *ReportService_CoupleTrend_Call) Run(run func(ctx context.Context, userID string, months int)) *ReportService_CoupleTrend_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(int))
+	})
+	return _c
+}
+
+func (_c *ReportService_CoupleTrend_Call) Return(_a0 *response.TrendResponse, _a1 error) *ReportService_CoupleTrend_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ReportService_CoupleTrend_Call) RunAndReturn(run func(context.Context, string, int) (*response.TrendResponse, error)) *ReportService_CoupleTrend_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DailyBreakdown provides a mock function with given fields: ctx, userID, year, month
+func (_m *ReportService) DailyBreakdown(ctx context.Context, userID string, year int, month int) (*response.DailyReportResponse, error) {
+	ret := _m.Called(ctx, userID, year, month)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DailyBreakdown")
+	}
+
+	var r0 *response.DailyReportResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, int, int) (*response.DailyReportResponse, error)); ok {
+		return rf(ctx, userID, year, month)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, int, int) *response.DailyReportResponse); ok {
+		r0 = rf(ctx, userID, year, month)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*response.DailyReportResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, int, int) error); ok {
+		r1 = rf(ctx, userID, year, month)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ReportService_DailyBreakdown_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DailyBreakdown'
+type ReportService_DailyBreakdown_Call struct {
+	*mock.Call
+}
+
+// DailyBreakdown is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - year int
+//   - month int
+func (_e *ReportService_Expecter) DailyBreakdown(ctx interface{}, userID interface{}, year interface{}, month interface{}) *ReportService_DailyBreakdown_Call {
+	return &ReportService_DailyBreakdown_Call{Call: _e.mock.On("DailyBreakdown", ctx, userID, year, month)}
+}
+
+func (_c *ReportService_DailyBreakdown_Call) Run(run func(ctx context.Context, userID string, year int, month int)) *ReportService_DailyBreakdown_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(int), args[3].(int))
+	})
+	return _c
+}
+
+func (_c *ReportService_DailyBreakdown_Call) Return(_a0 *response.DailyReportResponse, _a1 error) *ReportService_DailyBreakdown_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ReportService_DailyBreakdown_Call) RunAndReturn(run func(context.Context, string, int, int) (*response.DailyReportResponse, error)) *ReportService_DailyBreakdown_Call {
 	_c.Call.Return(run)
 	return _c
 }

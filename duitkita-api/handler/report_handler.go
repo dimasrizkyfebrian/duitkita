@@ -27,7 +27,9 @@ func (h *ReportHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	reports.GET("/monthly", h.monthly)
 	reports.GET("/couple", h.couple)
 	reports.GET("/trend", h.trend)
+	reports.GET("/couple/trend", h.coupleTrend)
 	reports.GET("/trend/category", h.trendByCategory)
+	reports.GET("/daily", h.daily)
 	reports.POST("/exports", h.createExport)
 	reports.GET("/exports", h.listExports)
 	reports.GET("/exports/:id/download", h.downloadExport)
@@ -68,6 +70,26 @@ func (h *ReportHandler) trend(c *gin.Context) {
 		return
 	}
 	utils.Success(c, http.StatusOK, "trend retrieved", res)
+}
+
+func (h *ReportHandler) coupleTrend(c *gin.Context) {
+	months, _ := strconv.Atoi(c.Query("months"))
+	res, err := h.reportSvc.CoupleTrend(c.Request.Context(), currentUserID(c), months)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	utils.Success(c, http.StatusOK, "couple trend retrieved", res)
+}
+
+func (h *ReportHandler) daily(c *gin.Context) {
+	year, month := parseYearMonth(c)
+	res, err := h.reportSvc.DailyBreakdown(c.Request.Context(), currentUserID(c), year, month)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	utils.Success(c, http.StatusOK, "daily breakdown retrieved", res)
 }
 
 func (h *ReportHandler) trendByCategory(c *gin.Context) {

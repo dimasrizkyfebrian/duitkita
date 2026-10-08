@@ -110,12 +110,24 @@ func (s *reportExportService) renderPendingExport(ctx context.Context, export *d
 }
 
 func (s *reportExportService) render(ctx context.Context, export *domain.ReportExport) error {
-	report, err := s.reportSvc.MonthlyReport(ctx, export.UserID, export.Year, export.Month)
-	if err != nil {
-		return err
+	// export.Scope used to be accepted on the request but never actually
+	// read here — every export rendered the requester's own personal
+	// report, so a "couple" export silently handed back the wrong PDF.
+	var pdfBytes []byte
+	var err error
+	if export.Scope == "couple" {
+		report, rerr := s.reportSvc.CoupleReport(ctx, export.UserID, export.Year, export.Month)
+		if rerr != nil {
+			return rerr
+		}
+		pdfBytes, err = renderCoupleReportPDF(report)
+	} else {
+		report, rerr := s.reportSvc.MonthlyReport(ctx, export.UserID, export.Year, export.Month)
+		if rerr != nil {
+			return rerr
+		}
+		pdfBytes, err = renderMonthlyReportPDF(report)
 	}
-
-	pdfBytes, err := renderMonthlyReportPDF(report)
 	if err != nil {
 		return fmt.Errorf("render report pdf: %w", err)
 	}
@@ -204,6 +216,21 @@ func renderMonthlyReportPDF(report *response.MonthlyReportResponse) ([]byte, err
 		lines = append(lines, utils.PDFLine{Text: fmt.Sprintf("- %s: spent %d / budget %d", c.Name, c.Spent, c.Budget)})
 	}
 	return utils.GenerateSimplePDF("Monthly Report", lines)
+}
+
+func renderCoupleReportPDF(report *response.CoupleReportResponse) ([]byte, error) {
+	lines := []utils.PDFLine{
+		{Text: fmt.Sprintf("Period: %04d-%02d", report.Year, report.Month), Bold: true},
+		{Text: fmt.Sprintf("My Total: %d", report.MyTotal)},
+		{Text: fmt.Sprintf("Partner Total: %d", report.PartnerTotal)},
+		{Text: fmt.Sprintf("Combined Spent: %d", report.TotalSpent)},
+		{Text: fmt.Sprintf("Combined Budget: %d", report.TotalBudget)},
+		{Text: "By Category:", Bold: true},
+	}
+	for _, c := range report.ByCategory {
+		lines = append(lines, utils.PDFLine{Text: fmt.Sprintf("- [%s] %s: spent %d / budget %d", c.Owner, c.Name, c.Spent, c.Budget)})
+	}
+	return utils.GenerateSimplePDF("Couple Report", lines)
 }
 
 func toExportResponse(export *domain.ReportExport, downloadURL string) *response.ExportResponse {
