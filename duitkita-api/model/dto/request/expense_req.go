@@ -9,8 +9,11 @@ type CreateExpenseRequest struct {
 }
 
 type UpdateExpenseRequest struct {
-	CategoryID  string `json:"category_id" binding:"omitempty,uuid"`
-	Amount      int64  `json:"amount" binding:"omitempty,min=1"`
-	Note        string `json:"note" binding:"omitempty,max=255"`
-	ExpenseDate string `json:"expense_date" binding:"omitempty,datetime=2006-01-02"`
+	CategoryID string `json:"category_id" binding:"omitempty,uuid"`
+	Amount     int64  `json:"amount" binding:"omitempty,min=1"`
+	// Pointer so an omitted note (nil) is distinguishable from one the
+	// caller is deliberately clearing (""), which a plain string can't
+	// express — both look like the zero value.
+	Note        *string `json:"note" binding:"omitempty,max=255"`
+	ExpenseDate string  `json:"expense_date" binding:"omitempty,datetime=2006-01-02"`
 }
