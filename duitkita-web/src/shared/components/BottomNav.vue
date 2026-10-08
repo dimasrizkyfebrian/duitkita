@@ -48,7 +48,7 @@ const avatarBroken = ref(false)
 
 <template>
   <nav
-    class="border-hairline bg-sheet/95 fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur"
+    class="bg-ink/80 fixed inset-x-0 bottom-0 z-40 border-t border-white/10 backdrop-blur-xl"
     style="padding-bottom: env(safe-area-inset-bottom)"
     aria-label="Navigasi utama"
   >
@@ -58,7 +58,7 @@ const avatarBroken = ref(false)
         :key="item.key"
         type="button"
         class="flex flex-col items-center gap-1 rounded-lg py-1.5 text-[0.625rem] font-bold transition-colors"
-        :class="isActive(item.routeName) ? 'text-navy' : 'text-muted/70'"
+        :class="isActive(item.routeName) ? 'text-white' : 'text-sky/50'"
         :aria-current="isActive(item.routeName) ? 'page' : undefined"
         @click="onTap(item)"
       >
@@ -73,7 +73,7 @@ const avatarBroken = ref(false)
       <div class="flex justify-center">
         <button
           type="button"
-          class="bg-navy -mt-7 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-[0_10px_24px_-8px_rgba(13,71,161,0.8)] transition-transform active:translate-y-px"
+          class="bg-azure -mt-7 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-[0_10px_28px_-6px_rgba(33,150,243,0.75)] transition-transform active:translate-y-px"
           aria-label="Catat pengeluaran"
           @click="emit('catat')"
         >
@@ -95,7 +95,7 @@ const avatarBroken = ref(false)
       <button
         type="button"
         class="flex flex-col items-center gap-1 rounded-lg py-1.5 text-[0.625rem] font-bold transition-colors"
-        :class="isActive(pengingat.routeName) ? 'text-navy' : 'text-muted/70'"
+        :class="isActive(pengingat.routeName) ? 'text-white' : 'text-sky/50'"
         @click="onTap(pengingat)"
       >
         <component :is="pengingat.icon" class="h-5 w-5" />
@@ -105,7 +105,7 @@ const avatarBroken = ref(false)
       <button
         type="button"
         class="flex flex-col items-center gap-1 rounded-lg py-1.5 text-[0.625rem] font-bold transition-colors"
-        :class="isActive('profile') ? 'text-navy' : 'text-muted/70'"
+        :class="isActive('profile') ? 'text-white' : 'text-sky/50'"
         @click="router.push({ name: 'profile' })"
       >
         <img
@@ -117,7 +117,7 @@ const avatarBroken = ref(false)
         />
         <span
           v-else
-          class="bg-mist text-navy flex h-5 w-5 items-center justify-center rounded-full text-[0.5625rem] font-extrabold"
+          class="bg-azure/20 text-sky flex h-5 w-5 items-center justify-center rounded-full text-[0.5625rem] font-extrabold"
           aria-hidden="true"
         >
           {{ (avatarName || 'P').charAt(0).toUpperCase() }}
