@@ -4,8 +4,6 @@ import (
 	"context"
 
 	"duitkita-api/model/dto/response"
-	"duitkita-api/repository"
-	"duitkita-api/utils"
 )
 
 type InsightsService interface {
@@ -14,19 +12,22 @@ type InsightsService interface {
 }
 
 type insightsService struct {
-	reportRepo repository.ReportRepository
-	reportSvc  ReportService
+	reportSvc ReportService
 }
 
-func NewInsightsService(reportRepo repository.ReportRepository, reportSvc ReportService) InsightsService {
-	return &insightsService{reportRepo: reportRepo, reportSvc: reportSvc}
+func NewInsightsService(reportSvc ReportService) InsightsService {
+	return &insightsService{reportSvc: reportSvc}
 }
 
+// Forecast goes through ReportService.Trend (cached) rather than the repo
+// directly, so it shares a cache entry with /reports/trend instead of
+// re-running the same 3-month query on every page load.
 func (s *insightsService) Forecast(ctx context.Context, userID string) (*response.ForecastResponse, error) {
-	points, err := s.reportRepo.MonthlyTrend(ctx, userID, 3)
+	trend, err := s.reportSvc.Trend(ctx, userID, 3)
 	if err != nil {
-		return nil, utils.ErrInternal("failed to compute forecast")
+		return nil, err
 	}
+	points := trend.Points
 	if len(points) == 0 {
 		return &response.ForecastResponse{Confidence: 0}, nil
 	}

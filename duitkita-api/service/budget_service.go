@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 
 	"duitkita-api/model/domain"
 	"duitkita-api/model/dto/request"
@@ -28,10 +29,11 @@ type budgetService struct {
 	coupleRepo   repository.CoupleRepository
 	activitySvc  ActivityService
 	expenseRepo  repository.ExpenseRepository
+	redis        *redis.Client
 }
 
-func NewBudgetService(repo repository.BudgetRepository, categoryRepo repository.CategoryRepository, coupleRepo repository.CoupleRepository, activitySvc ActivityService, expenseRepo repository.ExpenseRepository) BudgetService {
-	return &budgetService{repo: repo, categoryRepo: categoryRepo, coupleRepo: coupleRepo, activitySvc: activitySvc, expenseRepo: expenseRepo}
+func NewBudgetService(repo repository.BudgetRepository, categoryRepo repository.CategoryRepository, coupleRepo repository.CoupleRepository, activitySvc ActivityService, expenseRepo repository.ExpenseRepository, redisClient *redis.Client) BudgetService {
+	return &budgetService{repo: repo, categoryRepo: categoryRepo, coupleRepo: coupleRepo, activitySvc: activitySvc, expenseRepo: expenseRepo, redis: redisClient}
 }
 
 func (s *budgetService) Create(ctx context.Context, userID string, req request.CreateBudgetRequest) (*response.BudgetResponse, error) {
@@ -61,6 +63,7 @@ func (s *budgetService) Create(ctx context.Context, userID string, req request.C
 	if err := s.repo.Create(ctx, budget); err != nil {
 		return nil, utils.ErrInternal("failed to create budget")
 	}
+	invalidateReportCache(ctx, s.redis, userID)
 
 	s.activitySvc.LogActivity(ctx, userID, domain.ActivityActionCreated, domain.ActivityEntityTypeBudget, budget.ID, nil)
 
@@ -99,6 +102,7 @@ func (s *budgetService) Update(ctx context.Context, userID, id string, req reque
 	if err := s.repo.Update(ctx, budget); err != nil {
 		return nil, utils.ErrInternal("failed to update budget")
 	}
+	invalidateReportCache(ctx, s.redis, userID)
 
 	s.activitySvc.LogActivity(ctx, userID, domain.ActivityActionUpdated, domain.ActivityEntityTypeBudget, budget.ID, nil)
 
@@ -123,6 +127,7 @@ func (s *budgetService) Delete(ctx context.Context, userID, id string) error {
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return utils.ErrInternal("failed to delete budget")
 	}
+	invalidateReportCache(ctx, s.redis, userID)
 
 	s.activitySvc.LogActivity(ctx, userID, domain.ActivityActionDeleted, domain.ActivityEntityTypeBudget, budget.ID, nil)
 	return nil

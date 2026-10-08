@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 
 	"duitkita-api/model/domain"
 	"duitkita-api/model/dto/request"
@@ -35,10 +36,11 @@ type expenseService struct {
 	budgetRepo  repository.BudgetRepository
 	coupleRepo  repository.CoupleRepository
 	activitySvc ActivityService
+	redis       *redis.Client
 }
 
-func NewExpenseService(repo repository.ExpenseRepository, budgetRepo repository.BudgetRepository, coupleRepo repository.CoupleRepository, activitySvc ActivityService) ExpenseService {
-	return &expenseService{repo: repo, budgetRepo: budgetRepo, coupleRepo: coupleRepo, activitySvc: activitySvc}
+func NewExpenseService(repo repository.ExpenseRepository, budgetRepo repository.BudgetRepository, coupleRepo repository.CoupleRepository, activitySvc ActivityService, redisClient *redis.Client) ExpenseService {
+	return &expenseService{repo: repo, budgetRepo: budgetRepo, coupleRepo: coupleRepo, activitySvc: activitySvc, redis: redisClient}
 }
 
 func (s *expenseService) Create(ctx context.Context, userID string, req request.CreateExpenseRequest) (*response.ExpenseResponse, error) {
@@ -72,6 +74,7 @@ func (s *expenseService) Create(ctx context.Context, userID string, req request.
 	if err := s.repo.Create(ctx, expense); err != nil {
 		return nil, utils.ErrInternal("failed to create expense")
 	}
+	invalidateReportCache(ctx, s.redis, userID)
 
 	s.activitySvc.LogActivity(ctx, userID, domain.ActivityActionCreated, domain.ActivityEntityTypeExpense, expense.ID, nil)
 
@@ -196,6 +199,7 @@ func (s *expenseService) Update(ctx context.Context, userID, id string, req requ
 	if err := s.repo.Update(ctx, expense); err != nil {
 		return nil, utils.ErrInternal("failed to update expense")
 	}
+	invalidateReportCache(ctx, s.redis, userID)
 
 	s.activitySvc.LogActivity(ctx, userID, domain.ActivityActionUpdated, domain.ActivityEntityTypeExpense, expense.ID, nil)
 
@@ -211,6 +215,7 @@ func (s *expenseService) Delete(ctx context.Context, userID, id string) error {
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return utils.ErrInternal("failed to delete expense")
 	}
+	invalidateReportCache(ctx, s.redis, userID)
 
 	s.activitySvc.LogActivity(ctx, userID, domain.ActivityActionDeleted, domain.ActivityEntityTypeExpense, expense.ID, nil)
 	return nil

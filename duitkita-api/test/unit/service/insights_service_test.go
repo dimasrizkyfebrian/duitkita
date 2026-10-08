@@ -7,23 +7,20 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"duitkita-api/model/dto/response"
-	"duitkita-api/repository"
-	"duitkita-api/repository/mocks"
 	"duitkita-api/service"
 	svcmocks "duitkita-api/service/mocks"
 	"duitkita-api/utils"
 )
 
-func newInsightsService(t *testing.T) (service.InsightsService, *mocks.ReportRepository, *svcmocks.ReportService) {
-	reportRepo := mocks.NewReportRepository(t)
+func newInsightsService(t *testing.T) (service.InsightsService, *svcmocks.ReportService) {
 	reportSvc := svcmocks.NewReportService(t)
-	return service.NewInsightsService(reportRepo, reportSvc), reportRepo, reportSvc
+	return service.NewInsightsService(reportSvc), reportSvc
 }
 
 func TestInsightsService_Forecast(t *testing.T) {
 	t.Run("no history yields zero confidence", func(t *testing.T) {
-		svc, reportRepo, _ := newInsightsService(t)
-		reportRepo.EXPECT().MonthlyTrend(context.Background(), "user-1", 3).Return(nil, nil)
+		svc, reportSvc := newInsightsService(t)
+		reportSvc.EXPECT().Trend(context.Background(), "user-1", 3).Return(&response.TrendResponse{}, nil)
 
 		res, err := svc.Forecast(context.Background(), "user-1")
 
@@ -32,12 +29,12 @@ func TestInsightsService_Forecast(t *testing.T) {
 	})
 
 	t.Run("averages totals and rolls over into next year at december", func(t *testing.T) {
-		svc, reportRepo, _ := newInsightsService(t)
-		reportRepo.EXPECT().MonthlyTrend(context.Background(), "user-1", 3).Return([]repository.MonthTotal{
+		svc, reportSvc := newInsightsService(t)
+		reportSvc.EXPECT().Trend(context.Background(), "user-1", 3).Return(&response.TrendResponse{Points: []response.TrendPoint{
 			{Year: 2025, Month: 10, Total: 100},
 			{Year: 2025, Month: 11, Total: 200},
 			{Year: 2025, Month: 12, Total: 300},
-		}, nil)
+		}}, nil)
 
 		res, err := svc.Forecast(context.Background(), "user-1")
 
@@ -49,15 +46,24 @@ func TestInsightsService_Forecast(t *testing.T) {
 	})
 
 	t.Run("fewer than 3 points yields lower confidence", func(t *testing.T) {
-		svc, reportRepo, _ := newInsightsService(t)
-		reportRepo.EXPECT().MonthlyTrend(context.Background(), "user-1", 3).Return([]repository.MonthTotal{
+		svc, reportSvc := newInsightsService(t)
+		reportSvc.EXPECT().Trend(context.Background(), "user-1", 3).Return(&response.TrendResponse{Points: []response.TrendPoint{
 			{Year: 2026, Month: 1, Total: 100},
-		}, nil)
+		}}, nil)
 
 		res, err := svc.Forecast(context.Background(), "user-1")
 
 		require.NoError(t, err)
 		require.Equal(t, 0.4, res.Confidence)
+	})
+
+	t.Run("propagates the underlying trend error", func(t *testing.T) {
+		svc, reportSvc := newInsightsService(t)
+		reportSvc.EXPECT().Trend(context.Background(), "user-1", 3).Return(nil, utils.ErrInternal("db down"))
+
+		_, err := svc.Forecast(context.Background(), "user-1")
+
+		require.Error(t, err)
 	})
 }
 
@@ -76,7 +82,7 @@ func TestInsightsService_HealthScore(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			svc, _, reportSvc := newInsightsService(t)
+			svc, reportSvc := newInsightsService(t)
 			reportSvc.EXPECT().MonthlyReport(context.Background(), "user-1", 2026, 1).Return(&response.MonthlyReportResponse{
 				TotalSpent: tc.spent, TotalBudget: tc.budget,
 			}, nil)
@@ -91,7 +97,7 @@ func TestInsightsService_HealthScore(t *testing.T) {
 	}
 
 	t.Run("no budget set for the period", func(t *testing.T) {
-		svc, _, reportSvc := newInsightsService(t)
+		svc, reportSvc := newInsightsService(t)
 		reportSvc.EXPECT().MonthlyReport(context.Background(), "user-1", 2026, 1).Return(&response.MonthlyReportResponse{TotalBudget: 0}, nil)
 
 		res, err := svc.HealthScore(context.Background(), "user-1", 2026, 1)
@@ -102,7 +108,7 @@ func TestInsightsService_HealthScore(t *testing.T) {
 	})
 
 	t.Run("propagates the underlying report error", func(t *testing.T) {
-		svc, _, reportSvc := newInsightsService(t)
+		svc, reportSvc := newInsightsService(t)
 		reportSvc.EXPECT().MonthlyReport(context.Background(), "user-1", 2026, 1).Return(nil, utils.ErrNotFound("no report"))
 
 		_, err := svc.HealthScore(context.Background(), "user-1", 2026, 1)
