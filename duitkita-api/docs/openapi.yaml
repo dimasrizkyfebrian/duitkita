@@ -1279,6 +1279,10 @@ paths:
     get:
       tags: [Reports]
       summary: Monthly report merging the current user and their partner
+      description: >-
+        Unlike MonthlyReportResponse, by_category rows are tagged with
+        which partner they belong to, and my_total/partner_total expose
+        each side's own subtotal — not just the combined total.
       parameters:
         - $ref: '#/components/parameters/Year'
         - $ref: '#/components/parameters/Month'
@@ -1292,7 +1296,7 @@ paths:
                   - $ref: '#/components/schemas/Envelope'
                   - type: object
                     properties:
-                      data: { $ref: '#/components/schemas/MonthlyReportResponse' }
+                      data: { $ref: '#/components/schemas/CoupleReportResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -1313,6 +1317,46 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/TrendResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /reports/couple/trend:
+    get:
+      tags: [Reports]
+      summary: Monthly total-spend trend over N months, combining both partners
+      parameters:
+        - $ref: '#/components/parameters/Months'
+      responses:
+        '200':
+          description: couple trend retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/TrendResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /reports/daily:
+    get:
+      tags: [Reports]
+      summary: Day-by-day spend breakdown for one month
+      parameters:
+        - $ref: '#/components/parameters/Year'
+        - $ref: '#/components/parameters/Month'
+      responses:
+        '200':
+          description: daily breakdown retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/DailyReportResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /reports/trend/category:
@@ -1775,10 +1819,19 @@ components:
 
     UpdateExpenseRequest:
       type: object
+      description: >
+        Every field is optional; omitted ones keep their current value.
+        Changing category_id or moving expense_date into another month
+        re-points the expense at that category/month's monthly budget, so
+        the target must already have a budget set — otherwise the request
+        is rejected with 404.
       properties:
         category_id: { type: string, format: uuid }
         amount: { type: integer, format: int64, minimum: 1 }
-        note: { type: string, maxLength: 255 }
+        note:
+          type: string
+          maxLength: 255
+          description: Send an empty string to clear an existing note.
         expense_date: { type: string, format: date }
 
     CreateRecurringExpenseRequest:
@@ -2023,6 +2076,42 @@ components:
         by_category:
           type: array
           items: { $ref: '#/components/schemas/CategorySpend' }
+
+    CoupleCategorySpend:
+      allOf:
+        - $ref: '#/components/schemas/CategorySpend'
+        - type: object
+          properties:
+            owner: { type: string, enum: [me, partner] }
+
+    CoupleReportResponse:
+      type: object
+      properties:
+        year: { type: integer }
+        month: { type: integer }
+        my_total: { type: integer, format: int64 }
+        partner_total: { type: integer, format: int64 }
+        total_spent: { type: integer, format: int64, description: "my_total + partner_total" }
+        total_budget: { type: integer, format: int64 }
+        by_category:
+          type: array
+          items: { $ref: '#/components/schemas/CoupleCategorySpend' }
+
+    DayPoint:
+      type: object
+      properties:
+        day: { type: integer, minimum: 1, maximum: 31 }
+        total: { type: integer, format: int64 }
+
+    DailyReportResponse:
+      type: object
+      properties:
+        year: { type: integer }
+        month: { type: integer }
+        points:
+          type: array
+          items: { $ref: '#/components/schemas/DayPoint' }
+          description: Only days with at least one expense are included — callers zero-fill the rest of the month themselves.
 
     TrendPoint:
       type: object

@@ -112,6 +112,20 @@ func TestReportExportService_ProcessPending(t *testing.T) {
 		require.Equal(t, 1, processed)
 	})
 
+	t.Run("couple scope renders the couple report, not the requester's personal one", func(t *testing.T) {
+		svc, repo, reportSvc, storage, _ := newReportExportService(t)
+		pending := []domain.ReportExport{{ID: "exp-1", UserID: "user-1", Year: 2026, Month: 1, Scope: "couple"}}
+		repo.EXPECT().FindPending(context.Background()).Return(pending, nil)
+		repo.EXPECT().Update(context.Background(), mockMatchByType[*domain.ReportExport]()).Return(nil).Twice()
+		reportSvc.EXPECT().CoupleReport(context.Background(), "user-1", 2026, 1).Return(&response.CoupleReportResponse{Year: 2026, Month: 1, MyTotal: 100, PartnerTotal: 50}, nil)
+		storage.EXPECT().Upload(context.Background(), "reports/user-1/exp-1.pdf", mockMatchByType[io.Reader](), "application/pdf").Return("", nil)
+
+		processed, err := svc.ProcessPending(context.Background())
+
+		require.NoError(t, err)
+		require.Equal(t, 1, processed)
+	})
+
 	t.Run("render failure marks the export failed but keeps processing others", func(t *testing.T) {
 		svc, repo, reportSvc, _, _ := newReportExportService(t)
 		pending := []domain.ReportExport{{ID: "exp-1", UserID: "user-1", Year: 2026, Month: 1}}

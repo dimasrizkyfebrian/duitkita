@@ -5,7 +5,9 @@ import (
 	"errors"
 	"net/http"
 	"testing"
+	"time"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -22,7 +24,15 @@ func newBudgetService(t *testing.T) (service.BudgetService, *mocks.BudgetReposit
 	coupleRepo := mocks.NewCoupleRepository(t)
 	activitySvc := svcmocks.NewActivityService(t)
 	expenseRepo := mocks.NewExpenseRepository(t)
-	return service.NewBudgetService(repo, categoryRepo, coupleRepo, activitySvc, expenseRepo), repo, categoryRepo, coupleRepo, activitySvc, expenseRepo
+	// Unreachable rather than mocked — cache invalidation is best-effort, so
+	// this exercises that fallback for free. See user_service_test.go.
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:        "127.0.0.1:1",
+		MaxRetries:  -1,
+		DialTimeout: 100 * time.Millisecond,
+	})
+	t.Cleanup(func() { _ = redisClient.Close() })
+	return service.NewBudgetService(repo, categoryRepo, coupleRepo, activitySvc, expenseRepo, redisClient), repo, categoryRepo, coupleRepo, activitySvc, expenseRepo
 }
 
 func TestBudgetService_Create(t *testing.T) {

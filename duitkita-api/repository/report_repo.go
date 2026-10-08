@@ -22,12 +22,18 @@ type MonthTotal struct {
 	Total int64 `gorm:"column:total"`
 }
 
+type DayTotal struct {
+	Day   int   `gorm:"column:day"`
+	Total int64 `gorm:"column:total"`
+}
+
 type ReportRepository interface {
 	SumExpensesByUserAndPeriod(ctx context.Context, userID string, year, month int) (int64, error)
 	SumBudgetByUserAndPeriod(ctx context.Context, userID string, year, month int) (int64, error)
 	SpentByCategoryForPeriod(ctx context.Context, userID string, year, month int) ([]CategoryTotal, error)
 	MonthlyTrend(ctx context.Context, userID string, months int) ([]MonthTotal, error)
 	MonthlyTrendByCategory(ctx context.Context, userID, categoryID string, months int) ([]MonthTotal, error)
+	SpentByDayForPeriod(ctx context.Context, userID string, year, month int) ([]DayTotal, error)
 }
 
 type reportRepository struct {
@@ -95,6 +101,20 @@ func (r *reportRepository) SpentByCategoryForPeriod(ctx context.Context, userID 
 		GROUP BY c.id, c.name
 		ORDER BY spent DESC
 	`, userID, start, end, userID, year, month, userID).Scan(&results).Error
+	return results, err
+}
+
+func (r *reportRepository) SpentByDayForPeriod(ctx context.Context, userID string, year, month int) ([]DayTotal, error) {
+	start, end := monthRange(year, month)
+
+	var results []DayTotal
+	err := r.db.WithContext(ctx).
+		Model(&domain.Expense{}).
+		Select("EXTRACT(DAY FROM expense_date)::int AS day, SUM(amount) AS total").
+		Where("user_id = ? AND expense_date >= ? AND expense_date < ?", userID, start, end).
+		Group("day").
+		Order("day ASC").
+		Scan(&results).Error
 	return results, err
 }
 

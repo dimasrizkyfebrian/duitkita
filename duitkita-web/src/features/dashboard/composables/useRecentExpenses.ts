@@ -65,8 +65,12 @@ export function useRecentExpenses() {
         }
       }
 
+      // Sorted by when it was recorded, not the spending date — expense_date
+      // is date-only, so two people recording on the same day tie, and the
+      // tie used to be broken by concat order (mine always on top) rather
+      // than by who actually recorded last.
       items.value = [...mineItems, ...partnerItems]
-        .sort((a, b) => b.expense_date.localeCompare(a.expense_date))
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
         .slice(0, 10)
     } finally {
       loading.value = false

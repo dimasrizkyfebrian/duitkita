@@ -41,6 +41,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/laporan',
+      name: 'report',
+      component: () => import('@/features/report/views/ReportView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/profile',
       name: 'profile',
       component: () => import('@/features/user/views/ProfileView.vue'),

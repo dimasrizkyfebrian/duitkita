@@ -178,179 +178,205 @@ async function onConfirmLogout() {
 </script>
 
 <template>
-  <main class="bg-ink flex min-h-screen flex-col">
-    <header class="safe-top px-5 pb-9">
-      <BrandMark />
+  <main class="bg-ink relative min-h-screen overflow-hidden">
+    <!-- Light pooling behind the avatar, where this page's subject is —
+         Beranda lights its top-left and Laporan its top-right. -->
+    <div
+      class="pointer-events-none absolute inset-0"
+      style="
+        background-image:
+          radial-gradient(circle at 50% 0%, rgba(33, 150, 243, 0.24), transparent 55%),
+          radial-gradient(circle at 100% 85%, rgba(144, 202, 249, 0.08), transparent 45%);
+      "
+      aria-hidden="true"
+    ></div>
 
-      <div class="mt-7 flex items-start gap-4">
-        <div class="relative shrink-0">
-          <img
-            v-if="avatarUrl && !avatarBroken"
-            :src="avatarUrl"
-            :alt="auth.user?.name"
-            class="border-navy/40 h-20 w-20 rounded-full border-4 object-cover"
-            @error="avatarBroken = true"
-          />
-          <span
-            v-else
-            class="bg-mist text-navy border-navy/40 flex h-20 w-20 items-center justify-center rounded-full border-4 text-[1.75rem] font-extrabold"
-            aria-hidden="true"
-          >
-            {{ (auth.user?.name || '?').charAt(0).toUpperCase() }}
-          </span>
+    <div class="relative">
+      <header class="safe-top px-5">
+        <BrandMark />
+      </header>
 
-          <button
-            type="button"
-            class="bg-azure border-ink absolute -right-0.5 -bottom-0.5 flex h-7 w-7 items-center justify-center rounded-full border-2 text-white transition-opacity disabled:opacity-60"
-            aria-label="Ganti foto profil"
-            :disabled="avatarUploading"
-            @click="onPickAvatar"
-          >
-            <IconCamera class="h-3.5 w-3.5" />
-          </button>
-          <input
-            ref="fileInput"
-            type="file"
-            accept="image/*"
-            class="hidden"
-            @change="onAvatarSelected"
-          />
-        </div>
+      <section class="px-5 pt-7 pb-28">
+        <!-- Identity card: one clear anchor object for the page, instead of
+             the name floating loose above a list of settings. -->
+        <div class="rounded-3xl border border-white/10 bg-white/5 p-5">
+          <div class="flex items-start gap-4">
+            <div class="relative shrink-0">
+              <img
+                v-if="avatarUrl && !avatarBroken"
+                :src="avatarUrl"
+                :alt="auth.user?.name"
+                class="h-18 w-18 rounded-full object-cover ring-2 ring-white/15"
+                @error="avatarBroken = true"
+              />
+              <span
+                v-else
+                class="bg-azure/20 text-sky flex h-18 w-18 items-center justify-center rounded-full text-[1.75rem] font-extrabold ring-2 ring-white/15"
+                aria-hidden="true"
+              >
+                {{ (auth.user?.name || '?').charAt(0).toUpperCase() }}
+              </span>
 
-        <div class="min-w-0 flex-1 pt-1">
-          <div class="flex items-center gap-1.5">
-            <h1 class="truncate text-[1.1875rem] font-extrabold text-white">
-              {{ auth.user?.name }}
-            </h1>
-            <button
-              type="button"
-              class="text-sky/70 hover:text-white shrink-0 rounded-lg p-1 transition-colors"
-              aria-label="Ubah nama"
-              @click="openEditName"
-            >
-              <IconPencil class="h-3.5 w-3.5" />
-            </button>
+              <button
+                type="button"
+                class="bg-azure border-ink absolute -right-0.5 -bottom-0.5 flex h-7 w-7 items-center justify-center rounded-full border-2 text-white transition-opacity disabled:opacity-60"
+                aria-label="Ganti foto profil"
+                :disabled="avatarUploading"
+                @click="onPickAvatar"
+              >
+                <IconCamera class="h-3.5 w-3.5" />
+              </button>
+              <input
+                ref="fileInput"
+                type="file"
+                accept="image/*"
+                class="hidden"
+                @change="onAvatarSelected"
+              />
+            </div>
+
+            <div class="min-w-0 flex-1 pt-1">
+              <div class="flex items-center gap-1.5">
+                <h1 class="truncate text-[1.1875rem] font-extrabold text-white">
+                  {{ auth.user?.name }}
+                </h1>
+                <button
+                  type="button"
+                  class="text-sky/60 shrink-0 rounded-lg p-1 transition-colors hover:text-white"
+                  aria-label="Ubah nama"
+                  @click="openEditName"
+                >
+                  <IconPencil class="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <p class="text-sky/60 mt-0.5 truncate text-[0.8125rem]">{{ auth.user?.email }}</p>
+            </div>
           </div>
-          <p class="text-sky/70 mt-0.5 truncate text-[0.8125rem]">{{ auth.user?.email }}</p>
 
-          <div class="mt-2.5 flex flex-wrap items-center gap-1.5">
+          <div v-if="memberSince || partner" class="mt-4 flex flex-wrap items-center gap-1.5">
             <span
               v-if="memberSince"
-              class="text-sky/80 rounded-full bg-white/10 px-2.5 py-1 text-[0.6875rem] font-semibold"
+              class="text-sky/70 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[0.6875rem] font-semibold"
             >
               Gabung {{ memberSince }}
             </span>
             <span
               v-if="partner"
-              class="bg-azure/25 rounded-full px-2.5 py-1 text-[0.6875rem] font-semibold text-white"
+              class="bg-azure/20 border-azure/25 text-sky rounded-full border px-2.5 py-1 text-[0.6875rem] font-semibold"
             >
               Satu dompet sama {{ partner.name.split(' ')[0] }}
             </span>
           </div>
         </div>
-      </div>
-    </header>
 
-    <section class="bg-sheet rounded-t-sheet flex-1 px-5 pt-7 pb-28">
-      <p class="text-muted text-[0.6875rem] font-bold tracking-widest uppercase">Akun</p>
-      <ul class="border-hairline divide-hairline mt-2.5 flex flex-col divide-y rounded-2xl border">
-        <li>
-          <button
-            type="button"
-            class="active:bg-mist/40 flex w-full items-center gap-3 p-4 text-left transition-colors"
-            @click="openChangePassword"
-          >
-            <span
-              class="bg-mist text-navy flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+        <p class="text-sky/50 mt-7 text-[0.6875rem] font-bold tracking-widest uppercase">Akun</p>
+        <ul
+          class="mt-2.5 divide-y divide-white/5 overflow-hidden rounded-3xl border border-white/10 bg-white/5"
+        >
+          <li>
+            <button
+              type="button"
+              class="flex w-full items-center gap-3 p-4 text-left transition-colors active:bg-white/5"
+              @click="openChangePassword"
             >
-              <IconLock class="h-4 w-4" />
-            </span>
-            <span class="min-w-0 flex-1">
-              <span class="text-ink block text-[0.875rem] font-bold">Ubah password</span>
-              <span class="text-muted block text-[0.75rem]">Pastikan cuma kamu yang tau</span>
-            </span>
-            <IconChevronRight class="text-muted h-4 w-4 shrink-0" />
-          </button>
-        </li>
-
-        <li>
-          <button
-            type="button"
-            class="active:bg-mist/40 flex w-full items-center gap-3 p-4 text-left transition-colors"
-            @click="notifPrefsOpen = true"
-          >
-            <span
-              class="bg-sky/25 text-navy flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-            >
-              <IconBell class="h-4 w-4" />
-            </span>
-            <span class="min-w-0 flex-1">
-              <span class="text-ink block text-[0.875rem] font-bold">Notifikasi</span>
-              <span class="text-muted block text-[0.75rem]"
-                >Atur pengingat & aktivitas pasangan</span
+              <span
+                class="bg-azure/20 flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
               >
-            </span>
-            <IconChevronRight class="text-muted h-4 w-4 shrink-0" />
-          </button>
-        </li>
-      </ul>
+                <IconLock class="text-sky h-4 w-4" />
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-[0.875rem] font-bold text-white">Ubah password</span>
+                <span class="text-sky/50 block text-[0.75rem]">Pastikan cuma kamu yang tau</span>
+              </span>
+              <IconChevronRight class="text-sky/40 h-4 w-4 shrink-0" />
+            </button>
+          </li>
 
-      <p class="text-muted mt-6 text-[0.6875rem] font-bold tracking-widest uppercase">Keamanan</p>
-      <ul class="border-hairline divide-hairline mt-2.5 flex flex-col divide-y rounded-2xl border">
-        <li>
-          <button
-            type="button"
-            class="active:bg-mist/40 flex w-full items-center gap-3 p-4 text-left transition-colors"
-            @click="sessionsOpen = true"
-          >
-            <span
-              class="bg-azure/15 text-azure flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+          <li>
+            <button
+              type="button"
+              class="flex w-full items-center gap-3 p-4 text-left transition-colors active:bg-white/5"
+              @click="notifPrefsOpen = true"
             >
-              <IconHistory class="h-4 w-4" />
-            </span>
-            <span class="min-w-0 flex-1">
-              <span class="text-ink block text-[0.875rem] font-bold">Sesi aktif</span>
-              <span class="text-muted block text-[0.75rem]">Lihat perangkat yang lagi login</span>
-            </span>
-            <IconChevronRight class="text-muted h-4 w-4 shrink-0" />
-          </button>
-        </li>
+              <span
+                class="bg-sky/15 flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+              >
+                <IconBell class="text-sky h-4 w-4" />
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-[0.875rem] font-bold text-white">Notifikasi</span>
+                <span class="text-sky/50 block text-[0.75rem]"
+                  >Atur pengingat & aktivitas pasangan</span
+                >
+              </span>
+              <IconChevronRight class="text-sky/40 h-4 w-4 shrink-0" />
+            </button>
+          </li>
+        </ul>
 
-        <li>
-          <button
-            type="button"
-            class="active:bg-mist/40 flex w-full items-center gap-3 p-4 text-left transition-colors"
-            @click="securityAuditOpen = true"
-          >
-            <span
-              class="bg-mist text-navy flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+        <p class="text-sky/50 mt-6 text-[0.6875rem] font-bold tracking-widest uppercase">
+          Keamanan
+        </p>
+        <ul
+          class="mt-2.5 divide-y divide-white/5 overflow-hidden rounded-3xl border border-white/10 bg-white/5"
+        >
+          <li>
+            <button
+              type="button"
+              class="flex w-full items-center gap-3 p-4 text-left transition-colors active:bg-white/5"
+              @click="sessionsOpen = true"
             >
-              <IconShieldCheck class="h-4 w-4" />
-            </span>
-            <span class="min-w-0 flex-1">
-              <span class="text-ink block text-[0.875rem] font-bold">Log keamanan</span>
-              <span class="text-muted block text-[0.75rem]">Riwayat aktivitas akun kamu</span>
-            </span>
-            <IconChevronRight class="text-muted h-4 w-4 shrink-0" />
-          </button>
-        </li>
-      </ul>
+              <span
+                class="bg-sky/15 flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+              >
+                <IconHistory class="text-sky h-4 w-4" />
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-[0.875rem] font-bold text-white">Sesi aktif</span>
+                <span class="text-sky/50 block text-[0.75rem]"
+                  >Lihat perangkat yang lagi login</span
+                >
+              </span>
+              <IconChevronRight class="text-sky/40 h-4 w-4 shrink-0" />
+            </button>
+          </li>
 
-      <button
-        type="button"
-        class="text-danger mt-8 flex w-full items-center justify-center gap-2 py-2 text-[0.8125rem] font-bold"
-        @click="logoutConfirmOpen = true"
-      >
-        <IconLogout class="h-4 w-4" />
-        Keluar dari akun
-      </button>
-    </section>
+          <li>
+            <button
+              type="button"
+              class="flex w-full items-center gap-3 p-4 text-left transition-colors active:bg-white/5"
+              @click="securityAuditOpen = true"
+            >
+              <span
+                class="bg-azure/20 flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+              >
+                <IconShieldCheck class="text-sky h-4 w-4" />
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-[0.875rem] font-bold text-white">Log keamanan</span>
+                <span class="text-sky/50 block text-[0.75rem]">Riwayat aktivitas akun kamu</span>
+              </span>
+              <IconChevronRight class="text-sky/40 h-4 w-4 shrink-0" />
+            </button>
+          </li>
+        </ul>
 
-    <BottomNav
-      :avatar-url="avatarUrl"
-      :avatar-name="auth.user?.name"
-      @catat="router.push({ name: 'home' })"
-    />
+        <button
+          type="button"
+          class="text-danger mt-8 flex w-full items-center justify-center gap-2 py-2 text-[0.8125rem] font-bold"
+          @click="logoutConfirmOpen = true"
+        >
+          <IconLogout class="h-4 w-4" />
+          Keluar dari akun
+        </button>
+      </section>
+
+      <BottomNav
+        :avatar-url="avatarUrl"
+        :avatar-name="auth.user?.name"
+        @catat="router.push({ name: 'home' })"
+      />
+    </div>
 
     <BottomSheet v-model:open="editNameOpen" title="Ubah nama">
       <form class="flex flex-col gap-5" @submit.prevent="onSaveName">

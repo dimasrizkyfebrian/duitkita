@@ -211,16 +211,20 @@ func getEnvAsBool(key string, fallback bool) bool {
 	return parsed
 }
 
-// Semicolon-delimited, not comma — Cloud Run's env var deploy mechanism
-// (gcloud's --set-env-vars syntax) treats a bare comma as the separator
-// between *different* KEY=VALUE pairs, which silently truncates any value
-// containing one (CORS_ALLOWED_ORIGINS, a list of origins, always will).
+// Accepts either separator. Semicolons are what deployed config should
+// use — Cloud Run's env var mechanism (gcloud's --set-env-vars syntax)
+// reads a bare comma as the separator between *different* KEY=VALUE
+// pairs, silently truncating any value containing one, which a list of
+// origins always will. But a comma is the obvious thing to reach for when
+// writing a list by hand, and getting it wrong fails as a blanket 403
+// with nothing pointing at the config, so both are honoured. Neither
+// character can appear inside an origin, so there's no ambiguity.
 func getEnvAsSlice(key string, fallback []string) []string {
 	v, ok := os.LookupEnv(key)
 	if !ok || v == "" {
 		return fallback
 	}
-	parts := strings.Split(v, ";")
+	parts := strings.FieldsFunc(v, func(r rune) bool { return r == ';' || r == ',' })
 	out := make([]string, 0, len(parts))
 	for _, p := range parts {
 		if p = strings.TrimSpace(p); p != "" {

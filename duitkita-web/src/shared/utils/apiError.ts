@@ -25,6 +25,9 @@ const MESSAGES: Record<string, string> = {
   'current password is incorrect': 'Password lama kamu belum pas.',
   'too many requests': 'Kebanyakan percobaan. Tunggu sebentar ya.',
   'category not found': 'Kategorinya gak ketemu. Coba refresh dulu ya.',
+  'budget not set for that category and period':
+    'Kategori itu belum punya budget di bulan tersebut. Atur budgetnya dulu ya.',
+  'expense not found': 'Pengeluarannya gak ketemu. Mungkin udah dihapus.',
   'budget already exists for this category and period': 'Budget kategori ini bulan ini udah ada.',
   'budget is already finalized': 'Budget ini udah dikunci, gak bisa diubah lagi.',
   'no linked partner': 'Kamu belum nyambung sama pasangan.',

@@ -46,7 +46,7 @@ func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.Reten
 	securityAuditSvc := NewSecurityAuditService(securityAuditRepo)
 	notificationSvc := NewNotificationService(notificationRepo, notificationPrefRepo)
 	activitySvc := NewActivityService(activityRepo, coupleRepo, notificationSvc)
-	reportSvc := NewReportService(reportRepo, budgetRepo, coupleRepo)
+	reportSvc := NewReportService(reportRepo, budgetRepo, coupleRepo, redisClient)
 	otpSvc := NewOTPService(redisClient, mailer, otpCfg)
 
 	return &Services{
@@ -54,13 +54,13 @@ func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.Reten
 		User:             NewUserService(userRepo, securityAuditSvc, storage, redisClient),
 		Couple:           NewCoupleService(coupleRepo, invitationRepo, userRepo, securityAuditSvc),
 		Category:         NewCategoryService(categoryRepo, coupleRepo, budgetRepo),
-		Budget:           NewBudgetService(budgetRepo, categoryRepo, coupleRepo, activitySvc, expenseRepo),
-		Expense:          NewExpenseService(expenseRepo, budgetRepo, coupleRepo, activitySvc),
+		Budget:           NewBudgetService(budgetRepo, categoryRepo, coupleRepo, activitySvc, expenseRepo, redisClient),
+		Expense:          NewExpenseService(expenseRepo, budgetRepo, coupleRepo, activitySvc, redisClient),
 		RecurringExpense: NewRecurringExpenseService(recurringExpenseRepo, categoryRepo, budgetRepo, expenseRepo),
 		Reminder:         NewReminderService(reminderRepo, notificationSvc),
 		Notification:     notificationSvc,
 		Report:           reportSvc,
-		Insights:         NewInsightsService(reportRepo, reportSvc),
+		Insights:         NewInsightsService(reportSvc),
 		ReportExport:     NewReportExportService(reportExportRepo, reportSvc, storage, cloudTasksEnqueuer),
 		Activity:         activitySvc,
 		SecurityAudit:    securityAuditSvc,

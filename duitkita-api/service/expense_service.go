@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 
 	"duitkita-api/model/domain"
 	"duitkita-api/model/dto/request"
@@ -35,10 +36,11 @@ type expenseService struct {
 	budgetRepo  repository.BudgetRepository
 	coupleRepo  repository.CoupleRepository
 	activitySvc ActivityService
+	redis       *redis.Client
 }
 
-func NewExpenseService(repo repository.ExpenseRepository, budgetRepo repository.BudgetRepository, coupleRepo repository.CoupleRepository, activitySvc ActivityService) ExpenseService {
-	return &expenseService{repo: repo, budgetRepo: budgetRepo, coupleRepo: coupleRepo, activitySvc: activitySvc}
+func NewExpenseService(repo repository.ExpenseRepository, budgetRepo repository.BudgetRepository, coupleRepo repository.CoupleRepository, activitySvc ActivityService, redisClient *redis.Client) ExpenseService {
+	return &expenseService{repo: repo, budgetRepo: budgetRepo, coupleRepo: coupleRepo, activitySvc: activitySvc, redis: redisClient}
 }
 
 func (s *expenseService) Create(ctx context.Context, userID string, req request.CreateExpenseRequest) (*response.ExpenseResponse, error) {
@@ -72,6 +74,7 @@ func (s *expenseService) Create(ctx context.Context, userID string, req request.
 	if err := s.repo.Create(ctx, expense); err != nil {
 		return nil, utils.ErrInternal("failed to create expense")
 	}
+	invalidateReportCache(ctx, s.redis, userID)
 
 	s.activitySvc.LogActivity(ctx, userID, domain.ActivityActionCreated, domain.ActivityEntityTypeExpense, expense.ID, nil)
 
@@ -139,26 +142,64 @@ func (s *expenseService) Update(ctx context.Context, userID, id string, req requ
 		return nil, err
 	}
 
+	// Category and date are resolved together before anything is written,
+	// because the budget this expense belongs to is derived from both.
+	categoryID := expense.CategoryID
 	if req.CategoryID != "" {
-		expense.CategoryID = req.CategoryID
+		categoryID = req.CategoryID
 	}
-	if req.Amount != 0 {
-		expense.Amount = req.Amount
-	}
-	if req.Note != "" {
-		expense.Note = utils.StringPtr(req.Note)
-	}
+
+	expenseDate := expense.ExpenseDate
 	if req.ExpenseDate != "" {
 		date, err := utils.ParseDateOnly(req.ExpenseDate)
 		if err != nil {
 			return nil, utils.ErrBadRequest("invalid expense_date")
 		}
-		expense.ExpenseDate = date
+		expenseDate = date
+	}
+
+	// Moving to another category, or into another month, puts the expense
+	// under a different monthly budget. Without re-pointing it the spend
+	// stays attached to a budget it no longer counts against — visible via
+	// GET /expenses/by-budget/:budgetId, which reads that link directly.
+	categoryChanged := categoryID != expense.CategoryID
+	periodChanged := expenseDate.Year() != expense.ExpenseDate.Year() ||
+		expenseDate.Month() != expense.ExpenseDate.Month()
+
+	if categoryChanged || periodChanged {
+		if categoryChanged {
+			categoryOwned, _, err := s.repo.ValidateOwnership(ctx, userID, categoryID, expense.MonthlyBudgetID)
+			if err != nil {
+				return nil, utils.ErrInternal("failed to validate ownership")
+			}
+			if !categoryOwned {
+				return nil, utils.ErrNotFound("category not found")
+			}
+		}
+
+		budget, err := s.budgetRepo.FindByUserCategoryPeriod(ctx, userID, categoryID, expenseDate.Year(), int(expenseDate.Month()))
+		if err != nil {
+			return nil, utils.ErrInternal("failed to look up budget")
+		}
+		if budget == nil {
+			return nil, utils.ErrNotFound("budget not set for that category and period")
+		}
+		expense.MonthlyBudgetID = budget.ID
+	}
+
+	expense.CategoryID = categoryID
+	expense.ExpenseDate = expenseDate
+	if req.Amount != 0 {
+		expense.Amount = req.Amount
+	}
+	if req.Note != nil {
+		expense.Note = utils.StringPtr(*req.Note)
 	}
 
 	if err := s.repo.Update(ctx, expense); err != nil {
 		return nil, utils.ErrInternal("failed to update expense")
 	}
+	invalidateReportCache(ctx, s.redis, userID)
 
 	s.activitySvc.LogActivity(ctx, userID, domain.ActivityActionUpdated, domain.ActivityEntityTypeExpense, expense.ID, nil)
 
@@ -174,6 +215,7 @@ func (s *expenseService) Delete(ctx context.Context, userID, id string) error {
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return utils.ErrInternal("failed to delete expense")
 	}
+	invalidateReportCache(ctx, s.redis, userID)
 
 	s.activitySvc.LogActivity(ctx, userID, domain.ActivityActionDeleted, domain.ActivityEntityTypeExpense, expense.ID, nil)
 	return nil

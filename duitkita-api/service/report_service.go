@@ -2,6 +2,9 @@ package service
 
 import (
 	"context"
+	"sort"
+
+	"github.com/redis/go-redis/v9"
 
 	"duitkita-api/model/dto/response"
 	"duitkita-api/repository"
@@ -10,27 +13,30 @@ import (
 
 type ReportService interface {
 	MonthlyReport(ctx context.Context, userID string, year, month int) (*response.MonthlyReportResponse, error)
-	CoupleReport(ctx context.Context, userID string, year, month int) (*response.MonthlyReportResponse, error)
+	CoupleReport(ctx context.Context, userID string, year, month int) (*response.CoupleReportResponse, error)
 	Trend(ctx context.Context, userID string, months int) (*response.TrendResponse, error)
+	CoupleTrend(ctx context.Context, userID string, months int) (*response.TrendResponse, error)
 	TrendByCategory(ctx context.Context, userID, categoryID string, months int) (*response.TrendResponse, error)
 	Rollover(ctx context.Context, userID, categoryID string, year, month int) (int64, error)
+	DailyBreakdown(ctx context.Context, userID string, year, month int) (*response.DailyReportResponse, error)
 }
 
 type reportService struct {
 	reportRepo repository.ReportRepository
 	budgetRepo repository.BudgetRepository
 	coupleRepo repository.CoupleRepository
+	redis      *redis.Client
 }
 
-func NewReportService(reportRepo repository.ReportRepository, budgetRepo repository.BudgetRepository, coupleRepo repository.CoupleRepository) ReportService {
-	return &reportService{reportRepo: reportRepo, budgetRepo: budgetRepo, coupleRepo: coupleRepo}
+func NewReportService(reportRepo repository.ReportRepository, budgetRepo repository.BudgetRepository, coupleRepo repository.CoupleRepository, redisClient *redis.Client) ReportService {
+	return &reportService{reportRepo: reportRepo, budgetRepo: budgetRepo, coupleRepo: coupleRepo, redis: redisClient}
 }
 
 func (s *reportService) MonthlyReport(ctx context.Context, userID string, year, month int) (*response.MonthlyReportResponse, error) {
 	return s.buildMonthlyReport(ctx, userID, year, month)
 }
 
-func (s *reportService) CoupleReport(ctx context.Context, userID string, year, month int) (*response.MonthlyReportResponse, error) {
+func (s *reportService) CoupleReport(ctx context.Context, userID string, year, month int) (*response.CoupleReportResponse, error) {
 	couple, err := s.coupleRepo.FindByUserID(ctx, userID)
 	if err != nil {
 		return nil, utils.ErrInternal("failed to look up partner")
@@ -53,20 +59,90 @@ func (s *reportService) CoupleReport(ctx context.Context, userID string, year, m
 		return nil, err
 	}
 
-	return &response.MonthlyReportResponse{
-		Year:        year,
-		Month:       month,
-		TotalSpent:  own.TotalSpent + partner.TotalSpent,
-		TotalBudget: own.TotalBudget + partner.TotalBudget,
-		ByCategory:  append(own.ByCategory, partner.ByCategory...),
+	byCategory := make([]response.CoupleCategorySpend, 0, len(own.ByCategory)+len(partner.ByCategory))
+	for _, c := range own.ByCategory {
+		byCategory = append(byCategory, response.CoupleCategorySpend{CategorySpend: c, Owner: "me"})
+	}
+	for _, c := range partner.ByCategory {
+		byCategory = append(byCategory, response.CoupleCategorySpend{CategorySpend: c, Owner: "partner"})
+	}
+
+	return &response.CoupleReportResponse{
+		Year:         year,
+		Month:        month,
+		MyTotal:      own.TotalSpent,
+		PartnerTotal: partner.TotalSpent,
+		TotalSpent:   own.TotalSpent + partner.TotalSpent,
+		TotalBudget:  own.TotalBudget + partner.TotalBudget,
+		ByCategory:   byCategory,
 	}, nil
+}
+
+// CoupleTrend merges both partners' monthly totals the same way CoupleReport
+// merges a single period — two independent trend queries (the repo has no
+// notion of "couple"), summed per (year, month). Either side having a sparse
+// history (a month with no rows at all) is the normal case, not an error.
+func (s *reportService) CoupleTrend(ctx context.Context, userID string, months int) (*response.TrendResponse, error) {
+	couple, err := s.coupleRepo.FindByUserID(ctx, userID)
+	if err != nil {
+		return nil, utils.ErrInternal("failed to look up partner")
+	}
+	if couple == nil {
+		return nil, utils.ErrNotFound("no linked partner")
+	}
+
+	partnerID := couple.User2ID
+	if partnerID == userID {
+		partnerID = couple.User1ID
+	}
+
+	if months <= 0 {
+		months = 6
+	}
+
+	ownPoints, err := s.monthlyTrend(ctx, userID, months)
+	if err != nil {
+		return nil, utils.ErrInternal("failed to compute trend")
+	}
+	partnerPoints, err := s.monthlyTrend(ctx, partnerID, months)
+	if err != nil {
+		return nil, utils.ErrInternal("failed to compute trend")
+	}
+
+	type key struct{ year, month int }
+	totals := make(map[key]int64, len(ownPoints)+len(partnerPoints))
+	order := make([]key, 0, len(ownPoints)+len(partnerPoints))
+	add := func(points []repository.MonthTotal) {
+		for _, p := range points {
+			k := key{p.Year, p.Month}
+			if _, seen := totals[k]; !seen {
+				order = append(order, k)
+			}
+			totals[k] += p.Total
+		}
+	}
+	add(ownPoints)
+	add(partnerPoints)
+
+	sort.Slice(order, func(i, j int) bool {
+		if order[i].year != order[j].year {
+			return order[i].year < order[j].year
+		}
+		return order[i].month < order[j].month
+	})
+
+	out := make([]response.TrendPoint, 0, len(order))
+	for _, k := range order {
+		out = append(out, response.TrendPoint{Year: k.year, Month: k.month, Total: totals[k]})
+	}
+	return &response.TrendResponse{Points: out}, nil
 }
 
 func (s *reportService) Trend(ctx context.Context, userID string, months int) (*response.TrendResponse, error) {
 	if months <= 0 {
 		months = 6
 	}
-	points, err := s.reportRepo.MonthlyTrend(ctx, userID, months)
+	points, err := s.monthlyTrend(ctx, userID, months)
 	if err != nil {
 		return nil, utils.ErrInternal("failed to compute trend")
 	}
@@ -76,6 +152,24 @@ func (s *reportService) Trend(ctx context.Context, userID string, months int) (*
 		out = append(out, response.TrendPoint{Year: p.Year, Month: p.Month, Total: p.Total})
 	}
 	return &response.TrendResponse{Points: out}, nil
+}
+
+// monthlyTrend is the cached core behind Trend, CoupleTrend (called once per
+// partner), and — via InsightsService.Forecast calling Trend — the
+// forecast too, so all three share one cache entry per (userID, months)
+// instead of each re-running the same query.
+func (s *reportService) monthlyTrend(ctx context.Context, userID string, months int) ([]repository.MonthTotal, error) {
+	key := reportCacheKey("trend", reportCacheVersion(ctx, s.redis, userID), userID, months)
+	if cached, ok := getReportCache[[]repository.MonthTotal](ctx, s.redis, key); ok {
+		return cached, nil
+	}
+
+	points, err := s.reportRepo.MonthlyTrend(ctx, userID, months)
+	if err != nil {
+		return nil, err
+	}
+	setReportCache(ctx, s.redis, key, points)
+	return points, nil
 }
 
 func (s *reportService) TrendByCategory(ctx context.Context, userID, categoryID string, months int) (*response.TrendResponse, error) {
@@ -92,6 +186,26 @@ func (s *reportService) TrendByCategory(ctx context.Context, userID, categoryID 
 		out = append(out, response.TrendPoint{Year: p.Year, Month: p.Month, Total: p.Total})
 	}
 	return &response.TrendResponse{Points: out}, nil
+}
+
+func (s *reportService) DailyBreakdown(ctx context.Context, userID string, year, month int) (*response.DailyReportResponse, error) {
+	key := reportCacheKey("daily", reportCacheVersion(ctx, s.redis, userID), userID, year, month)
+	if cached, ok := getReportCache[response.DailyReportResponse](ctx, s.redis, key); ok {
+		return &cached, nil
+	}
+
+	totals, err := s.reportRepo.SpentByDayForPeriod(ctx, userID, year, month)
+	if err != nil {
+		return nil, utils.ErrInternal("failed to compute daily breakdown")
+	}
+
+	points := make([]response.DayPoint, 0, len(totals))
+	for _, t := range totals {
+		points = append(points, response.DayPoint{Day: t.Day, Total: t.Total})
+	}
+	res := &response.DailyReportResponse{Year: year, Month: month, Points: points}
+	setReportCache(ctx, s.redis, key, *res)
+	return res, nil
 }
 
 func (s *reportService) Rollover(ctx context.Context, userID, categoryID string, year, month int) (int64, error) {
@@ -115,7 +229,15 @@ func (s *reportService) Rollover(ctx context.Context, userID, categoryID string,
 	return leftover, nil
 }
 
+// buildMonthlyReport backs both MonthlyReport and (called twice, once per
+// partner) CoupleReport, and is itself cached — so a cache hit here also
+// means HealthScore (which calls MonthlyReport) skips the query too.
 func (s *reportService) buildMonthlyReport(ctx context.Context, userID string, year, month int) (*response.MonthlyReportResponse, error) {
+	key := reportCacheKey("monthly", reportCacheVersion(ctx, s.redis, userID), userID, year, month)
+	if cached, ok := getReportCache[response.MonthlyReportResponse](ctx, s.redis, key); ok {
+		return &cached, nil
+	}
+
 	totals, err := s.reportRepo.SpentByCategoryForPeriod(ctx, userID, year, month)
 	if err != nil {
 		return nil, utils.ErrInternal("failed to compute monthly report")
@@ -134,11 +256,13 @@ func (s *reportService) buildMonthlyReport(ctx context.Context, userID string, y
 		})
 	}
 
-	return &response.MonthlyReportResponse{
+	res := &response.MonthlyReportResponse{
 		Year:        year,
 		Month:       month,
 		TotalSpent:  totalSpent,
 		TotalBudget: totalBudget,
 		ByCategory:  byCategory,
-	}, nil
+	}
+	setReportCache(ctx, s.redis, key, *res)
+	return res, nil
 }
