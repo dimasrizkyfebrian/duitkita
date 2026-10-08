@@ -173,6 +173,95 @@ func TestExpenseService_Update(t *testing.T) {
 
 		requireAppError(t, err, http.StatusNotFound, "expense not found")
 	})
+
+	// A category or month change moves the expense under a different
+	// monthly budget — the link has to follow, or the spend stays counted
+	// against the budget it left.
+	t.Run("switching category re-points the budget", func(t *testing.T) {
+		svc, repo, budgetRepo, _, activitySvc := newExpenseService(t)
+		existing := &domain.Expense{
+			ID: "e-1", UserID: "user-1", CategoryID: "cat-1", MonthlyBudgetID: "budget-1",
+			Amount: 100, ExpenseDate: time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
+		}
+		repo.EXPECT().FindByID(context.Background(), "e-1").Return(existing, nil)
+		repo.EXPECT().ValidateOwnership(context.Background(), "user-1", "cat-2", "budget-1").Return(true, true, nil)
+		budgetRepo.EXPECT().FindByUserCategoryPeriod(context.Background(), "user-1", "cat-2", 2026, 1).
+			Return(&domain.MonthlyBudget{ID: "budget-2"}, nil)
+		repo.EXPECT().Update(context.Background(), existing).Return(nil)
+		activitySvc.EXPECT().LogActivity(context.Background(), "user-1", domain.ActivityActionUpdated, domain.ActivityEntityTypeExpense, "e-1", mock.Anything).Return()
+
+		res, err := svc.Update(context.Background(), "user-1", "e-1", request.UpdateExpenseRequest{CategoryID: "cat-2"})
+
+		require.NoError(t, err)
+		require.Equal(t, "cat-2", res.CategoryID)
+		require.Equal(t, "budget-2", res.MonthlyBudgetID)
+	})
+
+	t.Run("moving into another month re-points the budget", func(t *testing.T) {
+		svc, repo, budgetRepo, _, activitySvc := newExpenseService(t)
+		existing := &domain.Expense{
+			ID: "e-1", UserID: "user-1", CategoryID: "cat-1", MonthlyBudgetID: "budget-jan",
+			Amount: 100, ExpenseDate: time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
+		}
+		repo.EXPECT().FindByID(context.Background(), "e-1").Return(existing, nil)
+		budgetRepo.EXPECT().FindByUserCategoryPeriod(context.Background(), "user-1", "cat-1", 2026, 2).
+			Return(&domain.MonthlyBudget{ID: "budget-feb"}, nil)
+		repo.EXPECT().Update(context.Background(), existing).Return(nil)
+		activitySvc.EXPECT().LogActivity(context.Background(), "user-1", domain.ActivityActionUpdated, domain.ActivityEntityTypeExpense, "e-1", mock.Anything).Return()
+
+		res, err := svc.Update(context.Background(), "user-1", "e-1", request.UpdateExpenseRequest{ExpenseDate: "2026-02-03"})
+
+		require.NoError(t, err)
+		require.Equal(t, "budget-feb", res.MonthlyBudgetID)
+	})
+
+	t.Run("someone else's category rejected", func(t *testing.T) {
+		svc, repo, _, _, _ := newExpenseService(t)
+		existing := &domain.Expense{
+			ID: "e-1", UserID: "user-1", CategoryID: "cat-1", MonthlyBudgetID: "budget-1",
+			ExpenseDate: time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
+		}
+		repo.EXPECT().FindByID(context.Background(), "e-1").Return(existing, nil)
+		repo.EXPECT().ValidateOwnership(context.Background(), "user-1", "cat-2", "budget-1").Return(false, true, nil)
+
+		_, err := svc.Update(context.Background(), "user-1", "e-1", request.UpdateExpenseRequest{CategoryID: "cat-2"})
+
+		requireAppError(t, err, http.StatusNotFound, "category not found")
+	})
+
+	t.Run("rejected when the target category has no budget that month", func(t *testing.T) {
+		svc, repo, budgetRepo, _, _ := newExpenseService(t)
+		existing := &domain.Expense{
+			ID: "e-1", UserID: "user-1", CategoryID: "cat-1", MonthlyBudgetID: "budget-1",
+			ExpenseDate: time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
+		}
+		repo.EXPECT().FindByID(context.Background(), "e-1").Return(existing, nil)
+		repo.EXPECT().ValidateOwnership(context.Background(), "user-1", "cat-2", "budget-1").Return(true, true, nil)
+		budgetRepo.EXPECT().FindByUserCategoryPeriod(context.Background(), "user-1", "cat-2", 2026, 1).Return(nil, nil)
+
+		_, err := svc.Update(context.Background(), "user-1", "e-1", request.UpdateExpenseRequest{CategoryID: "cat-2"})
+
+		requireAppError(t, err, http.StatusNotFound, "budget not set for that category and period")
+	})
+
+	t.Run("note can be cleared", func(t *testing.T) {
+		svc, repo, _, _, activitySvc := newExpenseService(t)
+		existing := &domain.Expense{
+			ID: "e-1", UserID: "user-1", Note: strPtr("salah ketik"),
+			ExpenseDate: time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC),
+		}
+		repo.EXPECT().FindByID(context.Background(), "e-1").Return(existing, nil)
+		repo.EXPECT().Update(context.Background(), existing).RunAndReturn(func(_ context.Context, e *domain.Expense) error {
+			require.Nil(t, e.Note)
+			return nil
+		})
+		activitySvc.EXPECT().LogActivity(context.Background(), "user-1", domain.ActivityActionUpdated, domain.ActivityEntityTypeExpense, "e-1", mock.Anything).Return()
+
+		empty := ""
+		_, err := svc.Update(context.Background(), "user-1", "e-1", request.UpdateExpenseRequest{Note: &empty})
+
+		require.NoError(t, err)
+	})
 }
 
 func TestExpenseService_Delete(t *testing.T) {

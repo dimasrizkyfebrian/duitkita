@@ -1775,10 +1775,19 @@ components:
 
     UpdateExpenseRequest:
       type: object
+      description: >
+        Every field is optional; omitted ones keep their current value.
+        Changing category_id or moving expense_date into another month
+        re-points the expense at that category/month's monthly budget, so
+        the target must already have a budget set — otherwise the request
+        is rejected with 404.
       properties:
         category_id: { type: string, format: uuid }
         amount: { type: integer, format: int64, minimum: 1 }
-        note: { type: string, maxLength: 255 }
+        note:
+          type: string
+          maxLength: 255
+          description: Send an empty string to clear an existing note.
         expense_date: { type: string, format: date }
 
     CreateRecurringExpenseRequest:

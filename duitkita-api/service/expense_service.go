@@ -139,21 +139,58 @@ func (s *expenseService) Update(ctx context.Context, userID, id string, req requ
 		return nil, err
 	}
 
+	// Category and date are resolved together before anything is written,
+	// because the budget this expense belongs to is derived from both.
+	categoryID := expense.CategoryID
 	if req.CategoryID != "" {
-		expense.CategoryID = req.CategoryID
+		categoryID = req.CategoryID
 	}
-	if req.Amount != 0 {
-		expense.Amount = req.Amount
-	}
-	if req.Note != "" {
-		expense.Note = utils.StringPtr(req.Note)
-	}
+
+	expenseDate := expense.ExpenseDate
 	if req.ExpenseDate != "" {
 		date, err := utils.ParseDateOnly(req.ExpenseDate)
 		if err != nil {
 			return nil, utils.ErrBadRequest("invalid expense_date")
 		}
-		expense.ExpenseDate = date
+		expenseDate = date
+	}
+
+	// Moving to another category, or into another month, puts the expense
+	// under a different monthly budget. Without re-pointing it the spend
+	// stays attached to a budget it no longer counts against — visible via
+	// GET /expenses/by-budget/:budgetId, which reads that link directly.
+	categoryChanged := categoryID != expense.CategoryID
+	periodChanged := expenseDate.Year() != expense.ExpenseDate.Year() ||
+		expenseDate.Month() != expense.ExpenseDate.Month()
+
+	if categoryChanged || periodChanged {
+		if categoryChanged {
+			categoryOwned, _, err := s.repo.ValidateOwnership(ctx, userID, categoryID, expense.MonthlyBudgetID)
+			if err != nil {
+				return nil, utils.ErrInternal("failed to validate ownership")
+			}
+			if !categoryOwned {
+				return nil, utils.ErrNotFound("category not found")
+			}
+		}
+
+		budget, err := s.budgetRepo.FindByUserCategoryPeriod(ctx, userID, categoryID, expenseDate.Year(), int(expenseDate.Month()))
+		if err != nil {
+			return nil, utils.ErrInternal("failed to look up budget")
+		}
+		if budget == nil {
+			return nil, utils.ErrNotFound("budget not set for that category and period")
+		}
+		expense.MonthlyBudgetID = budget.ID
+	}
+
+	expense.CategoryID = categoryID
+	expense.ExpenseDate = expenseDate
+	if req.Amount != 0 {
+		expense.Amount = req.Amount
+	}
+	if req.Note != nil {
+		expense.Note = utils.StringPtr(*req.Note)
 	}
 
 	if err := s.repo.Update(ctx, expense); err != nil {
