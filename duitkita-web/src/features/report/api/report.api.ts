@@ -1,6 +1,8 @@
 import { authRequest } from '@/lib/http'
 import type {
+  CoupleReport,
   CreateExportRequest,
+  DailyReport,
   Forecast,
   HealthScore,
   MonthlyReport,
@@ -13,11 +15,19 @@ export function getMonthlyReport(year: number, month: number) {
 }
 
 export function getCoupleReport(year: number, month: number) {
-  return authRequest<MonthlyReport>(`/reports/couple?year=${year}&month=${month}`)
+  return authRequest<CoupleReport>(`/reports/couple?year=${year}&month=${month}`)
 }
 
 export function getTrend(months: number) {
   return authRequest<TrendResponse>(`/reports/trend?months=${months}`)
+}
+
+export function getCoupleTrend(months: number) {
+  return authRequest<TrendResponse>(`/reports/couple/trend?months=${months}`)
+}
+
+export function getDailyBreakdown(year: number, month: number) {
+  return authRequest<DailyReport>(`/reports/daily?year=${year}&month=${month}`)
 }
 
 export function getCategoryTrend(categoryId: string, months: number) {

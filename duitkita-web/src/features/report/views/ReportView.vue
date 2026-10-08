@@ -12,7 +12,9 @@ import ExportReportCard from '../components/ExportReportCard.vue'
 import { useReportPeriod } from '../composables/useReportPeriod'
 import { useMonthlySummary, type CategoryBreakdownItem } from '../composables/useMonthlySummary'
 import { useCoupleSummary } from '../composables/useCoupleSummary'
+import { useCoupleTrend } from '../composables/useCoupleTrend'
 import { useSpendingTrend } from '../composables/useSpendingTrend'
+import { useDailyBreakdown } from '../composables/useDailyBreakdown'
 import { useHealthScore } from '../composables/useHealthScore'
 import { useForecast } from '../composables/useForecast'
 import { formatRupiah, formatRupiahShort } from '@/shared/utils/currency'
@@ -37,6 +39,14 @@ const {
 } = useCoupleSummary(year, month)
 
 const { points: trendPoints, loading: trendLoading, max: trendMax, deltaPct } = useSpendingTrend(6)
+
+const { points: coupleTrendPoints, loading: coupleTrendLoading } = useCoupleTrend(6)
+const coupleTrendMax = computed(() =>
+  coupleTrendPoints.value.reduce((m, p) => Math.max(m, p.total), 0),
+)
+
+const { points: dailyPoints, loading: dailyLoading } = useDailyBreakdown(year, month)
+const dailyMax = computed(() => dailyPoints.value.reduce((m, p) => Math.max(m, p.total), 0))
 
 const { score: healthScore } = useHealthScore(year, month)
 
@@ -299,6 +309,41 @@ const confidenceLabel = computed(() => {
             </div>
           </article>
 
+          <!-- Daily breakdown within the selected month -->
+          <article class="col-span-2 rounded-3xl border border-white/10 bg-white/5 p-4">
+            <p class="text-[0.9375rem] font-extrabold text-white">
+              Pengeluaran harian — {{ periodLabel }}
+            </p>
+
+            <div v-if="dailyLoading" class="mt-4 h-28 animate-pulse rounded-2xl bg-white/5"></div>
+
+            <p v-else-if="dailyMax === 0" class="text-sky/60 mt-3 text-[0.8125rem]">
+              Belum ada pengeluaran tercatat periode ini.
+            </p>
+
+            <div v-else class="mt-4 -mx-1 overflow-x-auto px-1 pb-1">
+              <div class="flex h-24 items-end gap-1" style="width: max-content">
+                <div
+                  v-for="p in dailyPoints"
+                  :key="p.day"
+                  class="flex w-4 shrink-0 flex-col items-center gap-1"
+                >
+                  <div class="flex h-16 w-full items-end">
+                    <div
+                      class="bg-azure w-full rounded-[3px] transition-[height] duration-500"
+                      :style="{
+                        height: `${Math.max((p.total / (dailyMax || 1)) * 100, p.total > 0 ? 8 : 2)}%`,
+                      }"
+                    ></div>
+                  </div>
+                  <span class="text-sky/50 text-[0.5625rem] font-semibold tabular-nums">{{
+                    p.day
+                  }}</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
           <!-- Spend trend over the last 6 months -->
           <article class="col-span-2 rounded-3xl border border-white/10 bg-white/5 p-4">
             <p class="text-[0.9375rem] font-extrabold text-white">Tren 6 bulan terakhir</p>
@@ -364,6 +409,37 @@ const confidenceLabel = computed(() => {
             <p class="text-sky/60 mt-3 text-[0.75rem]">
               Gabungan: {{ formatRupiah(combinedTotal) }}
             </p>
+
+            <div class="mt-4 border-t border-white/10 pt-4">
+              <p class="text-sky/60 text-[0.6875rem] font-semibold tracking-widest uppercase">
+                Tren gabungan 6 bulan
+              </p>
+
+              <div
+                v-if="coupleTrendLoading"
+                class="mt-3 h-20 animate-pulse rounded-2xl bg-white/5"
+              ></div>
+
+              <div v-else class="mt-3 flex h-20 items-end gap-2">
+                <div
+                  v-for="p in coupleTrendPoints"
+                  :key="`${p.year}-${p.month}`"
+                  class="flex flex-1 flex-col items-center gap-1"
+                >
+                  <div class="flex h-14 w-full items-end">
+                    <div
+                      class="bg-mist w-full rounded-md transition-[height] duration-500"
+                      :style="{
+                        height: `${Math.max((p.total / (coupleTrendMax || 1)) * 100, p.total > 0 ? 6 : 2)}%`,
+                      }"
+                    ></div>
+                  </div>
+                  <span class="text-sky/50 text-[0.625rem] font-semibold">{{
+                    monthAbbrev(p)
+                  }}</span>
+                </div>
+              </div>
+            </div>
           </article>
 
           <!-- Export -->

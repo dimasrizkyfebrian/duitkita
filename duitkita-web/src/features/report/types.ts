@@ -13,6 +13,20 @@ export interface MonthlyReport {
   by_category: CategorySpend[]
 }
 
+export interface CoupleCategorySpend extends CategorySpend {
+  owner: 'me' | 'partner'
+}
+
+export interface CoupleReport {
+  year: number
+  month: number
+  my_total: number
+  partner_total: number
+  total_spent: number
+  total_budget: number
+  by_category: CoupleCategorySpend[]
+}
+
 export interface TrendPoint {
   year: number
   month: number
@@ -21,6 +35,17 @@ export interface TrendPoint {
 
 export interface TrendResponse {
   points: TrendPoint[]
+}
+
+export interface DayPoint {
+  day: number
+  total: number
+}
+
+export interface DailyReport {
+  year: number
+  month: number
+  points: DayPoint[]
 }
 
 export interface Forecast {
