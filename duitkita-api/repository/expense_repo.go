@@ -30,6 +30,12 @@ type ExpenseRepository interface {
 	ValidateOwnership(ctx context.Context, userID, categoryID, budgetID string) (categoryOwned, budgetOwned bool, err error)
 }
 
+// expense_date alone leaves same-day rows in whatever order the planner
+// happens to produce, which then decides arbitrarily which ones a LIMIT
+// keeps — the dashboard's "latest expenses" feed merges two people's lists
+// and needs the newest-recorded to win a same-day tie deterministically.
+const expenseListOrder = "expense_date DESC, created_at DESC"
+
 type expenseRepository struct {
 	db *gorm.DB
 }
@@ -73,13 +79,13 @@ func (r *expenseRepository) FindAllByUserID(ctx context.Context, userID string, 
 	}
 
 	var expenses []domain.Expense
-	err := query.Order("expense_date DESC").Find(&expenses).Error
+	err := query.Order(expenseListOrder).Find(&expenses).Error
 	return expenses, err
 }
 
 func (r *expenseRepository) FindAllByBudgetID(ctx context.Context, budgetID string) ([]domain.Expense, error) {
 	var expenses []domain.Expense
-	err := r.db.WithContext(ctx).Where("monthly_budget_id = ?", budgetID).Order("expense_date DESC").Find(&expenses).Error
+	err := r.db.WithContext(ctx).Where("monthly_budget_id = ?", budgetID).Order(expenseListOrder).Find(&expenses).Error
 	return expenses, err
 }
 
