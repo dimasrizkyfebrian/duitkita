@@ -5,6 +5,7 @@ import BaseButton from '@/shared/components/BaseButton.vue'
 import BaseInput from '@/shared/components/BaseInput.vue'
 import { apiErrorMessage } from '@/shared/utils/apiError'
 import { useToast } from '@/shared/composables/useToast'
+import { getAvatarUrl } from '@/features/user/api/user.api'
 import * as coupleApi from '../api/couple.api'
 import type { Couple, Invitation } from '../types'
 
@@ -16,6 +17,13 @@ const toast = useToast()
 const loading = ref(true)
 const partner = ref<Couple | null>(null)
 const incoming = ref<Invitation[]>([])
+
+// Avatars are signed URLs fetched per user, not a field on the couple
+// payload — same lookup the expense feed does. Null means no avatar set
+// (the common case), and avatarBroken covers a URL that expired or points
+// at a since-deleted object; both fall back to the initial.
+const partnerAvatarUrl = ref<string | null>(null)
+const avatarBroken = ref(false)
 
 const email = ref('')
 const sending = ref(false)
@@ -37,6 +45,9 @@ async function load() {
     ])
     partner.value = partnerRes.status === 'fulfilled' ? partnerRes.value : null
     incoming.value = incomingRes.status === 'fulfilled' ? incomingRes.value : []
+
+    avatarBroken.value = false
+    partnerAvatarUrl.value = partner.value ? await getAvatarUrl(partner.value.partner.id) : null
   } finally {
     loading.value = false
   }
@@ -110,8 +121,17 @@ async function onUnlink() {
 
     <div v-else-if="partner" class="flex flex-col gap-5">
       <div class="border-hairline flex items-center gap-3 rounded-2xl border p-4">
+        <img
+          v-if="partnerAvatarUrl && !avatarBroken"
+          :src="partnerAvatarUrl"
+          :alt="partner.partner.name"
+          class="h-11 w-11 shrink-0 rounded-full object-cover"
+          @error="avatarBroken = true"
+        />
         <span
+          v-else
           class="bg-mist text-navy flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[0.9375rem] font-extrabold"
+          aria-hidden="true"
         >
           {{ partner.partner.name.charAt(0) }}
         </span>
