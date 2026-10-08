@@ -10,12 +10,15 @@ import ManageCategoriesSheet from '@/features/category/components/ManageCategori
 import SetBudgetSheet from '@/features/budget/components/SetBudgetSheet.vue'
 import ManageBudgetsSheet from '@/features/budget/components/ManageBudgetsSheet.vue'
 import CreateExpenseSheet from '@/features/expense/components/CreateExpenseSheet.vue'
+import EditExpenseSheet from '@/features/expense/components/EditExpenseSheet.vue'
 import PartnerSheet from '@/features/couple/components/PartnerSheet.vue'
 import IconWallet from '@/shared/icons/IconWallet.vue'
 import IconCategory from '@/shared/icons/IconCategory.vue'
 import IconPartner from '@/shared/icons/IconPartner.vue'
 import IconChevronDown from '@/shared/icons/IconChevronDown.vue'
+import IconPencil from '@/shared/icons/IconPencil.vue'
 import type { CategorySpend } from '@/features/report/types'
+import type { ExpenseFeedItem } from '@/features/expense/types'
 import { useMonthlyOverview } from '../composables/useMonthlyOverview'
 import { usePartnerOverview } from '../composables/usePartnerOverview'
 import { useRecentExpenses } from '../composables/useRecentExpenses'
@@ -103,6 +106,18 @@ function onAvatarError(itemId: string) {
 function afterExpenseCreated() {
   reload()
   reloadRecent()
+}
+
+// Only your own expenses are editable — the backend scopes updates to the
+// owner, so a partner's row stays read-only here rather than offering an
+// action that would come back 404.
+const editExpenseOpen = ref(false)
+const editingExpense = ref<ExpenseFeedItem | null>(null)
+
+function openEditExpense(item: ExpenseFeedItem) {
+  if (item.owner !== 'me') return
+  editingExpense.value = item
+  editExpenseOpen.value = true
 }
 
 function afterPartnerChanged() {
@@ -298,36 +313,50 @@ const visibleRecentItems = computed(() => recentItems.value.slice(0, recentExpan
         <li
           v-for="item in visibleRecentItems"
           :key="item.id"
-          class="border-hairline flex items-center gap-3 border-b py-3.5 last:border-b-0"
+          class="border-hairline border-b last:border-b-0"
         >
-          <img
-            v-if="item.avatarUrl && !brokenAvatars.has(item.id)"
-            :src="item.avatarUrl"
-            :alt="personName(item)"
-            class="h-10 w-10 shrink-0 rounded-full object-cover"
-            @error="onAvatarError(item.id)"
-          />
-          <span
-            v-else
-            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[0.8125rem] font-extrabold"
-            :class="item.owner === 'me' ? 'bg-mist text-navy' : 'bg-sky/25 text-navy'"
-            aria-hidden="true"
+          <component
+            :is="item.owner === 'me' ? 'button' : 'div'"
+            :type="item.owner === 'me' ? 'button' : undefined"
+            class="flex w-full items-center gap-3 py-3.5 text-left"
+            :class="item.owner === 'me' ? 'active:opacity-60 transition-opacity' : ''"
+            :aria-label="item.owner === 'me' ? 'Ubah pengeluaran ini' : undefined"
+            @click="openEditExpense(item)"
           >
-            {{ personName(item).charAt(0) }}
-          </span>
-          <div class="min-w-0 flex-1">
-            <p class="text-ink truncate text-[0.875rem] font-bold">
-              {{ item.note || item.categoryName || 'Pengeluaran' }}
+            <img
+              v-if="item.avatarUrl && !brokenAvatars.has(item.id)"
+              :src="item.avatarUrl"
+              :alt="personName(item)"
+              class="h-10 w-10 shrink-0 rounded-full object-cover"
+              @error="onAvatarError(item.id)"
+            />
+            <span
+              v-else
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[0.8125rem] font-extrabold"
+              :class="item.owner === 'me' ? 'bg-mist text-navy' : 'bg-sky/25 text-navy'"
+              aria-hidden="true"
+            >
+              {{ personName(item).charAt(0) }}
+            </span>
+            <div class="min-w-0 flex-1">
+              <p class="text-ink truncate text-[0.875rem] font-bold">
+                {{ item.note || item.categoryName || 'Pengeluaran' }}
+              </p>
+              <p class="text-muted mt-0.5 truncate text-[0.75rem]">
+                <template v-if="item.categoryName">{{ item.categoryName }} · </template>
+                {{ item.owner === 'me' ? 'Kamu' : partnerName }}
+                · {{ formatShortDate(item.expense_date) }}
+              </p>
+            </div>
+            <p class="text-ink shrink-0 text-[0.875rem] font-extrabold tabular-nums">
+              {{ formatRupiah(item.amount) }}
             </p>
-            <p class="text-muted mt-0.5 truncate text-[0.75rem]">
-              <template v-if="item.categoryName">{{ item.categoryName }} · </template>
-              {{ item.owner === 'me' ? 'Kamu' : partnerName }}
-              · {{ formatShortDate(item.expense_date) }}
-            </p>
-          </div>
-          <p class="text-ink shrink-0 text-[0.875rem] font-extrabold tabular-nums">
-            {{ formatRupiah(item.amount) }}
-          </p>
+            <IconPencil
+              v-if="item.owner === 'me'"
+              class="text-muted h-3.5 w-3.5 shrink-0"
+              aria-hidden="true"
+            />
+          </component>
         </li>
       </ul>
 
@@ -479,6 +508,13 @@ const visibleRecentItems = computed(() => recentItems.value.slice(0, recentExpan
       v-model:open="createExpenseOpen"
       :categories="budgeted"
       @created="afterExpenseCreated"
+    />
+    <EditExpenseSheet
+      v-model:open="editExpenseOpen"
+      :expense="editingExpense"
+      :categories="budgeted"
+      @saved="afterExpenseCreated"
+      @deleted="afterExpenseCreated"
     />
     <PartnerSheet v-model:open="partnerSheetOpen" @changed="afterPartnerChanged" />
   </main>
