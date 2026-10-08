@@ -20,11 +20,11 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 
-// Beranda and Profil are real pages; Laporan/Pengingat aren't built yet, so
-// they stay as "belum jadi" placeholders instead of routing anywhere.
+// Beranda, Laporan, and Profil are real pages; Pengingat isn't built yet,
+// so it stays as a "belum jadi" placeholder instead of routing anywhere.
 const items = [
   { key: 'beranda', label: 'Beranda', routeName: 'home', icon: IconHome },
-  { key: 'laporan', label: 'Laporan', routeName: null, icon: IconChart },
+  { key: 'laporan', label: 'Laporan', routeName: 'report', icon: IconChart },
 ] as const
 
 const pengingat = { key: 'pengingat', label: 'Pengingat', routeName: null, icon: IconBell } as const
