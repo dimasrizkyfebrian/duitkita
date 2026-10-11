@@ -448,6 +448,8 @@ const confidenceLabel = computed(() => {
             :year="year"
             :month="month"
             :period-label="periodLabel"
+            :couple-linked="coupleLinked"
+            :partner-name="partnerName"
           />
         </div>
       </section>

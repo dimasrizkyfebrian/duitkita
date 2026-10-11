@@ -4,19 +4,34 @@ import IconDownload from '@/shared/icons/IconDownload.vue'
 import { useToast } from '@/shared/composables/useToast'
 import { apiErrorMessage } from '@/shared/utils/apiError'
 import { createExport, getExport, getExportDownloadUrl } from '../api/report.api'
+import type { ExportScope } from '../types'
 
-// Scoped to "personal" only — report_export_service currently renders a
-// personal report regardless of the requested scope, so a "couple" export
-// would silently hand back the wrong PDF. Re-enable once that's fixed
-// server-side.
-const props = defineProps<{ year: number; month: number; periodLabel: string }>()
+const props = defineProps<{
+  year: number
+  month: number
+  periodLabel: string
+  coupleLinked?: boolean
+  partnerName?: string | null
+}>()
 
 const toast = useToast()
+
+const scope = ref<ExportScope>('personal')
 
 type State = 'idle' | 'processing' | 'ready' | 'failed'
 const state = ref<State>('idle')
 const downloadUrl = ref<string | null>(null)
 let pollTimer: ReturnType<typeof setTimeout> | null = null
+
+function selectScope(next: ExportScope) {
+  if (scope.value === next) return
+  scope.value = next
+  // Switching scope invalidates whatever was just generated/polling —
+  // back to idle so "Buat laporan PDF" reflects the newly chosen scope.
+  stopPolling()
+  state.value = 'idle'
+  downloadUrl.value = null
+}
 
 function stopPolling() {
   if (pollTimer) clearTimeout(pollTimer)
@@ -60,7 +75,7 @@ async function onCreate() {
       format: 'pdf',
       year: props.year,
       month: props.month,
-      scope: 'personal',
+      scope: scope.value,
     })
     poll(exportRes.id, 15)
   } catch (err) {
@@ -82,8 +97,45 @@ onUnmounted(stopPolling)
       </span>
       <div class="min-w-0 flex-1">
         <p class="text-[0.875rem] font-bold text-white">Laporan PDF</p>
-        <p class="text-sky/60 text-[0.75rem]">{{ periodLabel }} · versi kamu sendiri</p>
+        <p class="text-sky/60 text-[0.75rem]">
+          {{ periodLabel }} ·
+          {{
+            scope === 'couple'
+              ? `gabungan dengan ${partnerName ?? 'pasangan'}`
+              : 'versi kamu sendiri'
+          }}
+        </p>
       </div>
+    </div>
+
+    <!-- Scope toggle: only worth showing once there's actually a couple
+         report to switch to — a lone user never sees a one-option toggle. -->
+    <div
+      v-if="coupleLinked"
+      class="bg-ink-soft/40 grid grid-cols-2 gap-1 rounded-control p-1"
+      role="tablist"
+      aria-label="Cakupan laporan"
+    >
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="scope === 'personal'"
+        class="rounded-[0.6rem] py-2 text-[0.75rem] font-bold transition-colors"
+        :class="scope === 'personal' ? 'bg-white/15 text-white' : 'text-sky/60'"
+        @click="selectScope('personal')"
+      >
+        Punyaku
+      </button>
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="scope === 'couple'"
+        class="rounded-[0.6rem] py-2 text-[0.75rem] font-bold transition-colors"
+        :class="scope === 'couple' ? 'bg-white/15 text-white' : 'text-sky/60'"
+        @click="selectScope('couple')"
+      >
+        Bersama {{ partnerName ?? 'pasangan' }}
+      </button>
     </div>
 
     <button
