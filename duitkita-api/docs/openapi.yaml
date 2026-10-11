@@ -1359,6 +1359,55 @@ paths:
                       data: { $ref: '#/components/schemas/DailyReportResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /reports/top-expenses:
+    get:
+      tags: [Reports]
+      summary: Largest personal transactions for one month
+      parameters:
+        - $ref: '#/components/parameters/Year'
+        - $ref: '#/components/parameters/Month'
+        - in: query
+          name: limit
+          description: Defaults to 5, capped at 20.
+          schema: { type: integer, example: 5 }
+      responses:
+        '200':
+          description: top expenses retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/TopExpensesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /reports/couple/top-expenses:
+    get:
+      tags: [Reports]
+      summary: Largest transactions for one month, combining both partners
+      parameters:
+        - $ref: '#/components/parameters/Year'
+        - $ref: '#/components/parameters/Month'
+        - in: query
+          name: limit
+          description: Defaults to 5, capped at 20.
+          schema: { type: integer, example: 5 }
+      responses:
+        '200':
+          description: couple top expenses retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/CoupleTopExpensesResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /reports/trend/category:
     get:
       tags: [Reports]
@@ -2096,6 +2145,43 @@ components:
         by_category:
           type: array
           items: { $ref: '#/components/schemas/CoupleCategorySpend' }
+
+    TopExpenseItem:
+      type: object
+      properties:
+        expense_id: { type: string, format: uuid }
+        category_id: { type: string, format: uuid }
+        category_name: { type: string }
+        category_icon: { type: string }
+        note: { type: string }
+        amount: { type: integer, format: int64 }
+        expense_date: { type: string, format: date }
+
+    TopExpensesResponse:
+      type: object
+      properties:
+        year: { type: integer }
+        month: { type: integer }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/TopExpenseItem' }
+
+    CoupleTopExpenseItem:
+      allOf:
+        - $ref: '#/components/schemas/TopExpenseItem'
+        - type: object
+          properties:
+            owner: { type: string, enum: [me, partner] }
+
+    CoupleTopExpensesResponse:
+      type: object
+      properties:
+        year: { type: integer }
+        month: { type: integer }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/CoupleTopExpenseItem' }
+          description: Combined ranking across both partners' transactions, not grouped by owner.
 
     DayPoint:
       type: object

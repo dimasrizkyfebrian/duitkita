@@ -383,6 +383,68 @@ func (_c *ReportRepository_SumExpensesByUserAndPeriod_Call) RunAndReturn(run fun
 	return _c
 }
 
+// TopExpensesForPeriod provides a mock function with given fields: ctx, userID, year, month, limit
+func (_m *ReportRepository) TopExpensesForPeriod(ctx context.Context, userID string, year int, month int, limit int) ([]repository.TopExpense, error) {
+	ret := _m.Called(ctx, userID, year, month, limit)
+
+	if len(ret) == 0 {
+		panic("no return value specified for TopExpensesForPeriod")
+	}
+
+	var r0 []repository.TopExpense
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, int, int, int) ([]repository.TopExpense, error)); ok {
+		return rf(ctx, userID, year, month, limit)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, int, int, int) []repository.TopExpense); ok {
+		r0 = rf(ctx, userID, year, month, limit)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]repository.TopExpense)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, int, int, int) error); ok {
+		r1 = rf(ctx, userID, year, month, limit)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ReportRepository_TopExpensesForPeriod_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TopExpensesForPeriod'
+type ReportRepository_TopExpensesForPeriod_Call struct {
+	*mock.Call
+}
+
+// TopExpensesForPeriod is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - year int
+//   - month int
+//   - limit int
+func (_e *ReportRepository_Expecter) TopExpensesForPeriod(ctx interface{}, userID interface{}, year interface{}, month interface{}, limit interface{}) *ReportRepository_TopExpensesForPeriod_Call {
+	return &ReportRepository_TopExpensesForPeriod_Call{Call: _e.mock.On("TopExpensesForPeriod", ctx, userID, year, month, limit)}
+}
+
+func (_c *ReportRepository_TopExpensesForPeriod_Call) Run(run func(ctx context.Context, userID string, year int, month int, limit int)) *ReportRepository_TopExpensesForPeriod_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(int), args[3].(int), args[4].(int))
+	})
+	return _c
+}
+
+func (_c *ReportRepository_TopExpensesForPeriod_Call) Return(_a0 []repository.TopExpense, _a1 error) *ReportRepository_TopExpensesForPeriod_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ReportRepository_TopExpensesForPeriod_Call) RunAndReturn(run func(context.Context, string, int, int, int) ([]repository.TopExpense, error)) *ReportRepository_TopExpensesForPeriod_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewReportRepository creates a new instance of ReportRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewReportRepository(t interface {
