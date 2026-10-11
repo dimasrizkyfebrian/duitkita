@@ -219,18 +219,28 @@ func renderMonthlyReportPDF(report *response.MonthlyReportResponse) ([]byte, err
 }
 
 func renderCoupleReportPDF(report *response.CoupleReportResponse) ([]byte, error) {
-	lines := []utils.PDFLine{
+	intro := []utils.PDFLine{
 		{Text: fmt.Sprintf("Period: %04d-%02d", report.Year, report.Month), Bold: true},
-		{Text: fmt.Sprintf("My Total: %d", report.MyTotal)},
-		{Text: fmt.Sprintf("Partner Total: %d", report.PartnerTotal)},
 		{Text: fmt.Sprintf("Combined Spent: %d", report.TotalSpent)},
 		{Text: fmt.Sprintf("Combined Budget: %d", report.TotalBudget)},
-		{Text: "By Category:", Bold: true},
+	}
+
+	left := utils.PDFColumn{
+		Heading: fmt.Sprintf("Me - Total: %d", report.MyTotal),
+	}
+	right := utils.PDFColumn{
+		Heading: fmt.Sprintf("Partner - Total: %d", report.PartnerTotal),
 	}
 	for _, c := range report.ByCategory {
-		lines = append(lines, utils.PDFLine{Text: fmt.Sprintf("- [%s] %s: spent %d / budget %d", c.Owner, c.Name, c.Spent, c.Budget)})
+		line := utils.PDFLine{Text: fmt.Sprintf("- %s: spent %d / budget %d", c.Name, c.Spent, c.Budget)}
+		if c.Owner == "partner" {
+			right.Lines = append(right.Lines, line)
+		} else {
+			left.Lines = append(left.Lines, line)
+		}
 	}
-	return utils.GenerateSimplePDF("Couple Report", lines)
+
+	return utils.GenerateTwoColumnPDF("Couple Report", intro, left, right)
 }
 
 func toExportResponse(export *domain.ReportExport, downloadURL string) *response.ExportResponse {
