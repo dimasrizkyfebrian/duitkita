@@ -30,6 +30,8 @@ func (h *ReportHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	reports.GET("/couple/trend", h.coupleTrend)
 	reports.GET("/trend/category", h.trendByCategory)
 	reports.GET("/daily", h.daily)
+	reports.GET("/top-expenses", h.topExpenses)
+	reports.GET("/couple/top-expenses", h.coupleTopExpenses)
 	reports.POST("/exports", h.createExport)
 	reports.GET("/exports", h.listExports)
 	reports.GET("/exports/:id/download", h.downloadExport)
@@ -90,6 +92,28 @@ func (h *ReportHandler) daily(c *gin.Context) {
 		return
 	}
 	utils.Success(c, http.StatusOK, "daily breakdown retrieved", res)
+}
+
+func (h *ReportHandler) topExpenses(c *gin.Context) {
+	year, month := parseYearMonth(c)
+	limit, _ := strconv.Atoi(c.Query("limit"))
+	res, err := h.reportSvc.TopExpenses(c.Request.Context(), currentUserID(c), year, month, limit)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	utils.Success(c, http.StatusOK, "top expenses retrieved", res)
+}
+
+func (h *ReportHandler) coupleTopExpenses(c *gin.Context) {
+	year, month := parseYearMonth(c)
+	limit, _ := strconv.Atoi(c.Query("limit"))
+	res, err := h.reportSvc.CoupleTopExpenses(c.Request.Context(), currentUserID(c), year, month, limit)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	utils.Success(c, http.StatusOK, "couple top expenses retrieved", res)
 }
 
 func (h *ReportHandler) trendByCategory(c *gin.Context) {

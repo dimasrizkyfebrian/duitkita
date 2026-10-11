@@ -9,12 +9,16 @@ import IconTrendingUp from '@/shared/icons/IconTrendingUp.vue'
 import CategoryDonut from '../components/CategoryDonut.vue'
 import CategoryTrendSheet from '../components/CategoryTrendSheet.vue'
 import ExportReportCard from '../components/ExportReportCard.vue'
+import TopExpensesCard from '../components/TopExpensesCard.vue'
+import MonthComparisonCard from '../components/MonthComparisonCard.vue'
 import { useReportPeriod } from '../composables/useReportPeriod'
 import { useMonthlySummary, type CategoryBreakdownItem } from '../composables/useMonthlySummary'
 import { useCoupleSummary } from '../composables/useCoupleSummary'
 import { useCoupleTrend } from '../composables/useCoupleTrend'
 import { useSpendingTrend } from '../composables/useSpendingTrend'
 import { useDailyBreakdown } from '../composables/useDailyBreakdown'
+import { useTopExpenses } from '../composables/useTopExpenses'
+import { useMonthComparison } from '../composables/useMonthComparison'
 import { useHealthScore } from '../composables/useHealthScore'
 import { useForecast } from '../composables/useForecast'
 import { formatRupiah, formatRupiahShort } from '@/shared/utils/currency'
@@ -47,6 +51,20 @@ const coupleTrendMax = computed(() =>
 
 const { points: dailyPoints, loading: dailyLoading } = useDailyBreakdown(year, month)
 const dailyMax = computed(() => dailyPoints.value.reduce((m, p) => Math.max(m, p.total), 0))
+
+const {
+  items: topExpenses,
+  coupleItems: coupleTopExpenses,
+  loading: topExpensesLoading,
+} = useTopExpenses(year, month)
+
+const {
+  loading: comparisonLoading,
+  totalCurrent: comparisonTotalCurrent,
+  totalPrevious: comparisonTotalPrevious,
+  totalDeltaPct: comparisonTotalDeltaPct,
+  categories: comparisonCategories,
+} = useMonthComparison(year, month, monthlyReport)
 
 const { score: healthScore } = useHealthScore(year, month)
 
@@ -233,6 +251,16 @@ const confidenceLabel = computed(() => {
             </div>
           </article>
 
+          <!-- This month vs last month, total + per category -->
+          <MonthComparisonCard
+            :period-label="periodLabel"
+            :loading="comparisonLoading || monthlyLoading"
+            :total-current="comparisonTotalCurrent"
+            :total-previous="comparisonTotalPrevious"
+            :total-delta-pct="comparisonTotalDeltaPct"
+            :categories="comparisonCategories"
+          />
+
           <!-- Health score -->
           <article class="rounded-3xl border p-4" :class="[healthTone.bg, healthTone.border]">
             <p class="text-sky/60 text-[0.6875rem] font-semibold tracking-widest uppercase">
@@ -308,6 +336,13 @@ const confidenceLabel = computed(() => {
               </ul>
             </div>
           </article>
+
+          <!-- Largest personal transactions this period -->
+          <TopExpensesCard
+            :title="`Pengeluaran terbesar ${periodLabel}`"
+            :items="topExpenses"
+            :loading="topExpensesLoading"
+          />
 
           <!-- Daily breakdown within the selected month -->
           <article class="col-span-2 rounded-3xl border border-white/10 bg-white/5 p-4">
@@ -442,12 +477,24 @@ const confidenceLabel = computed(() => {
             </div>
           </article>
 
+          <!-- Largest transactions across both partners, ranked together -->
+          <TopExpensesCard
+            v-if="coupleLinked"
+            :title="`Pengeluaran terbesar kalian berdua — ${periodLabel}`"
+            :items="coupleTopExpenses"
+            :loading="topExpensesLoading"
+            show-owner
+            :partner-name="partnerName"
+          />
+
           <!-- Export -->
           <ExportReportCard
             class="col-span-2"
             :year="year"
             :month="month"
             :period-label="periodLabel"
+            :couple-linked="coupleLinked"
+            :partner-name="partnerName"
           />
         </div>
       </section>

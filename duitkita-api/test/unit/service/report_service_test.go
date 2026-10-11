@@ -206,6 +206,78 @@ func TestReportService_TrendByCategory(t *testing.T) {
 	})
 }
 
+func TestReportService_TopExpenses(t *testing.T) {
+	t.Run("maps repo rows and defaults limit to 5", func(t *testing.T) {
+		svc, reportRepo, _, _ := newReportService(t)
+		icon := "🍔"
+		note := "Makan siang"
+		reportRepo.EXPECT().TopExpensesForPeriod(context.Background(), "user-1", 2026, 1, 5).Return([]repository.TopExpense{
+			{ExpenseID: "e-1", CategoryID: "cat-1", CategoryName: "Food", CategoryIcon: &icon, Note: &note, Amount: 100000},
+			{ExpenseID: "e-2", CategoryID: "cat-2", CategoryName: "Transport", Amount: 50000},
+		}, nil)
+
+		res, err := svc.TopExpenses(context.Background(), "user-1", 2026, 1, 0)
+
+		require.NoError(t, err)
+		require.Len(t, res.Items, 2)
+		require.Equal(t, "🍔", res.Items[0].CategoryIcon)
+		require.Equal(t, "Makan siang", res.Items[0].Note)
+		require.Empty(t, res.Items[1].CategoryIcon)
+	})
+
+	t.Run("limit clamped to the max", func(t *testing.T) {
+		svc, reportRepo, _, _ := newReportService(t)
+		reportRepo.EXPECT().TopExpensesForPeriod(context.Background(), "user-1", 2026, 1, 20).Return(nil, nil)
+
+		_, err := svc.TopExpenses(context.Background(), "user-1", 2026, 1, 500)
+
+		require.NoError(t, err)
+	})
+
+	t.Run("repo error wrapped as internal", func(t *testing.T) {
+		svc, reportRepo, _, _ := newReportService(t)
+		reportRepo.EXPECT().TopExpensesForPeriod(context.Background(), "user-1", 2026, 1, 5).Return(nil, errors.New("db down"))
+
+		_, err := svc.TopExpenses(context.Background(), "user-1", 2026, 1, 0)
+
+		requireAppError(t, err, http.StatusInternalServerError, "failed to compute top expenses")
+	})
+}
+
+func TestReportService_CoupleTopExpenses(t *testing.T) {
+	t.Run("merges both sides' top expenses, re-ranked by amount", func(t *testing.T) {
+		svc, reportRepo, _, coupleRepo := newReportService(t)
+		coupleRepo.EXPECT().FindByUserID(context.Background(), "user-1").Return(&domain.Couple{User1ID: "user-1", User2ID: "partner-1"}, nil)
+		reportRepo.EXPECT().TopExpensesForPeriod(context.Background(), "user-1", 2026, 1, 2).Return([]repository.TopExpense{
+			{ExpenseID: "e-1", Amount: 50000},
+			{ExpenseID: "e-2", Amount: 10000},
+		}, nil)
+		reportRepo.EXPECT().TopExpensesForPeriod(context.Background(), "partner-1", 2026, 1, 2).Return([]repository.TopExpense{
+			{ExpenseID: "e-3", Amount: 70000},
+		}, nil)
+
+		res, err := svc.CoupleTopExpenses(context.Background(), "user-1", 2026, 1, 2)
+
+		require.NoError(t, err)
+		// Combined candidates [50000(me), 10000(me), 70000(partner)], ranked
+		// and truncated to the requested limit of 2.
+		require.Len(t, res.Items, 2)
+		require.Equal(t, "e-3", res.Items[0].ExpenseID)
+		require.Equal(t, "partner", res.Items[0].Owner)
+		require.Equal(t, "e-1", res.Items[1].ExpenseID)
+		require.Equal(t, "me", res.Items[1].Owner)
+	})
+
+	t.Run("no linked partner", func(t *testing.T) {
+		svc, _, _, coupleRepo := newReportService(t)
+		coupleRepo.EXPECT().FindByUserID(context.Background(), "user-1").Return(nil, nil)
+
+		_, err := svc.CoupleTopExpenses(context.Background(), "user-1", 2026, 1, 5)
+
+		requireAppError(t, err, http.StatusNotFound, "no linked partner")
+	})
+}
+
 func TestReportService_Rollover(t *testing.T) {
 	t.Run("leftover clamped to zero when overspent", func(t *testing.T) {
 		svc, reportRepo, budgetRepo, _ := newReportService(t)
@@ -300,6 +372,32 @@ func TestReportService_CachingAndInvalidation(t *testing.T) {
 		res, err := svc.CoupleTrend(context.Background(), "user-1", 6)
 		require.NoError(t, err)
 		require.Equal(t, []response.TrendPoint{{Year: 2026, Month: 1, Total: 120}}, res.Points)
+	})
+
+	t.Run("top-expenses cache is shared between TopExpenses and CoupleTopExpenses", func(t *testing.T) {
+		mr := miniredis.RunT(t)
+		redisClient := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+		t.Cleanup(func() { _ = redisClient.Close() })
+
+		reportRepo := mocks.NewReportRepository(t)
+		budgetRepo := mocks.NewBudgetRepository(t)
+		coupleRepo := mocks.NewCoupleRepository(t)
+		svc := service.NewReportService(reportRepo, budgetRepo, coupleRepo, redisClient)
+
+		reportRepo.EXPECT().TopExpensesForPeriod(context.Background(), "user-1", 2026, 1, 5).
+			Return([]repository.TopExpense{{ExpenseID: "e-1", Amount: 100}}, nil).Once()
+		reportRepo.EXPECT().TopExpensesForPeriod(context.Background(), "partner-1", 2026, 1, 5).
+			Return([]repository.TopExpense{{ExpenseID: "e-2", Amount: 50}}, nil).Once()
+		coupleRepo.EXPECT().FindByUserID(context.Background(), "user-1").
+			Return(&domain.Couple{User1ID: "user-1", User2ID: "partner-1"}, nil)
+
+		_, err := svc.TopExpenses(context.Background(), "user-1", 2026, 1, 5)
+		require.NoError(t, err)
+
+		// CoupleTopExpenses's "own" half reuses TopExpenses's cache entry.
+		res, err := svc.CoupleTopExpenses(context.Background(), "user-1", 2026, 1, 5)
+		require.NoError(t, err)
+		require.Len(t, res.Items, 2)
 	})
 
 	t.Run("bumping the cache version makes the next read recompute", func(t *testing.T) {

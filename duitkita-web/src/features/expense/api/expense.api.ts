@@ -9,6 +9,10 @@ export function listPartnerExpenses(limit = 10) {
   return authRequest<Expense[]>(`/expenses/partner?limit=${limit}`)
 }
 
+export function listExpensesByBudget(budgetId: string) {
+  return authRequest<Expense[]>(`/expenses/by-budget/${budgetId}`)
+}
+
 export function createExpense(payload: CreateExpenseRequest) {
   return authRequest<Expense>('/expenses', { method: 'POST', body: payload })
 }

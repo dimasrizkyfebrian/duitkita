@@ -59,6 +59,36 @@ type DailyReportResponse struct {
 	Points []DayPoint `json:"points"`
 }
 
+type TopExpenseItem struct {
+	ExpenseID    string    `json:"expense_id"`
+	CategoryID   string    `json:"category_id"`
+	CategoryName string    `json:"category_name"`
+	CategoryIcon string    `json:"category_icon,omitempty"`
+	Note         string    `json:"note,omitempty"`
+	Amount       int64     `json:"amount"`
+	ExpenseDate  time.Time `json:"expense_date"`
+}
+
+type TopExpensesResponse struct {
+	Year  int              `json:"year"`
+	Month int              `json:"month"`
+	Items []TopExpenseItem `json:"items"`
+}
+
+// CoupleTopExpenseItem tags each row with whose expense it is, same as
+// CoupleCategorySpend — the combined top-N list interleaves both partners'
+// transactions ranked by amount, not grouped by owner.
+type CoupleTopExpenseItem struct {
+	TopExpenseItem
+	Owner string `json:"owner"` // "me" or "partner"
+}
+
+type CoupleTopExpensesResponse struct {
+	Year  int                    `json:"year"`
+	Month int                    `json:"month"`
+	Items []CoupleTopExpenseItem `json:"items"`
+}
+
 type ForecastResponse struct {
 	Year           int     `json:"year"`
 	Month          int     `json:"month"`

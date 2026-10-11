@@ -13,7 +13,16 @@ export default defineConfig({
     vueDevTools(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt' (not 'autoUpdate'): autoUpdate makes vite-plugin-pwa set
+      // skipWaiting + clientsClaim, so a new service worker takes over an
+      // already-open session the instant it finishes installing — which can
+      // land mid-request and abort an in-flight API call with a generic
+      // "network error" even though the server received and processed it
+      // (e.g. an expense gets created, but the client never sees the
+      // response). 'prompt' lets the new worker install in the background
+      // and only take over once the user explicitly asks to reload, via
+      // UpdatePrompt.vue — see useRegisterSW there.
+      registerType: 'prompt',
       // App is online-only by design (no offline data sync), so only the
       // app shell (static assets) is precached — API calls are never cached.
       workbox: {

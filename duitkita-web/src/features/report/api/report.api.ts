@@ -1,12 +1,14 @@
 import { authRequest } from '@/lib/http'
 import type {
   CoupleReport,
+  CoupleTopExpensesResponse,
   CreateExportRequest,
   DailyReport,
   Forecast,
   HealthScore,
   MonthlyReport,
   ReportExport,
+  TopExpensesResponse,
   TrendResponse,
 } from '../types'
 
@@ -28,6 +30,18 @@ export function getCoupleTrend(months: number) {
 
 export function getDailyBreakdown(year: number, month: number) {
   return authRequest<DailyReport>(`/reports/daily?year=${year}&month=${month}`)
+}
+
+export function getTopExpenses(year: number, month: number, limit = 5) {
+  return authRequest<TopExpensesResponse>(
+    `/reports/top-expenses?year=${year}&month=${month}&limit=${limit}`,
+  )
+}
+
+export function getCoupleTopExpenses(year: number, month: number, limit = 5) {
+  return authRequest<CoupleTopExpensesResponse>(
+    `/reports/couple/top-expenses?year=${year}&month=${month}&limit=${limit}`,
+  )
 }
 
 export function getCategoryTrend(categoryId: string, months: number) {
