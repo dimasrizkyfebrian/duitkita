@@ -48,6 +48,32 @@ export interface DailyReport {
   points: DayPoint[]
 }
 
+export interface TopExpenseItem {
+  expense_id: string
+  category_id: string
+  category_name: string
+  category_icon?: string
+  note?: string
+  amount: number
+  expense_date: string
+}
+
+export interface TopExpensesResponse {
+  year: number
+  month: number
+  items: TopExpenseItem[]
+}
+
+export interface CoupleTopExpenseItem extends TopExpenseItem {
+  owner: 'me' | 'partner'
+}
+
+export interface CoupleTopExpensesResponse {
+  year: number
+  month: number
+  items: CoupleTopExpenseItem[]
+}
+
 export interface Forecast {
   year: number
   month: number
