@@ -19,6 +19,23 @@ type ReportService interface {
 	TrendByCategory(ctx context.Context, userID, categoryID string, months int) (*response.TrendResponse, error)
 	Rollover(ctx context.Context, userID, categoryID string, year, month int) (int64, error)
 	DailyBreakdown(ctx context.Context, userID string, year, month int) (*response.DailyReportResponse, error)
+	TopExpenses(ctx context.Context, userID string, year, month, limit int) (*response.TopExpensesResponse, error)
+	CoupleTopExpenses(ctx context.Context, userID string, year, month, limit int) (*response.CoupleTopExpensesResponse, error)
+}
+
+const (
+	defaultTopExpensesLimit = 5
+	maxTopExpensesLimit     = 20
+)
+
+func clampTopExpensesLimit(limit int) int {
+	if limit <= 0 {
+		return defaultTopExpensesLimit
+	}
+	if limit > maxTopExpensesLimit {
+		return maxTopExpensesLimit
+	}
+	return limit
 }
 
 type reportService struct {
@@ -138,6 +155,57 @@ func (s *reportService) CoupleTrend(ctx context.Context, userID string, months i
 	return &response.TrendResponse{Points: out}, nil
 }
 
+// CoupleTopExpenses merges both partners' top-N expenses into one list
+// ranked by amount. Each side only ever needs to contribute its own top N —
+// any transaction that belongs in the combined top N must also be in its
+// owner's own top N, so fetching N from each side (reusing the same cached
+// TopExpenses as the personal endpoint) and re-ranking covers every
+// candidate without over-fetching.
+func (s *reportService) CoupleTopExpenses(ctx context.Context, userID string, year, month, limit int) (*response.CoupleTopExpensesResponse, error) {
+	couple, err := s.coupleRepo.FindByUserID(ctx, userID)
+	if err != nil {
+		return nil, utils.ErrInternal("failed to look up partner")
+	}
+	if couple == nil {
+		return nil, utils.ErrNotFound("no linked partner")
+	}
+
+	partnerID := couple.User2ID
+	if partnerID == userID {
+		partnerID = couple.User1ID
+	}
+
+	limit = clampTopExpensesLimit(limit)
+
+	own, err := s.TopExpenses(ctx, userID, year, month, limit)
+	if err != nil {
+		return nil, err
+	}
+	partner, err := s.TopExpenses(ctx, partnerID, year, month, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]response.CoupleTopExpenseItem, 0, len(own.Items)+len(partner.Items))
+	for _, it := range own.Items {
+		items = append(items, response.CoupleTopExpenseItem{TopExpenseItem: it, Owner: "me"})
+	}
+	for _, it := range partner.Items {
+		items = append(items, response.CoupleTopExpenseItem{TopExpenseItem: it, Owner: "partner"})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Amount != items[j].Amount {
+			return items[i].Amount > items[j].Amount
+		}
+		return items[i].ExpenseDate.After(items[j].ExpenseDate)
+	})
+	if len(items) > limit {
+		items = items[:limit]
+	}
+
+	return &response.CoupleTopExpensesResponse{Year: year, Month: month, Items: items}, nil
+}
+
 func (s *reportService) Trend(ctx context.Context, userID string, months int) (*response.TrendResponse, error) {
 	if months <= 0 {
 		months = 6
@@ -204,6 +272,42 @@ func (s *reportService) DailyBreakdown(ctx context.Context, userID string, year,
 		points = append(points, response.DayPoint{Day: t.Day, Total: t.Total})
 	}
 	res := &response.DailyReportResponse{Year: year, Month: month, Points: points}
+	setReportCache(ctx, s.redis, key, *res)
+	return res, nil
+}
+
+func (s *reportService) TopExpenses(ctx context.Context, userID string, year, month, limit int) (*response.TopExpensesResponse, error) {
+	limit = clampTopExpensesLimit(limit)
+
+	key := reportCacheKey("top-expenses", reportCacheVersion(ctx, s.redis, userID), userID, year, month, limit)
+	if cached, ok := getReportCache[response.TopExpensesResponse](ctx, s.redis, key); ok {
+		return &cached, nil
+	}
+
+	rows, err := s.reportRepo.TopExpensesForPeriod(ctx, userID, year, month, limit)
+	if err != nil {
+		return nil, utils.ErrInternal("failed to compute top expenses")
+	}
+
+	items := make([]response.TopExpenseItem, 0, len(rows))
+	for _, r := range rows {
+		item := response.TopExpenseItem{
+			ExpenseID:    r.ExpenseID,
+			CategoryID:   r.CategoryID,
+			CategoryName: r.CategoryName,
+			Amount:       r.Amount,
+			ExpenseDate:  r.ExpenseDate,
+		}
+		if r.CategoryIcon != nil {
+			item.CategoryIcon = *r.CategoryIcon
+		}
+		if r.Note != nil {
+			item.Note = *r.Note
+		}
+		items = append(items, item)
+	}
+
+	res := &response.TopExpensesResponse{Year: year, Month: month, Items: items}
 	setReportCache(ctx, s.redis, key, *res)
 	return res, nil
 }

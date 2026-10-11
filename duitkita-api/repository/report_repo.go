@@ -27,6 +27,16 @@ type DayTotal struct {
 	Total int64 `gorm:"column:total"`
 }
 
+type TopExpense struct {
+	ExpenseID    string    `gorm:"column:expense_id"`
+	CategoryID   string    `gorm:"column:category_id"`
+	CategoryName string    `gorm:"column:category_name"`
+	CategoryIcon *string   `gorm:"column:category_icon"`
+	Note         *string   `gorm:"column:note"`
+	Amount       int64     `gorm:"column:amount"`
+	ExpenseDate  time.Time `gorm:"column:expense_date"`
+}
+
 type ReportRepository interface {
 	SumExpensesByUserAndPeriod(ctx context.Context, userID string, year, month int) (int64, error)
 	SumBudgetByUserAndPeriod(ctx context.Context, userID string, year, month int) (int64, error)
@@ -34,6 +44,7 @@ type ReportRepository interface {
 	MonthlyTrend(ctx context.Context, userID string, months int) ([]MonthTotal, error)
 	MonthlyTrendByCategory(ctx context.Context, userID, categoryID string, months int) ([]MonthTotal, error)
 	SpentByDayForPeriod(ctx context.Context, userID string, year, month int) ([]DayTotal, error)
+	TopExpensesForPeriod(ctx context.Context, userID string, year, month, limit int) ([]TopExpense, error)
 }
 
 type reportRepository struct {
@@ -115,6 +126,28 @@ func (r *reportRepository) SpentByDayForPeriod(ctx context.Context, userID strin
 		Group("day").
 		Order("day ASC").
 		Scan(&results).Error
+	return results, err
+}
+
+func (r *reportRepository) TopExpensesForPeriod(ctx context.Context, userID string, year, month, limit int) ([]TopExpense, error) {
+	start, end := monthRange(year, month)
+
+	var results []TopExpense
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT
+			e.id AS expense_id,
+			e.category_id AS category_id,
+			c.name AS category_name,
+			c.icon AS category_icon,
+			e.note AS note,
+			e.amount AS amount,
+			e.expense_date AS expense_date
+		FROM expenses e
+		JOIN categories c ON c.id = e.category_id
+		WHERE e.user_id = ? AND e.expense_date >= ? AND e.expense_date < ?
+		ORDER BY e.amount DESC, e.expense_date DESC
+		LIMIT ?
+	`, userID, start, end, limit).Scan(&results).Error
 	return results, err
 }
 

@@ -83,6 +83,68 @@ func (_c *ReportService_CoupleReport_Call) RunAndReturn(run func(context.Context
 	return _c
 }
 
+// CoupleTopExpenses provides a mock function with given fields: ctx, userID, year, month, limit
+func (_m *ReportService) CoupleTopExpenses(ctx context.Context, userID string, year int, month int, limit int) (*response.CoupleTopExpensesResponse, error) {
+	ret := _m.Called(ctx, userID, year, month, limit)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CoupleTopExpenses")
+	}
+
+	var r0 *response.CoupleTopExpensesResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, int, int, int) (*response.CoupleTopExpensesResponse, error)); ok {
+		return rf(ctx, userID, year, month, limit)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, int, int, int) *response.CoupleTopExpensesResponse); ok {
+		r0 = rf(ctx, userID, year, month, limit)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*response.CoupleTopExpensesResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, int, int, int) error); ok {
+		r1 = rf(ctx, userID, year, month, limit)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ReportService_CoupleTopExpenses_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CoupleTopExpenses'
+type ReportService_CoupleTopExpenses_Call struct {
+	*mock.Call
+}
+
+// CoupleTopExpenses is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - year int
+//   - month int
+//   - limit int
+func (_e *ReportService_Expecter) CoupleTopExpenses(ctx interface{}, userID interface{}, year interface{}, month interface{}, limit interface{}) *ReportService_CoupleTopExpenses_Call {
+	return &ReportService_CoupleTopExpenses_Call{Call: _e.mock.On("CoupleTopExpenses", ctx, userID, year, month, limit)}
+}
+
+func (_c *ReportService_CoupleTopExpenses_Call) Run(run func(ctx context.Context, userID string, year int, month int, limit int)) *ReportService_CoupleTopExpenses_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(int), args[3].(int), args[4].(int))
+	})
+	return _c
+}
+
+func (_c *ReportService_CoupleTopExpenses_Call) Return(_a0 *response.CoupleTopExpensesResponse, _a1 error) *ReportService_CoupleTopExpenses_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ReportService_CoupleTopExpenses_Call) RunAndReturn(run func(context.Context, string, int, int, int) (*response.CoupleTopExpensesResponse, error)) *ReportService_CoupleTopExpenses_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CoupleTrend provides a mock function with given fields: ctx, userID, months
 func (_m *ReportService) CoupleTrend(ctx context.Context, userID string, months int) (*response.TrendResponse, error) {
 	ret := _m.Called(ctx, userID, months)
@@ -321,6 +383,68 @@ func (_c *ReportService_Rollover_Call) Return(_a0 int64, _a1 error) *ReportServi
 }
 
 func (_c *ReportService_Rollover_Call) RunAndReturn(run func(context.Context, string, string, int, int) (int64, error)) *ReportService_Rollover_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// TopExpenses provides a mock function with given fields: ctx, userID, year, month, limit
+func (_m *ReportService) TopExpenses(ctx context.Context, userID string, year int, month int, limit int) (*response.TopExpensesResponse, error) {
+	ret := _m.Called(ctx, userID, year, month, limit)
+
+	if len(ret) == 0 {
+		panic("no return value specified for TopExpenses")
+	}
+
+	var r0 *response.TopExpensesResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, int, int, int) (*response.TopExpensesResponse, error)); ok {
+		return rf(ctx, userID, year, month, limit)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, int, int, int) *response.TopExpensesResponse); ok {
+		r0 = rf(ctx, userID, year, month, limit)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*response.TopExpensesResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, int, int, int) error); ok {
+		r1 = rf(ctx, userID, year, month, limit)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ReportService_TopExpenses_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TopExpenses'
+type ReportService_TopExpenses_Call struct {
+	*mock.Call
+}
+
+// TopExpenses is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - year int
+//   - month int
+//   - limit int
+func (_e *ReportService_Expecter) TopExpenses(ctx interface{}, userID interface{}, year interface{}, month interface{}, limit interface{}) *ReportService_TopExpenses_Call {
+	return &ReportService_TopExpenses_Call{Call: _e.mock.On("TopExpenses", ctx, userID, year, month, limit)}
+}
+
+func (_c *ReportService_TopExpenses_Call) Run(run func(ctx context.Context, userID string, year int, month int, limit int)) *ReportService_TopExpenses_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(int), args[3].(int), args[4].(int))
+	})
+	return _c
+}
+
+func (_c *ReportService_TopExpenses_Call) Return(_a0 *response.TopExpensesResponse, _a1 error) *ReportService_TopExpenses_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ReportService_TopExpenses_Call) RunAndReturn(run func(context.Context, string, int, int, int) (*response.TopExpensesResponse, error)) *ReportService_TopExpenses_Call {
 	_c.Call.Return(run)
 	return _c
 }
