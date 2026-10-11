@@ -18,10 +18,11 @@ import IconPartner from '@/shared/icons/IconPartner.vue'
 import IconChevronDown from '@/shared/icons/IconChevronDown.vue'
 import IconPencil from '@/shared/icons/IconPencil.vue'
 import type { CategorySpend } from '@/features/report/types'
-import type { ExpenseFeedItem } from '@/features/expense/types'
+import type { Expense } from '@/features/expense/types'
 import { useMonthlyOverview } from '../composables/useMonthlyOverview'
 import { usePartnerOverview } from '../composables/usePartnerOverview'
 import { useRecentExpenses } from '../composables/useRecentExpenses'
+import { useCategoryExpenses } from '../composables/useCategoryExpenses'
 import type { CategoryOverviewItem } from '../types'
 
 const auth = useAuthStore()
@@ -108,16 +109,32 @@ function afterExpenseCreated() {
   reloadRecent()
 }
 
-// Only your own expenses are editable — the backend scopes updates to the
-// owner, so a partner's row stays read-only here rather than offering an
-// action that would come back 404.
+// Editing now happens from the per-category expense list (see
+// useCategoryExpenses), not the recent-expenses feed — that feed merges in
+// the partner's rows too, and "which ones are mine" was getting confusing
+// to scan. Only ever opened from your own budgeted categories, so there's
+// no ownership check to make here.
 const editExpenseOpen = ref(false)
-const editingExpense = ref<ExpenseFeedItem | null>(null)
+const editingExpense = ref<Expense | null>(null)
 
-function openEditExpense(item: ExpenseFeedItem) {
-  if (item.owner !== 'me') return
+const {
+  expandedId: expandedCategoryId,
+  itemsByBudget: categoryExpensesByBudget,
+  loadingId: categoryExpensesLoadingId,
+  toggle: toggleCategoryExpenses,
+  refresh: refreshCategoryExpenses,
+} = useCategoryExpenses()
+
+function openEditExpense(item: Expense) {
   editingExpense.value = item
   editExpenseOpen.value = true
+}
+
+function afterExpenseEdited() {
+  const budgetId = editingExpense.value?.monthly_budget_id
+  reload()
+  reloadRecent()
+  if (budgetId) refreshCategoryExpenses(budgetId)
 }
 
 function afterPartnerChanged() {
@@ -324,49 +341,39 @@ const visibleRecentItems = computed(() => recentItems.value.slice(0, recentExpan
           v-else
           class="mt-3 divide-y divide-white/5 overflow-hidden rounded-3xl border border-white/10 bg-white/5"
         >
-          <li v-for="item in visibleRecentItems" :key="item.id">
-            <component
-              :is="item.owner === 'me' ? 'button' : 'div'"
-              :type="item.owner === 'me' ? 'button' : undefined"
-              class="flex w-full items-center gap-3 px-4 py-3.5 text-left"
-              :class="item.owner === 'me' ? 'transition-colors active:bg-white/5' : ''"
-              :aria-label="item.owner === 'me' ? 'Ubah pengeluaran ini' : undefined"
-              @click="openEditExpense(item)"
+          <li
+            v-for="item in visibleRecentItems"
+            :key="item.id"
+            class="flex w-full items-center gap-3 px-4 py-3.5"
+          >
+            <img
+              v-if="item.avatarUrl && !brokenAvatars.has(item.id)"
+              :src="item.avatarUrl"
+              :alt="personName(item)"
+              class="h-10 w-10 shrink-0 rounded-full object-cover"
+              @error="onAvatarError(item.id)"
+            />
+            <span
+              v-else
+              class="text-sky flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[0.8125rem] font-extrabold"
+              :class="item.owner === 'me' ? 'bg-azure/20' : 'bg-sky/15'"
+              aria-hidden="true"
             >
-              <img
-                v-if="item.avatarUrl && !brokenAvatars.has(item.id)"
-                :src="item.avatarUrl"
-                :alt="personName(item)"
-                class="h-10 w-10 shrink-0 rounded-full object-cover"
-                @error="onAvatarError(item.id)"
-              />
-              <span
-                v-else
-                class="text-sky flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[0.8125rem] font-extrabold"
-                :class="item.owner === 'me' ? 'bg-azure/20' : 'bg-sky/15'"
-                aria-hidden="true"
-              >
-                {{ personName(item).charAt(0) }}
-              </span>
-              <div class="min-w-0 flex-1">
-                <p class="truncate text-[0.875rem] font-bold text-white">
-                  {{ item.note || item.categoryName || 'Pengeluaran' }}
-                </p>
-                <p class="text-sky/50 mt-0.5 truncate text-[0.75rem]">
-                  <template v-if="item.categoryName">{{ item.categoryName }} · </template>
-                  {{ item.owner === 'me' ? 'Kamu' : partnerName }}
-                  · {{ formatShortDate(item.expense_date) }}
-                </p>
-              </div>
-              <p class="shrink-0 text-[0.875rem] font-extrabold text-white tabular-nums">
-                {{ formatRupiah(item.amount) }}
+              {{ personName(item).charAt(0) }}
+            </span>
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-[0.875rem] font-bold text-white">
+                {{ item.note || item.categoryName || 'Pengeluaran' }}
               </p>
-              <IconPencil
-                v-if="item.owner === 'me'"
-                class="text-sky/40 h-3.5 w-3.5 shrink-0"
-                aria-hidden="true"
-              />
-            </component>
+              <p class="text-sky/50 mt-0.5 truncate text-[0.75rem]">
+                <template v-if="item.categoryName">{{ item.categoryName }} · </template>
+                {{ item.owner === 'me' ? 'Kamu' : partnerName }}
+                · {{ formatShortDate(item.expense_date) }}
+              </p>
+            </div>
+            <p class="shrink-0 text-[0.875rem] font-extrabold text-white tabular-nums">
+              {{ formatRupiah(item.amount) }}
+            </p>
           </li>
         </ul>
 
@@ -392,7 +399,12 @@ const visibleRecentItems = computed(() => recentItems.value.slice(0, recentExpan
           class="mt-3 divide-y divide-white/5 overflow-hidden rounded-3xl border border-white/10 bg-white/5"
         >
           <li v-for="(category, index) in budgeted" :key="category.category_id" class="px-4 py-3.5">
-            <div class="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              class="flex w-full items-center justify-between gap-3 text-left"
+              :aria-expanded="expandedCategoryId === category.budgetId"
+              @click="category.budgetId && toggleCategoryExpenses(category.budgetId)"
+            >
               <div class="flex min-w-0 items-center gap-3">
                 <span
                   class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[0.9375rem]"
@@ -407,19 +419,73 @@ const visibleRecentItems = computed(() => recentItems.value.slice(0, recentExpan
                 </span>
                 <p class="truncate text-[0.875rem] font-bold text-white">{{ category.name }}</p>
               </div>
-              <p class="shrink-0 text-[0.8125rem] font-bold tabular-nums">
-                <span :class="categoryProgress(category) > 100 ? 'text-danger' : 'text-white'">
-                  {{ formatRupiahShort(category.spent) }}
-                </span>
-                <span class="text-sky/50"> / {{ formatRupiahShort(category.budget) }}</span>
-              </p>
-            </div>
+              <div class="flex shrink-0 items-center gap-2">
+                <p class="text-[0.8125rem] font-bold tabular-nums">
+                  <span :class="categoryProgress(category) > 100 ? 'text-danger' : 'text-white'">
+                    {{ formatRupiahShort(category.spent) }}
+                  </span>
+                  <span class="text-sky/50"> / {{ formatRupiahShort(category.budget) }}</span>
+                </p>
+                <IconChevronDown
+                  class="text-sky/50 h-3.5 w-3.5 shrink-0 transition-transform duration-200"
+                  :class="expandedCategoryId === category.budgetId ? 'rotate-180' : ''"
+                  aria-hidden="true"
+                />
+              </div>
+            </button>
             <div class="mt-2.5 h-1 overflow-hidden rounded-full bg-white/10">
               <div
                 class="h-full rounded-full transition-[width] duration-500"
                 :class="categoryProgress(category) > 100 ? 'bg-danger' : 'bg-azure'"
                 :style="{ width: `${Math.min(categoryProgress(category), 100)}%` }"
               ></div>
+            </div>
+
+            <!-- Per-category expense list: lazily loaded on first expand (see
+                 useCategoryExpenses). Editing lives here now instead of the
+                 recent-expenses feed, right next to the budget it affects. -->
+            <div v-if="expandedCategoryId === category.budgetId" class="mt-3">
+              <div
+                v-if="categoryExpensesLoadingId === category.budgetId"
+                class="h-16 animate-pulse rounded-2xl bg-white/5"
+              ></div>
+              <p
+                v-else-if="
+                  (categoryExpensesByBudget.get(category.budgetId ?? '')?.length ?? 0) === 0
+                "
+                class="text-sky/50 py-3 text-center text-[0.75rem]"
+              >
+                Belum ada pengeluaran di kategori ini bulan ini.
+              </p>
+              <ul
+                v-else
+                class="divide-y divide-white/5 overflow-hidden rounded-2xl bg-white/[0.04]"
+              >
+                <li
+                  v-for="expense in categoryExpensesByBudget.get(category.budgetId ?? '')"
+                  :key="expense.id"
+                >
+                  <button
+                    type="button"
+                    class="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors active:bg-white/5"
+                    aria-label="Ubah pengeluaran ini"
+                    @click="openEditExpense(expense)"
+                  >
+                    <div class="min-w-0 flex-1">
+                      <p class="truncate text-[0.8125rem] font-semibold text-white">
+                        {{ expense.note || category.name }}
+                      </p>
+                      <p class="text-sky/50 mt-0.5 text-[0.6875rem]">
+                        {{ formatShortDate(expense.expense_date) }}
+                      </p>
+                    </div>
+                    <p class="shrink-0 text-[0.8125rem] font-bold text-white tabular-nums">
+                      {{ formatRupiah(expense.amount) }}
+                    </p>
+                    <IconPencil class="text-sky/40 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  </button>
+                </li>
+              </ul>
             </div>
           </li>
 
@@ -528,8 +594,8 @@ const visibleRecentItems = computed(() => recentItems.value.slice(0, recentExpan
       v-model:open="editExpenseOpen"
       :expense="editingExpense"
       :categories="budgeted"
-      @saved="afterExpenseCreated"
-      @deleted="afterExpenseCreated"
+      @saved="afterExpenseEdited"
+      @deleted="afterExpenseEdited"
     />
     <PartnerSheet v-model:open="partnerSheetOpen" @changed="afterPartnerChanged" />
   </main>
