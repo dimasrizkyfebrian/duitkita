@@ -59,7 +59,7 @@ func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.Reten
 		Category:         NewCategoryService(categoryRepo, coupleRepo, budgetRepo),
 		Budget:           NewBudgetService(budgetRepo, categoryRepo, coupleRepo, activitySvc, expenseRepo, redisClient),
 		Expense:          NewExpenseService(expenseRepo, budgetRepo, coupleRepo, activitySvc, redisClient),
-		RecurringExpense: NewRecurringExpenseService(recurringExpenseRepo, categoryRepo, budgetRepo, expenseRepo),
+		RecurringExpense: NewRecurringExpenseService(recurringExpenseRepo, categoryRepo, budgetRepo, expenseRepo, notificationSvc),
 		Reminder:         NewReminderService(reminderRepo, notificationSvc),
 		Notification:     notificationSvc,
 		Push:             pushSvc,

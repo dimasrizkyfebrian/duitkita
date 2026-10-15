@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,7 +23,13 @@ type RecurringExpenseService interface {
 	Delete(ctx context.Context, userID, id string) error
 	Pause(ctx context.Context, userID, id string) error
 	Resume(ctx context.Context, userID, id string) error
+	// RunDue processes every user's due recurring expenses — only the
+	// internal Cloud Scheduler job should call this.
 	RunDue(ctx context.Context) (int, error)
+	// RunDueForUser is the user-facing "run my due items now" trigger,
+	// scoped to that one caller — it must never reach across accounts the
+	// way an unscoped RunDue call from a normal request would.
+	RunDueForUser(ctx context.Context, userID string) (int, error)
 }
 
 type recurringExpenseService struct {
@@ -30,10 +37,11 @@ type recurringExpenseService struct {
 	categoryRepo repository.CategoryRepository
 	budgetRepo   repository.BudgetRepository
 	expenseRepo  repository.ExpenseRepository
+	notifSvc     NotificationService
 }
 
-func NewRecurringExpenseService(repo repository.RecurringExpenseRepository, categoryRepo repository.CategoryRepository, budgetRepo repository.BudgetRepository, expenseRepo repository.ExpenseRepository) RecurringExpenseService {
-	return &recurringExpenseService{repo: repo, categoryRepo: categoryRepo, budgetRepo: budgetRepo, expenseRepo: expenseRepo}
+func NewRecurringExpenseService(repo repository.RecurringExpenseRepository, categoryRepo repository.CategoryRepository, budgetRepo repository.BudgetRepository, expenseRepo repository.ExpenseRepository, notifSvc NotificationService) RecurringExpenseService {
+	return &recurringExpenseService{repo: repo, categoryRepo: categoryRepo, budgetRepo: budgetRepo, expenseRepo: expenseRepo, notifSvc: notifSvc}
 }
 
 func (s *recurringExpenseService) Create(ctx context.Context, userID string, req request.CreateRecurringExpenseRequest) (*response.RecurringExpenseResponse, error) {
@@ -143,10 +151,32 @@ func (s *recurringExpenseService) RunDue(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, utils.ErrInternal("failed to load due recurring expenses")
 	}
+	return s.processDue(ctx, due, now), nil
+}
 
+func (s *recurringExpenseService) RunDueForUser(ctx context.Context, userID string) (int, error) {
+	now := time.Now()
+	due, err := s.repo.FindDueByUserID(ctx, userID, now)
+	if err != nil {
+		return 0, utils.ErrInternal("failed to load due recurring expenses")
+	}
+	return s.processDue(ctx, due, now), nil
+}
+
+func (s *recurringExpenseService) processDue(ctx context.Context, due []domain.RecurringExpense, now time.Time) int {
 	processed := 0
 	for i := range due {
 		re := &due[i]
+
+		category, err := s.categoryRepo.FindByID(ctx, re.CategoryID)
+		if err != nil {
+			log.Error().Err(err).Str("recurring_expense_id", re.ID).Msg("failed to look up category for recurring expense")
+			continue
+		}
+		categoryName := "this category"
+		if category != nil {
+			categoryName = category.Name
+		}
 
 		budget, err := s.budgetRepo.FindByUserCategoryPeriod(ctx, re.UserID, re.CategoryID, now.Year(), int(now.Month()))
 		if err != nil {
@@ -154,7 +184,12 @@ func (s *recurringExpenseService) RunDue(ctx context.Context) (int, error) {
 			continue
 		}
 		if budget == nil {
-			log.Warn().Str("recurring_expense_id", re.ID).Msg("no matching budget found, skipping expense creation")
+			// Not recorded — there's nothing to attach the expense to — but
+			// the occurrence must not just vanish: the user gets told so
+			// they can set the budget and catch up manually, instead of
+			// silently losing track of a bill they thought was automated.
+			s.notify(ctx, re.UserID, "Recurring expense skipped",
+				fmt.Sprintf("Your recurring %s expense wasn't recorded — set a budget for this month first.", categoryName))
 		} else {
 			expense := &domain.Expense{
 				ID:              uuid.NewString(),
@@ -169,6 +204,8 @@ func (s *recurringExpenseService) RunDue(ctx context.Context) (int, error) {
 				log.Error().Err(err).Str("recurring_expense_id", re.ID).Msg("failed to create expense from recurring expense")
 				continue
 			}
+			s.notify(ctx, re.UserID, "Recurring expense recorded",
+				fmt.Sprintf("%s was recorded automatically.", categoryName))
 		}
 
 		re.LastRunAt = &now
@@ -180,7 +217,16 @@ func (s *recurringExpenseService) RunDue(ctx context.Context) (int, error) {
 		processed++
 	}
 
-	return processed, nil
+	return processed
+}
+
+// notify is best-effort: a failure to create the in-app notification must
+// never undo (or get treated as a reason to retry) the expense create/skip
+// decision already made above — it's only logged.
+func (s *recurringExpenseService) notify(ctx context.Context, userID, title, body string) {
+	if err := s.notifSvc.Create(ctx, userID, domain.NotificationTypeRecurringExpense, title, body); err != nil {
+		log.Error().Err(err).Str("user_id", userID).Msg("failed to send recurring expense notification")
+	}
 }
 
 func (s *recurringExpenseService) mustOwnRecurringExpense(ctx context.Context, userID, id string) (*domain.RecurringExpense, error) {

@@ -980,8 +980,12 @@ paths:
   /recurring-expenses/run-due:
     post:
       tags: [Recurring Expenses]
-      summary: Manually trigger processing of every due recurring expense
-      description: Normally run by the cron worker; exposed here for manual testing.
+      summary: Manually trigger processing of the caller's own due recurring expenses
+      description: >-
+        Scoped to the calling user only — the actual hourly sweep across
+        every user runs via the internal Cloud Scheduler job, not this
+        endpoint. Exposed here so a user can trigger their own due items on
+        demand instead of waiting for the next scheduled run.
       responses:
         '200':
           description: due recurring expenses processed
