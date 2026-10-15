@@ -1,21 +1,46 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import BrandMark from '@/shared/components/BrandMark.vue'
 import BottomNav from '@/shared/components/BottomNav.vue'
 import ReminderSheet from '../components/ReminderSheet.vue'
 import ReminderListItem from '../components/ReminderListItem.vue'
+import RecurringExpenseSheet from '@/features/recurring/components/RecurringExpenseSheet.vue'
+import RecurringExpenseListItem from '@/features/recurring/components/RecurringExpenseListItem.vue'
 import { useReminders } from '../composables/useReminders'
+import { useRecurringExpenses } from '@/features/recurring/composables/useRecurringExpenses'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import { getAvatarUrl } from '@/features/user/api/user.api'
+import { listCategories } from '@/features/category/api/category.api'
+import type { Category } from '@/features/category/types'
 import type { Reminder } from '../types'
+import type { RecurringExpense } from '@/features/recurring/types'
 
 const router = useRouter()
 const auth = useAuthStore()
 const myAvatarUrl = ref<string | null>(null)
 if (auth.user) getAvatarUrl(auth.user.id).then((url) => (myAvatarUrl.value = url))
 
+const tab = ref<'tagihan' | 'rutin'>('tagihan')
+
 const { overdue, upcoming, done, loading, reload } = useReminders()
+const {
+  active: activeRecurring,
+  paused: pausedRecurring,
+  loading: recurringLoading,
+  reload: reloadRecurring,
+} = useRecurringExpenses()
+
+// Needed by both the Rutin list (to show each item's category name/icon)
+// and the create/edit sheet (to pick a category) — cheap and the same for
+// everyone, so just load it once up front rather than per-tab-switch.
+const categories = ref<Category[]>([])
+onMounted(async () => {
+  categories.value = await listCategories().catch(() => [])
+})
+function categoryFor(categoryId: string) {
+  return categories.value.find((c) => c.id === categoryId)
+}
 
 const sheetOpen = ref(false)
 const editTarget = ref<Reminder | null>(null)
@@ -28,6 +53,19 @@ function openCreate() {
 function openEdit(reminder: Reminder) {
   editTarget.value = reminder
   sheetOpen.value = true
+}
+
+const recurringSheetOpen = ref(false)
+const recurringEditTarget = ref<RecurringExpense | null>(null)
+
+function openCreateRecurring() {
+  recurringEditTarget.value = null
+  recurringSheetOpen.value = true
+}
+
+function openEditRecurring(item: RecurringExpense) {
+  recurringEditTarget.value = item
+  recurringSheetOpen.value = true
 }
 </script>
 
@@ -52,8 +90,8 @@ function openEdit(reminder: Reminder) {
         <button
           type="button"
           class="bg-azure flex h-9 w-9 items-center justify-center rounded-full text-white shadow-[0_8px_18px_-6px_rgba(33,150,243,0.75)] transition-transform active:translate-y-px"
-          aria-label="Tambah pengingat"
-          @click="openCreate"
+          :aria-label="tab === 'tagihan' ? 'Tambah pengingat' : 'Tambah pengeluaran rutin'"
+          @click="tab === 'tagihan' ? openCreate() : openCreateRecurring()"
         >
           <svg
             viewBox="0 0 24 24"
@@ -70,7 +108,32 @@ function openEdit(reminder: Reminder) {
         </button>
       </header>
 
-      <section class="flex-1 px-5 pb-28">
+      <div class="px-5 pb-5" role="tablist">
+        <div class="flex gap-1 rounded-full bg-white/5 p-1">
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="tab === 'tagihan'"
+            class="flex-1 rounded-full py-2 text-[0.8125rem] font-bold transition-colors"
+            :class="tab === 'tagihan' ? 'bg-azure text-white' : 'text-sky/60'"
+            @click="tab = 'tagihan'"
+          >
+            Tagihan
+          </button>
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="tab === 'rutin'"
+            class="flex-1 rounded-full py-2 text-[0.8125rem] font-bold transition-colors"
+            :class="tab === 'rutin' ? 'bg-azure text-white' : 'text-sky/60'"
+            @click="tab = 'rutin'"
+          >
+            Rutin
+          </button>
+        </div>
+      </div>
+
+      <section v-if="tab === 'tagihan'" class="flex-1 px-5 pb-28">
         <div v-if="loading" class="flex flex-col gap-3">
           <div v-for="n in 3" :key="n" class="h-16 animate-pulse rounded-2xl bg-white/5"></div>
         </div>
@@ -126,6 +189,51 @@ function openEdit(reminder: Reminder) {
         </div>
       </section>
 
+      <section v-else class="flex-1 px-5 pb-28">
+        <div v-if="recurringLoading" class="flex flex-col gap-3">
+          <div v-for="n in 3" :key="n" class="h-16 animate-pulse rounded-2xl bg-white/5"></div>
+        </div>
+
+        <div
+          v-else-if="activeRecurring.length === 0 && pausedRecurring.length === 0"
+          class="flex flex-col items-center gap-3 rounded-3xl border border-white/10 bg-white/5 px-6 py-12 text-center"
+        >
+          <p class="text-[0.9375rem] font-bold text-white">Belum ada pengeluaran rutin</p>
+          <p class="text-sky/60 text-[0.8125rem] leading-relaxed">
+            Bikin buat pengeluaran bulanan atau mingguan yang jumlahnya sama terus, biar otomatis
+            tercatat.
+          </p>
+        </div>
+
+        <div v-else class="flex flex-col gap-6">
+          <div v-if="activeRecurring.length > 0" class="flex flex-col gap-2.5">
+            <p class="text-sky/60 text-[0.75rem] font-bold tracking-wide uppercase">Aktif</p>
+            <div class="flex flex-col gap-2">
+              <RecurringExpenseListItem
+                v-for="item in activeRecurring"
+                :key="item.id"
+                :item="item"
+                :category="categoryFor(item.category_id)"
+                @tap="openEditRecurring(item)"
+              />
+            </div>
+          </div>
+
+          <div v-if="pausedRecurring.length > 0" class="flex flex-col gap-2.5">
+            <p class="text-sky/60 text-[0.75rem] font-bold tracking-wide uppercase">Dipause</p>
+            <div class="flex flex-col gap-2">
+              <RecurringExpenseListItem
+                v-for="item in pausedRecurring"
+                :key="item.id"
+                :item="item"
+                :category="categoryFor(item.category_id)"
+                @tap="openEditRecurring(item)"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
       <BottomNav
         :avatar-url="myAvatarUrl"
         :avatar-name="auth.user?.name"
@@ -134,5 +242,11 @@ function openEdit(reminder: Reminder) {
     </div>
 
     <ReminderSheet v-model:open="sheetOpen" :existing="editTarget" @saved="reload" />
+    <RecurringExpenseSheet
+      v-model:open="recurringSheetOpen"
+      :existing="recurringEditTarget"
+      :categories="categories"
+      @saved="reloadRecurring"
+    />
   </main>
 </template>
