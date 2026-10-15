@@ -42,6 +42,8 @@ const MESSAGES: Record<string, string> = {
     'Kategori ini masih punya budget yang diatur. Hapus budgetnya dulu ya.',
   'budget still has expenses recorded, delete those first':
     'Budget ini masih punya pengeluaran yang tercatat. Hapus pengeluarannya dulu ya.',
+  'push notifications are not configured on this server':
+    'Notifikasi push belum bisa diaktifin di server ini. Coba lagi lain waktu ya.',
 }
 
 const FIELD_LABELS: Record<string, string> = {

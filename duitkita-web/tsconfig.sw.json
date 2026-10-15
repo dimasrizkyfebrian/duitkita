@@ -1,0 +1,19 @@
+// TSConfig for the custom service worker (src/sw.ts). Separate from
+// tsconfig.app.json because a service worker runs in a different global
+// scope (ServiceWorkerGlobalScope, not Window) — the "webworker" lib and
+// the "dom" lib define conflicting globals (e.g. both declare `self` with
+// a different type), so this file can't be type-checked under either the
+// app's or node's tsconfig.
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "webworker"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.sw.tsbuildinfo"
+  },
+  "include": ["src/sw.ts"]
+}
