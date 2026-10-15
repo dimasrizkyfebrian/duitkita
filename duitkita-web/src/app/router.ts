@@ -47,6 +47,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/pengingat',
+      name: 'reminder',
+      component: () => import('@/features/reminder/views/ReminderView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/profile',
       name: 'profile',
       component: () => import('@/features/user/views/ProfileView.vue'),

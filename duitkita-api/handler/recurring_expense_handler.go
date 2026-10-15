@@ -54,7 +54,7 @@ func (h *RecurringExpenseHandler) list(c *gin.Context) {
 }
 
 func (h *RecurringExpenseHandler) runDue(c *gin.Context) {
-	count, err := h.svc.RunDue(c.Request.Context())
+	count, err := h.svc.RunDueForUser(c.Request.Context(), currentUserID(c))
 	if err != nil {
 		c.Error(err)
 		return

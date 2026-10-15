@@ -404,6 +404,63 @@ func (_c *RecurringExpenseService_RunDue_Call) RunAndReturn(run func(context.Con
 	return _c
 }
 
+// RunDueForUser provides a mock function with given fields: ctx, userID
+func (_m *RecurringExpenseService) RunDueForUser(ctx context.Context, userID string) (int, error) {
+	ret := _m.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RunDueForUser")
+	}
+
+	var r0 int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (int, error)); ok {
+		return rf(ctx, userID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) int); ok {
+		r0 = rf(ctx, userID)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// RecurringExpenseService_RunDueForUser_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RunDueForUser'
+type RecurringExpenseService_RunDueForUser_Call struct {
+	*mock.Call
+}
+
+// RunDueForUser is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+func (_e *RecurringExpenseService_Expecter) RunDueForUser(ctx interface{}, userID interface{}) *RecurringExpenseService_RunDueForUser_Call {
+	return &RecurringExpenseService_RunDueForUser_Call{Call: _e.mock.On("RunDueForUser", ctx, userID)}
+}
+
+func (_c *RecurringExpenseService_RunDueForUser_Call) Run(run func(ctx context.Context, userID string)) *RecurringExpenseService_RunDueForUser_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *RecurringExpenseService_RunDueForUser_Call) Return(_a0 int, _a1 error) *RecurringExpenseService_RunDueForUser_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *RecurringExpenseService_RunDueForUser_Call) RunAndReturn(run func(context.Context, string) (int, error)) *RecurringExpenseService_RunDueForUser_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Update provides a mock function with given fields: ctx, userID, id, req
 func (_m *RecurringExpenseService) Update(ctx context.Context, userID string, id string, req request.UpdateRecurringExpenseRequest) (*response.RecurringExpenseResponse, error) {
 	ret := _m.Called(ctx, userID, id, req)

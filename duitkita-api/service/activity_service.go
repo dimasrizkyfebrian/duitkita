@@ -98,15 +98,36 @@ func (s *activityService) notifyPartner(ctx context.Context, couple *domain.Coup
 		actorName = couple.User2.Name
 	}
 
-	body := fmt.Sprintf("%s %s %s %s", actorName, action, article(entityType), entityType)
-	_ = s.notifSvc.Create(ctx, partner.ID, domain.NotificationTypePartnerActivity, "Partner activity", body)
+	body := fmt.Sprintf("%s %s %s.", actorName, activityActionLabel(action), activityEntityLabel(entityType))
+	_ = s.notifSvc.Create(ctx, partner.ID, domain.NotificationTypePartnerActivity, "Aktivitas pasangan", body)
 }
 
-func article(entityType domain.ActivityEntityType) string {
-	if entityType == domain.ActivityEntityTypeExpense {
-		return "an"
+// activityActionLabel / activityEntityLabel build the notification body in
+// Bahasa Indonesia — this text is what the partner reads on their lock
+// screen once push is enabled, not just a row in a list, so it has to read
+// like a sentence a person wrote.
+func activityActionLabel(action domain.ActivityAction) string {
+	switch action {
+	case domain.ActivityActionCreated:
+		return "nyatet"
+	case domain.ActivityActionUpdated:
+		return "ngubah"
+	case domain.ActivityActionDeleted:
+		return "ngehapus"
+	default:
+		return string(action)
 	}
-	return "a"
+}
+
+func activityEntityLabel(entityType domain.ActivityEntityType) string {
+	switch entityType {
+	case domain.ActivityEntityTypeExpense:
+		return "pengeluaran baru"
+	case domain.ActivityEntityTypeBudget:
+		return "budget"
+	default:
+		return string(entityType)
+	}
 }
 
 func toActivityItems(items []domain.Activity) []ActivityItem {

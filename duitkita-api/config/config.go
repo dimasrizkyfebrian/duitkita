@@ -23,6 +23,7 @@ type Config struct {
 	Log        LogConfig
 	Retention  RetentionConfig
 	Feature    FeatureConfig
+	VAPID      VAPIDConfig
 }
 
 type AppConfig struct {
@@ -111,6 +112,18 @@ type FeatureConfig struct {
 	InsightsEnabled bool
 }
 
+// VAPIDConfig holds the keypair the server signs Web Push requests with
+// (RFC 8292) — PublicKey is safe to ship to the frontend, PrivateKey must
+// never leave the backend. Generate a pair once (e.g. `webpush.GenerateVAPIDKeys()`
+// or `npx web-push generate-vapid-keys`) and keep PrivateKey in a secret
+// store, not source control. Subject is the contact mailto:/https: URL push
+// services may use to reach the sender about a misbehaving integration.
+type VAPIDConfig struct {
+	PublicKey  string
+	PrivateKey string
+	Subject    string
+}
+
 func Load() (*Config, error) {
 	_ = godotenv.Load()
 
@@ -186,6 +199,11 @@ func Load() (*Config, error) {
 		},
 		Feature: FeatureConfig{
 			InsightsEnabled: getEnvAsBool("FEATURE_INSIGHTS_ENABLED", true),
+		},
+		VAPID: VAPIDConfig{
+			PublicKey:  getEnv("VAPID_PUBLIC_KEY", ""),
+			PrivateKey: getEnv("VAPID_PRIVATE_KEY", ""),
+			Subject:    getEnv("VAPID_SUBJECT", ""),
 		},
 	}
 

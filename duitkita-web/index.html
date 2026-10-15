@@ -1,8 +1,14 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" href="/icons/icon-192.png" />
+    <!-- Tab favicons: the full-bleed crop, so the art fills the 16/32px box
+         instead of wasting a sixth of it on the rounded square's transparent
+         corners. apple-touch-icon is full-bleed for a harder reason — iOS
+         composites it over black rather than honouring alpha, so transparent
+         corners would render as black notches on the home screen. -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0D47A1" />
@@ -18,6 +24,16 @@
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;800&display=swap"
     />
     <title>DuitKita</title>
+    <meta name="description" content="Atur duit bareng pasangan, gampang dan rapi." />
+    <!-- Link previews (WhatsApp, Telegram, iMessage) — without these a
+         shared link renders as a bare URL. og:image wants an absolute URL,
+         so these only resolve once served from the real origin. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="DuitKita" />
+    <meta property="og:title" content="DuitKita" />
+    <meta property="og:description" content="Atur duit bareng pasangan, gampang dan rapi." />
+    <meta property="og:image" content="/icons/icon-512.png" />
+    <meta name="twitter:card" content="summary" />
   </head>
   <body>
     <div id="app"></div>

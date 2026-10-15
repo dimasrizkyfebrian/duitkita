@@ -297,6 +297,66 @@ func (_c *RecurringExpenseRepository_FindDue_Call) RunAndReturn(run func(context
 	return _c
 }
 
+// FindDueByUserID provides a mock function with given fields: ctx, userID, asOf
+func (_m *RecurringExpenseRepository) FindDueByUserID(ctx context.Context, userID string, asOf time.Time) ([]domain.RecurringExpense, error) {
+	ret := _m.Called(ctx, userID, asOf)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindDueByUserID")
+	}
+
+	var r0 []domain.RecurringExpense
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, time.Time) ([]domain.RecurringExpense, error)); ok {
+		return rf(ctx, userID, asOf)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, time.Time) []domain.RecurringExpense); ok {
+		r0 = rf(ctx, userID, asOf)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]domain.RecurringExpense)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, time.Time) error); ok {
+		r1 = rf(ctx, userID, asOf)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// RecurringExpenseRepository_FindDueByUserID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindDueByUserID'
+type RecurringExpenseRepository_FindDueByUserID_Call struct {
+	*mock.Call
+}
+
+// FindDueByUserID is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - asOf time.Time
+func (_e *RecurringExpenseRepository_Expecter) FindDueByUserID(ctx interface{}, userID interface{}, asOf interface{}) *RecurringExpenseRepository_FindDueByUserID_Call {
+	return &RecurringExpenseRepository_FindDueByUserID_Call{Call: _e.mock.On("FindDueByUserID", ctx, userID, asOf)}
+}
+
+func (_c *RecurringExpenseRepository_FindDueByUserID_Call) Run(run func(ctx context.Context, userID string, asOf time.Time)) *RecurringExpenseRepository_FindDueByUserID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(time.Time))
+	})
+	return _c
+}
+
+func (_c *RecurringExpenseRepository_FindDueByUserID_Call) Return(_a0 []domain.RecurringExpense, _a1 error) *RecurringExpenseRepository_FindDueByUserID_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *RecurringExpenseRepository_FindDueByUserID_Call) RunAndReturn(run func(context.Context, string, time.Time) ([]domain.RecurringExpense, error)) *RecurringExpenseRepository_FindDueByUserID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Update provides a mock function with given fields: ctx, re
 func (_m *RecurringExpenseRepository) Update(ctx context.Context, re *domain.RecurringExpense) error {
 	ret := _m.Called(ctx, re)
