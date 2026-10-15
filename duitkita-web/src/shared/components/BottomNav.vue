@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useToast } from '@/shared/composables/useToast'
 import IconHome from '@/shared/icons/IconHome.vue'
 import IconChart from '@/shared/icons/IconChart.vue'
 import IconBell from '@/shared/icons/IconBell.vue'
@@ -18,26 +17,26 @@ const emit = defineEmits<{ catat: [] }>()
 
 const route = useRoute()
 const router = useRouter()
-const toast = useToast()
 
-// Beranda, Laporan, and Profil are real pages; Pengingat isn't built yet,
-// so it stays as a "belum jadi" placeholder instead of routing anywhere.
 const items = [
   { key: 'beranda', label: 'Beranda', routeName: 'home', icon: IconHome },
   { key: 'laporan', label: 'Laporan', routeName: 'report', icon: IconChart },
 ] as const
 
-const pengingat = { key: 'pengingat', label: 'Pengingat', routeName: null, icon: IconBell } as const
+const pengingat = {
+  key: 'pengingat',
+  label: 'Pengingat',
+  routeName: 'reminder',
+  icon: IconBell,
+} as const
 
 function isActive(routeName: string | null) {
   return routeName !== null && route.name === routeName
 }
 
-function onTap(item: { label: string; routeName: string | null }) {
+function onTap(item: { routeName: string | null }) {
   if (item.routeName) {
     router.push({ name: item.routeName })
-  } else {
-    toast.error(`${item.label} belum jadi, masih kami garap ya.`)
   }
 }
 
