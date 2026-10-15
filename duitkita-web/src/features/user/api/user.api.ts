@@ -72,3 +72,15 @@ export function revokeOtherSessions(currentSessionId: string) {
 export function getSecurityAudit() {
   return authRequest<SecurityAuditLog[]>('/users/me/security-audit')
 }
+
+export function getPushPublicKey() {
+  return authRequest<{ public_key: string }>('/push/public-key')
+}
+
+export function subscribePush(subscription: PushSubscriptionJSON) {
+  return authRequest<void>('/push/subscriptions', { method: 'POST', body: subscription })
+}
+
+export function unsubscribePush(endpoint: string) {
+  return authRequest<void>('/push/subscriptions', { method: 'DELETE', body: { endpoint } })
+}

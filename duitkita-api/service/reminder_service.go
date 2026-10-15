@@ -174,8 +174,8 @@ func (s *reminderService) ProcessDue(ctx context.Context) (int, error) {
 			continue
 		}
 
-		body := fmt.Sprintf("%s is due on %s", reminder.Title, reminder.DueDate.Format("2 Jan 2006"))
-		if err := s.notifSvc.Create(ctx, reminder.UserID, domain.NotificationTypeBillReminder, "Bill reminder", body); err != nil {
+		body := fmt.Sprintf("%s jatuh tempo %s.", reminder.Title, reminder.DueDate.Format("2 Jan 2006"))
+		if err := s.notifSvc.Create(ctx, reminder.UserID, domain.NotificationTypeBillReminder, "Pengingat tagihan", body); err != nil {
 			log.Error().Err(err).Str("reminder_id", reminder.ID).Msg("failed to send reminder notification")
 			continue
 		}

@@ -18,6 +18,7 @@ type Services struct {
 	RecurringExpense RecurringExpenseService
 	Reminder         ReminderService
 	Notification     NotificationService
+	Push             PushService
 	Report           ReportService
 	Insights         InsightsService
 	ReportExport     ReportExportService
@@ -26,7 +27,7 @@ type Services struct {
 	Maintenance      MaintenanceService
 }
 
-func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.RetentionConfig, otpCfg config.OTPConfig, storage FileStorage, redisClient *redis.Client, mailer Mailer, cloudTasksEnqueuer TaskEnqueuer) *Services {
+func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.RetentionConfig, otpCfg config.OTPConfig, vapidCfg config.VAPIDConfig, storage FileStorage, redisClient *redis.Client, mailer Mailer, cloudTasksEnqueuer TaskEnqueuer) *Services {
 	userRepo := repository.NewUserRepository(db)
 	sessionRepo := repository.NewUserSessionRepository(db)
 	coupleRepo := repository.NewCoupleRepository(db)
@@ -38,13 +39,15 @@ func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.Reten
 	reminderRepo := repository.NewReminderRepository(db)
 	notificationRepo := repository.NewNotificationRepository(db)
 	notificationPrefRepo := repository.NewNotificationPreferenceRepository(db)
+	pushSubscriptionRepo := repository.NewPushSubscriptionRepository(db)
 	reportRepo := repository.NewReportRepository(db)
 	reportExportRepo := repository.NewReportExportRepository(db)
 	activityRepo := repository.NewActivityRepository(db)
 	securityAuditRepo := repository.NewSecurityAuditRepository(db)
 
 	securityAuditSvc := NewSecurityAuditService(securityAuditRepo)
-	notificationSvc := NewNotificationService(notificationRepo, notificationPrefRepo)
+	pushSvc := NewPushService(pushSubscriptionRepo, notificationRepo, notificationPrefRepo, vapidCfg)
+	notificationSvc := NewNotificationService(notificationRepo, notificationPrefRepo, pushSvc, cloudTasksEnqueuer)
 	activitySvc := NewActivityService(activityRepo, coupleRepo, notificationSvc)
 	reportSvc := NewReportService(reportRepo, budgetRepo, coupleRepo, redisClient)
 	otpSvc := NewOTPService(redisClient, mailer, otpCfg)
@@ -56,9 +59,10 @@ func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.Reten
 		Category:         NewCategoryService(categoryRepo, coupleRepo, budgetRepo),
 		Budget:           NewBudgetService(budgetRepo, categoryRepo, coupleRepo, activitySvc, expenseRepo, redisClient),
 		Expense:          NewExpenseService(expenseRepo, budgetRepo, coupleRepo, activitySvc, redisClient),
-		RecurringExpense: NewRecurringExpenseService(recurringExpenseRepo, categoryRepo, budgetRepo, expenseRepo),
+		RecurringExpense: NewRecurringExpenseService(recurringExpenseRepo, categoryRepo, budgetRepo, expenseRepo, notificationSvc),
 		Reminder:         NewReminderService(reminderRepo, notificationSvc),
 		Notification:     notificationSvc,
+		Push:             pushSvc,
 		Report:           reportSvc,
 		Insights:         NewInsightsService(reportSvc),
 		ReportExport:     NewReportExportService(reportExportRepo, reportSvc, storage, cloudTasksEnqueuer),

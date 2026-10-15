@@ -64,7 +64,7 @@ func TestActivityService_Recent_DelegatesToListWithZeroOffset(t *testing.T) {
 }
 
 func TestActivityService_LogActivity(t *testing.T) {
-	t.Run("notifies the other side of the couple with correct article", func(t *testing.T) {
+	t.Run("notifies the other side of the couple in Bahasa Indonesia", func(t *testing.T) {
 		svc, repo, coupleRepo, notifSvc := newActivityService(t)
 		couple := &domain.Couple{
 			ID:      "couple-1",
@@ -76,13 +76,13 @@ func TestActivityService_LogActivity(t *testing.T) {
 		coupleRepo.EXPECT().FindByUserID(context.Background(), "user-1").Return(couple, nil)
 		repo.EXPECT().Create(context.Background(), mockMatchByType[*domain.Activity]()).Return(nil)
 		notifSvc.EXPECT().
-			Create(context.Background(), "user-2", domain.NotificationTypePartnerActivity, "Partner activity", "Alice created an expense").
+			Create(context.Background(), "user-2", domain.NotificationTypePartnerActivity, "Aktivitas pasangan", "Alice nyatet pengeluaran baru.").
 			Return(nil)
 
 		svc.LogActivity(context.Background(), "user-1", domain.ActivityActionCreated, domain.ActivityEntityTypeExpense, "e-1", nil)
 	})
 
-	t.Run("uses 'a' article for non-expense entities", func(t *testing.T) {
+	t.Run("labels non-expense entities by their own noun", func(t *testing.T) {
 		svc, repo, coupleRepo, notifSvc := newActivityService(t)
 		couple := &domain.Couple{
 			ID: "couple-1", User1ID: "user-1", User1: domain.User{ID: "user-1", Name: "Alice"},
@@ -91,7 +91,7 @@ func TestActivityService_LogActivity(t *testing.T) {
 		coupleRepo.EXPECT().FindByUserID(context.Background(), "user-1").Return(couple, nil)
 		repo.EXPECT().Create(context.Background(), mockMatchByType[*domain.Activity]()).Return(nil)
 		notifSvc.EXPECT().
-			Create(context.Background(), "user-2", domain.NotificationTypePartnerActivity, "Partner activity", "Alice created a budget").
+			Create(context.Background(), "user-2", domain.NotificationTypePartnerActivity, "Aktivitas pasangan", "Alice nyatet budget.").
 			Return(nil)
 
 		svc.LogActivity(context.Background(), "user-1", domain.ActivityActionCreated, domain.ActivityEntityTypeBudget, "b-1", nil)

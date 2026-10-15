@@ -5,6 +5,11 @@ import BaseToggle from '@/shared/components/BaseToggle.vue'
 import { useToast } from '@/shared/composables/useToast'
 import { apiErrorMessage } from '@/shared/utils/apiError'
 import { getNotificationPreferences, updateNotificationPreferences } from '../api/user.api'
+import {
+  usePushSubscription,
+  PushPermissionDeniedError,
+  PushUnsupportedError,
+} from '../composables/usePushSubscription'
 import type { NotificationPreferences } from '../types'
 
 const open = defineModel<boolean>('open', { required: true })
@@ -22,8 +27,13 @@ const saving = reactive<Record<keyof NotificationPreferences, boolean>>({
   recurring_alert: false,
 })
 
+const push = usePushSubscription()
+
 watch(open, (isOpen) => {
-  if (isOpen) load()
+  if (isOpen) {
+    load()
+    push.refresh()
+  }
 })
 
 async function load() {
@@ -34,6 +44,30 @@ async function load() {
     toast.error(apiErrorMessage(err, 'Gagal muat preferensi notifikasi.'))
   } finally {
     loading.value = false
+  }
+}
+
+// This master switch is this device's actual browser subscription — it's
+// separate from the per-category toggles below, which only control what
+// the backend is allowed to send once a device IS subscribed. Turning this
+// off here means no push reaches this device at all, regardless of those.
+async function onTogglePush(value: boolean) {
+  try {
+    if (value) {
+      await push.subscribe()
+      toast.success('Notifikasi push diaktifin di perangkat ini.')
+    } else {
+      await push.unsubscribe()
+      toast.success('Notifikasi push dimatiin di perangkat ini.')
+    }
+  } catch (err) {
+    if (err instanceof PushPermissionDeniedError) {
+      toast.error('Izin notifikasi ditolak. Aktifin lewat setting browser kamu ya.')
+    } else if (err instanceof PushUnsupportedError) {
+      toast.error('Browser ini belum bisa kirim notifikasi push.')
+    } else {
+      toast.error(apiErrorMessage(err, 'Gagal mengaktifkan notifikasi push.'))
+    }
   }
 }
 
@@ -55,6 +89,20 @@ async function onToggle(key: keyof NotificationPreferences, value: boolean) {
 
 <template>
   <BottomSheet v-model:open="open" title="Preferensi notifikasi">
+    <div class="border-hairline mb-4 flex flex-col rounded-2xl border px-4">
+      <BaseToggle
+        :model-value="push.subscribed.value"
+        label="Notifikasi push"
+        :description="
+          push.isSupported
+            ? 'Izinkan DuitKita ngirim notifikasi langsung ke perangkat ini, walau tab-nya ketutup.'
+            : 'Browser ini belum support notifikasi push.'
+        "
+        :disabled="!push.isSupported || !push.checked.value || push.loading.value"
+        @update:model-value="onTogglePush"
+      />
+    </div>
+
     <div v-if="loading" class="flex flex-col gap-3">
       <div v-for="n in 5" :key="n" class="h-14 animate-pulse rounded-2xl bg-black/5"></div>
     </div>

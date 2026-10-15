@@ -980,8 +980,12 @@ paths:
   /recurring-expenses/run-due:
     post:
       tags: [Recurring Expenses]
-      summary: Manually trigger processing of every due recurring expense
-      description: Normally run by the cron worker; exposed here for manual testing.
+      summary: Manually trigger processing of the caller's own due recurring expenses
+      description: >-
+        Scoped to the calling user only — the actual hourly sweep across
+        every user runs via the internal Cloud Scheduler job, not this
+        endpoint. Exposed here so a user can trigger their own due items on
+        demand instead of waiting for the next scheduled run.
       responses:
         '200':
           description: due recurring expenses processed
@@ -1253,6 +1257,51 @@ paths:
         - $ref: '#/components/parameters/IdPath'
       responses:
         '200': { $ref: '#/components/responses/OK' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /push/public-key:
+    get:
+      tags: [Push]
+      summary: Get the VAPID public key to pass to pushManager.subscribe()
+      responses:
+        '200':
+          description: vapid public key retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/PushPublicKeyResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /push/subscriptions:
+    post:
+      tags: [Push]
+      summary: Save a browser push subscription for the current user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SubscribePushRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/OK' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: push notifications are not configured on this server
+    delete:
+      tags: [Push]
+      summary: Remove a browser push subscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UnsubscribePushRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /reports/monthly:
@@ -1892,15 +1941,32 @@ components:
         schedule_type: { type: string, enum: [weekly, monthly] }
         schedule_day:
           type: integer
-          description: For weekly, 0-6 (Sunday-Saturday); for monthly, day of month (clamped to the last day when out of range).
+          minimum: 0
+          maximum: 31
+          description: >-
+            For weekly, 0-6 (Sunday-Saturday) — 0 is valid and means Sunday.
+            For monthly, 1-31 (a day past the end of a shorter month is clamped
+            to that month's last day). A value outside the range for the given
+            schedule_type is rejected with 400.
       required: [category_id, amount, schedule_type, schedule_day]
 
     UpdateRecurringExpenseRequest:
       type: object
+      description: >-
+        Every field is optional; omitting one leaves it unchanged. note and
+        schedule_day are nullable-sensitive — send note as "" to clear it, and
+        schedule_day as 0 to move a weekly schedule to Sunday.
       properties:
         amount: { type: integer, format: int64, minimum: 1 }
-        note: { type: string, maxLength: 255 }
-        schedule_day: { type: integer }
+        note:
+          type: string
+          maxLength: 255
+          description: An empty string clears the note; omit the field to keep it.
+        schedule_day:
+          type: integer
+          minimum: 0
+          maximum: 31
+          description: Must be valid for the item's existing schedule_type (0-6 weekly, 1-31 monthly), else 400.
 
     CreateReminderRequest:
       type: object
@@ -1924,6 +1990,32 @@ components:
       properties:
         snoozed_until: { type: string, format: date }
       required: [snoozed_until]
+
+    SubscribePushRequest:
+      type: object
+      description: Mirrors the browser's PushSubscription.toJSON() shape.
+      properties:
+        endpoint: { type: string, format: uri }
+        keys:
+          type: object
+          properties:
+            p256dh: { type: string }
+            auth: { type: string }
+          required: [p256dh, auth]
+      required: [endpoint, keys]
+
+    UnsubscribePushRequest:
+      type: object
+      properties:
+        endpoint: { type: string, format: uri }
+      required: [endpoint]
+
+    PushPublicKeyResponse:
+      type: object
+      properties:
+        public_key:
+          type: string
+          description: Empty when push notifications aren't configured on the server.
 
     UpdateNotificationPreferenceRequest:
       type: object

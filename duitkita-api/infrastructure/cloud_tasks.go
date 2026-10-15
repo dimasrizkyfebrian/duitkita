@@ -55,6 +55,30 @@ func (e *CloudTasksEnqueuer) EnqueueReportExportRender(ctx context.Context, expo
 	return nil
 }
 
+func (e *CloudTasksEnqueuer) EnqueuePushDispatch(ctx context.Context, notificationID string) error {
+	url := fmt.Sprintf("%s/internal/jobs/notifications/%s/push", e.targetURL, notificationID)
+
+	_, err := e.client.CreateTask(ctx, &cloudtaskspb.CreateTaskRequest{
+		Parent: e.queuePath,
+		Task: &cloudtaskspb.Task{
+			MessageType: &cloudtaskspb.Task_HttpRequest{
+				HttpRequest: &cloudtaskspb.HttpRequest{
+					Url:        url,
+					HttpMethod: cloudtaskspb.HttpMethod_POST,
+					Headers: map[string]string{
+						"Content-Type":      "application/json",
+						"X-Internal-Secret": e.internalAuth,
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("create cloud task for push dispatch %s: %w", notificationID, err)
+	}
+	return nil
+}
+
 func (e *CloudTasksEnqueuer) Close() error {
 	return e.client.Close()
 }

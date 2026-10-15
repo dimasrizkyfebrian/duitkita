@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 
 	"duitkita-api/model/domain"
 	"duitkita-api/model/dto/request"
@@ -24,10 +25,20 @@ type NotificationService interface {
 type notificationService struct {
 	repo     repository.NotificationRepository
 	prefRepo repository.NotificationPreferenceRepository
+	enqueuer TaskEnqueuer
 }
 
-func NewNotificationService(repo repository.NotificationRepository, prefRepo repository.NotificationPreferenceRepository) NotificationService {
-	return &notificationService{repo: repo, prefRepo: prefRepo}
+// NewNotificationService wires up push dispatch the same way
+// ReportExportService wires up rendering: hand it a real Cloud Tasks
+// enqueuer in prod, or leave cloudTasksEnqueuer nil and it falls back to
+// firing the dispatch in a goroutine — either way, Create() never blocks
+// its caller on a push service's network round trip.
+func NewNotificationService(repo repository.NotificationRepository, prefRepo repository.NotificationPreferenceRepository, pushSvc PushService, cloudTasksEnqueuer TaskEnqueuer) NotificationService {
+	enqueuer := cloudTasksEnqueuer
+	if enqueuer == nil {
+		enqueuer = NewInlinePushEnqueuer(pushSvc)
+	}
+	return &notificationService{repo: repo, prefRepo: prefRepo, enqueuer: enqueuer}
 }
 
 func (s *notificationService) List(ctx context.Context, userID string, limit, offset int) ([]response.NotificationResponse, error) {
@@ -102,7 +113,19 @@ func (s *notificationService) Create(ctx context.Context, userID string, notifTy
 		Title:  title,
 		Body:   body,
 	}
-	return s.repo.Create(ctx, notification)
+	if err := s.repo.Create(ctx, notification); err != nil {
+		return err
+	}
+
+	// Best-effort: callers (an expense write, a partner-activity log, a
+	// reminder cron tick) must never wait on push delivery, so a failure
+	// to even enqueue the dispatch is logged, not returned — the in-app
+	// notification above is already saved either way.
+	if err := s.enqueuer.EnqueuePushDispatch(ctx, notification.ID); err != nil {
+		log.Error().Err(err).Str("notification_id", notification.ID).Msg("failed to enqueue push dispatch")
+	}
+
+	return nil
 }
 
 func buildPreferenceResponse(rows []domain.NotificationPreference) *response.NotificationPreferenceResponse {
