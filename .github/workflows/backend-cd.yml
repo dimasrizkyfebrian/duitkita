@@ -74,23 +74,31 @@ jobs:
           image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.event.workflow_run.head_sha }}
           service_account: ${{ env.RUNTIME_SERVICE_ACCOUNT }}
           flags: --allow-unauthenticated --port=8080
+          # Web Push (Sprint 3). Keep comments at THIS indentation: `secrets:`
+          # and `env_vars:` are block scalars, so a line indented into them is
+          # parsed as a literal entry, not a comment — a `#` line inside
+          # `secrets:` is read as a secret name and fails the deploy.
+          #
+          # Both VAPID secrets must exist before the first deploy that needs
+          # push, or the service boots with push disabled and every subscribe
+          # attempt is rejected:
+          #   npx web-push generate-vapid-keys
+          #   printf '%s' "<public>"  | gcloud secrets create vapid-public-key  --data-file=-
+          #   printf '%s' "<private>" | gcloud secrets create vapid-private-key --data-file=-
+          # The public key isn't secret (browsers fetch it from
+          # GET /api/v1/push/public-key); keeping it here just means this
+          # workflow holds no key material of its own. Rotating the pair
+          # invalidates every live browser subscription.
+          #
+          # VAPID_SUBJECT in env_vars below completes the set — the JWT 'sub'
+          # claim, a contact address push services use to report a misbehaving
+          # integration. Push stays disabled while it's empty.
           secrets: |
             JWT_ACCESS_SECRET=jwt-access-secret:latest
             SMTP_APP_PASSWORD=smtp-app-password:latest
             INTERNAL_JOBS_SECRET=internal-jobs-secret:latest
             DB_PASSWORD=db-password:latest
             REDIS_PASSWORD=redis-password:latest
-            # Web Push (Sprint 3). Create both secrets before the first
-            # deploy that needs push, or the service boots with push
-            # disabled and every subscribe attempt is rejected:
-            #   npx web-push generate-vapid-keys
-            #   printf '%s' "<public>"  | gcloud secrets create vapid-public-key  --data-file=-
-            #   printf '%s' "<private>" | gcloud secrets create vapid-private-key --data-file=-
-            # The public key isn't secret (the browser receives it via
-            # GET /api/v1/push/public-key), it just lives here so this
-            # workflow holds no key material of its own. Rotating the pair
-            # invalidates every existing browser subscription — clients
-            # re-subscribe on their next visit to the notification settings.
             VAPID_PUBLIC_KEY=vapid-public-key:latest
             VAPID_PRIVATE_KEY=vapid-private-key:latest
           env_vars: |
@@ -118,10 +126,6 @@ jobs:
             SMTP_PORT=587
             SMTP_USER=dimzky.project@gmail.com
             SMTP_FROM_NAME=DuitKita
-            # Contact a push service can use to reach us about a
-            # misbehaving integration (the VAPID JWT 'sub' claim). Reusing
-            # the project address; swap it if you'd rather it went
-            # elsewhere. Required — push stays disabled while it's empty.
             VAPID_SUBJECT=dimzky.project@gmail.com
             OTP_TTL_MINUTES=10
             OTP_MAX_ATTEMPTS=5
