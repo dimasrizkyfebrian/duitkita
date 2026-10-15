@@ -5,9 +5,11 @@ import (
 	"crypto/ecdh"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
@@ -65,6 +67,83 @@ func TestPushService_PublicKey(t *testing.T) {
 		svc, _, _, _ := newPushService(t, config.VAPIDConfig{PublicKey: pub, PrivateKey: priv, Subject: "mailto:ops@duitkita.app"})
 		require.Equal(t, pub, svc.PublicKey())
 	})
+
+	// A keypair without a subject is not usable: push services reject the
+	// VAPID JWT, so reporting "configured" here would hand the frontend a
+	// key it can subscribe with and then drop every send.
+	t.Run("empty when a keypair is set but VAPID_SUBJECT isn't", func(t *testing.T) {
+		priv, pub := testVAPIDKeys(t)
+		svc, _, _, _ := newPushService(t, config.VAPIDConfig{PublicKey: pub, PrivateKey: priv})
+		require.Empty(t, svc.PublicKey())
+	})
+}
+
+// The VAPID JWT's `sub` claim has to be a single well-formed mailto:/https:
+// value. webpush-go prepends "mailto:" itself to anything that isn't an
+// https: URL, so a config value written the obvious way ("mailto:you@…")
+// used to arrive doubled as "mailto:mailto:you@…".
+func TestPushService_VAPIDSubjectClaim(t *testing.T) {
+	cases := []struct {
+		name    string
+		subject string
+		wantSub string
+	}{
+		{"already prefixed with mailto:", "mailto:ops@duitkita.app", "mailto:ops@duitkita.app"},
+		{"bare email address", "ops@duitkita.app", "mailto:ops@duitkita.app"},
+		{"https contact URL is left alone", "https://duitkita.app/contact", "https://duitkita.app/contact"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var gotSub string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotSub = vapidSubFromAuthHeader(t, r.Header.Get("Authorization"))
+				w.WriteHeader(http.StatusCreated)
+			}))
+			defer server.Close()
+
+			priv, pub := testVAPIDKeys(t)
+			p256dh, auth := testSubscriberKeys(t)
+			svc, subRepo, notifRepo, prefRepo := newPushService(t, config.VAPIDConfig{PublicKey: pub, PrivateKey: priv, Subject: tc.subject})
+			notifRepo.EXPECT().FindByID(context.Background(), "notif-1").Return(&domain.Notification{
+				ID: "notif-1", UserID: "user-1", Type: domain.NotificationTypeBillReminder, Title: "Bayar listrik", Body: "Jatuh tempo besok",
+			}, nil)
+			prefRepo.EXPECT().FindAllByUserID(context.Background(), "user-1").Return(nil, nil)
+			subRepo.EXPECT().FindAllByUserID(context.Background(), "user-1").Return([]domain.PushSubscription{
+				{ID: "sub-1", UserID: "user-1", Endpoint: server.URL, P256dh: p256dh, Auth: auth},
+			}, nil)
+
+			require.NoError(t, svc.Dispatch(context.Background(), "notif-1"))
+			require.Equal(t, tc.wantSub, gotSub)
+		})
+	}
+}
+
+// vapidSubFromAuthHeader pulls the `sub` claim out of the unverified JWT in
+// a "vapid t=<jwt>, k=<key>" Authorization header.
+func vapidSubFromAuthHeader(t *testing.T, header string) string {
+	t.Helper()
+	require.NotEmpty(t, header, "expected a VAPID Authorization header")
+
+	var token string
+	for _, part := range strings.Split(strings.TrimPrefix(header, "vapid "), ",") {
+		part = strings.TrimSpace(part)
+		if after, ok := strings.CutPrefix(part, "t="); ok {
+			token = after
+		}
+	}
+	require.NotEmpty(t, token, "no t=<jwt> in header %q", header)
+
+	segments := strings.Split(token, ".")
+	require.Len(t, segments, 3, "malformed JWT")
+	raw, err := base64.RawURLEncoding.DecodeString(segments[1])
+	require.NoError(t, err)
+
+	var claims struct {
+		Sub string `json:"sub"`
+	}
+	require.NoError(t, json.Unmarshal(raw, &claims))
+	return claims.Sub
 }
 
 func TestPushService_Subscribe(t *testing.T) {
@@ -79,7 +158,7 @@ func TestPushService_Subscribe(t *testing.T) {
 
 	t.Run("upserts the subscription for the owning user", func(t *testing.T) {
 		priv, pub := testVAPIDKeys(t)
-		svc, subRepo, _, _ := newPushService(t, config.VAPIDConfig{PublicKey: pub, PrivateKey: priv})
+		svc, subRepo, _, _ := newPushService(t, config.VAPIDConfig{PublicKey: pub, PrivateKey: priv, Subject: "mailto:ops@duitkita.app"})
 		req := request.SubscribePushRequest{Endpoint: "https://push.example/abc"}
 		req.Keys.P256dh = "p256dh-value"
 		req.Keys.Auth = "auth-value"
@@ -99,7 +178,7 @@ func TestPushService_Subscribe(t *testing.T) {
 
 	t.Run("repository failure surfaced as internal error", func(t *testing.T) {
 		priv, pub := testVAPIDKeys(t)
-		svc, subRepo, _, _ := newPushService(t, config.VAPIDConfig{PublicKey: pub, PrivateKey: priv})
+		svc, subRepo, _, _ := newPushService(t, config.VAPIDConfig{PublicKey: pub, PrivateKey: priv, Subject: "mailto:ops@duitkita.app"})
 		subRepo.EXPECT().Upsert(context.Background(), mockMatchByType[*domain.PushSubscription]()).Return(errors.New("db down"))
 
 		err := svc.Subscribe(context.Background(), "user-1", request.SubscribePushRequest{Endpoint: "https://push.example/abc"})
@@ -110,7 +189,7 @@ func TestPushService_Subscribe(t *testing.T) {
 
 func TestPushService_Unsubscribe(t *testing.T) {
 	priv, pub := testVAPIDKeys(t)
-	svc, subRepo, _, _ := newPushService(t, config.VAPIDConfig{PublicKey: pub, PrivateKey: priv})
+	svc, subRepo, _, _ := newPushService(t, config.VAPIDConfig{PublicKey: pub, PrivateKey: priv, Subject: "mailto:ops@duitkita.app"})
 	subRepo.EXPECT().DeleteByEndpoint(context.Background(), "user-1", "https://push.example/abc").Return(nil)
 
 	err := svc.Unsubscribe(context.Background(), "user-1", "https://push.example/abc")
@@ -131,7 +210,7 @@ func TestPushService_Dispatch(t *testing.T) {
 
 	t.Run("no-op when the notification no longer exists", func(t *testing.T) {
 		priv, pub := testVAPIDKeys(t)
-		svc, subRepo, notifRepo, _ := newPushService(t, config.VAPIDConfig{PublicKey: pub, PrivateKey: priv})
+		svc, subRepo, notifRepo, _ := newPushService(t, config.VAPIDConfig{PublicKey: pub, PrivateKey: priv, Subject: "mailto:ops@duitkita.app"})
 		notifRepo.EXPECT().FindByID(context.Background(), "notif-1").Return(nil, nil)
 
 		err := svc.Dispatch(context.Background(), "notif-1")
@@ -142,7 +221,7 @@ func TestPushService_Dispatch(t *testing.T) {
 
 	t.Run("skips sending when the user turned this notification type off", func(t *testing.T) {
 		priv, pub := testVAPIDKeys(t)
-		svc, subRepo, notifRepo, prefRepo := newPushService(t, config.VAPIDConfig{PublicKey: pub, PrivateKey: priv})
+		svc, subRepo, notifRepo, prefRepo := newPushService(t, config.VAPIDConfig{PublicKey: pub, PrivateKey: priv, Subject: "mailto:ops@duitkita.app"})
 		notifRepo.EXPECT().FindByID(context.Background(), "notif-1").Return(&domain.Notification{
 			ID: "notif-1", UserID: "user-1", Type: domain.NotificationTypeBillReminder,
 		}, nil)
@@ -158,7 +237,7 @@ func TestPushService_Dispatch(t *testing.T) {
 
 	t.Run("no-op when the user has no subscribed devices", func(t *testing.T) {
 		priv, pub := testVAPIDKeys(t)
-		svc, subRepo, notifRepo, prefRepo := newPushService(t, config.VAPIDConfig{PublicKey: pub, PrivateKey: priv})
+		svc, subRepo, notifRepo, prefRepo := newPushService(t, config.VAPIDConfig{PublicKey: pub, PrivateKey: priv, Subject: "mailto:ops@duitkita.app"})
 		notifRepo.EXPECT().FindByID(context.Background(), "notif-1").Return(&domain.Notification{
 			ID: "notif-1", UserID: "user-1", Type: domain.NotificationTypeBillReminder,
 		}, nil)

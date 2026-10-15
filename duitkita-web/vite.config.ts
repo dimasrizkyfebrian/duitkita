@@ -35,17 +35,41 @@ export default defineConfig({
       strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'sw.ts',
+      // Off because it bypasses globIgnores below: left on, the plugin
+      // appends every manifest icon to the precache list after the globs
+      // have been filtered, which quietly put both 512px icons (~630KB
+      // combined) back into the install payload. They're still served
+      // normally — the OS fetches them once at install time, which is the
+      // only moment anything reads them.
+      includeManifestIcons: false,
       injectManifest: {
         // App is online-only by design (no offline data sync), so only the
         // app shell (static assets) is precached — API calls are never cached.
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        // Icons the OS reads once (install, splash, Add to Home Screen) and
+        // the app itself never renders. Precaching them would more than
+        // double the install payload every user pays on first visit for
+        // bytes no screen ever shows. icon-192 and badge-96 deliberately
+        // stay precached — the service worker draws push notifications with
+        // them while the app is closed, so they have to be in the cache.
+        globIgnores: [
+          '**/icons/icon-512.png',
+          '**/icons/icon-maskable-512.png',
+          '**/icons/apple-touch-icon.png',
+        ],
       },
       manifest: {
         name: 'DuitKita',
         short_name: 'DuitKita',
-        description: 'Couples budgeting app',
+        // Defaults to 'en' otherwise, which mislabels an entirely
+        // Indonesian app to app stores and assistive tech.
+        lang: 'id',
+        description: 'Atur duit bareng pasangan, gampang dan rapi.',
         theme_color: '#0D47A1',
-        background_color: '#E3F2FD',
+        // Matches --color-ink, the app's own background. The splash screen
+        // shows this behind the icon, so a light value here flashed white
+        // before handing over to a dark first screen.
+        background_color: '#071C3C',
         display: 'standalone',
         start_url: '/',
         icons: [

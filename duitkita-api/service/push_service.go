@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
@@ -48,8 +49,24 @@ func NewPushService(subRepo repository.PushSubscriptionRepository, notifRepo rep
 	return &pushService{subRepo: subRepo, notifRepo: notifRepo, prefRepo: prefRepo, vapid: vapid}
 }
 
+// Subject counts as part of being configured, not an optional extra: push
+// services validate the VAPID JWT's `sub` claim, and webpush-go turns an
+// empty subject into a bare "mailto:" that they reject with an opaque 400.
+// Treating it as unconfigured instead means Subscribe() says so up front
+// rather than every later send failing silently in the logs while the user
+// sees a successfully-enabled toggle.
 func (s *pushService) configured() bool {
-	return s.vapid.PublicKey != "" && s.vapid.PrivateKey != ""
+	return s.vapid.PublicKey != "" && s.vapid.PrivateKey != "" && s.vapid.Subject != ""
+}
+
+// vapidSubscriber normalises what goes into the JWT's `sub` claim.
+// webpush-go prepends "mailto:" to any subject that isn't an https: URL, so
+// a config value already written in "mailto:you@example.com" form — which is
+// the natural way to write it, and what .env.example used to show — would
+// arrive as "mailto:mailto:you@example.com". Strip our own prefix and let
+// the library add exactly one.
+func vapidSubscriber(subject string) string {
+	return strings.TrimPrefix(subject, "mailto:")
 }
 
 func (s *pushService) PublicKey() string {
@@ -145,7 +162,7 @@ func (s *pushService) sendOne(ctx context.Context, sub *domain.PushSubscription,
 		Endpoint: sub.Endpoint,
 		Keys:     webpush.Keys{P256dh: sub.P256dh, Auth: sub.Auth},
 	}, &webpush.Options{
-		Subscriber:      s.vapid.Subject,
+		Subscriber:      vapidSubscriber(s.vapid.Subject),
 		VAPIDPublicKey:  s.vapid.PublicKey,
 		VAPIDPrivateKey: s.vapid.PrivateKey,
 		TTL:             3600,

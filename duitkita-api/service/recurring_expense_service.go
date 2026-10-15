@@ -54,6 +54,10 @@ func (s *recurringExpenseService) Create(ctx context.Context, userID string, req
 	}
 
 	scheduleType := domain.RecurringScheduleType(req.ScheduleType)
+	if err := validateScheduleDay(scheduleType, req.ScheduleDay); err != nil {
+		return nil, err
+	}
+
 	re := &domain.RecurringExpense{
 		ID:           uuid.NewString(),
 		UserID:       userID,
@@ -103,11 +107,19 @@ func (s *recurringExpenseService) Update(ctx context.Context, userID, id string,
 	if req.Amount != 0 {
 		re.Amount = req.Amount
 	}
-	if req.Note != "" {
-		re.Note = utils.StringPtr(req.Note)
+	if req.Note != nil {
+		// An explicit empty string clears the note; nil left it untouched.
+		if *req.Note == "" {
+			re.Note = nil
+		} else {
+			re.Note = utils.StringPtr(*req.Note)
+		}
 	}
-	if req.ScheduleDay != 0 {
-		re.ScheduleDay = req.ScheduleDay
+	if req.ScheduleDay != nil {
+		if err := validateScheduleDay(re.ScheduleType, *req.ScheduleDay); err != nil {
+			return nil, err
+		}
+		re.ScheduleDay = *req.ScheduleDay
 		re.NextRunAt = computeNextRun(re.ScheduleType, re.ScheduleDay, time.Now())
 	}
 
@@ -173,7 +185,7 @@ func (s *recurringExpenseService) processDue(ctx context.Context, due []domain.R
 			log.Error().Err(err).Str("recurring_expense_id", re.ID).Msg("failed to look up category for recurring expense")
 			continue
 		}
-		categoryName := "this category"
+		categoryName := "Pengeluaran rutin"
 		if category != nil {
 			categoryName = category.Name
 		}
@@ -188,8 +200,8 @@ func (s *recurringExpenseService) processDue(ctx context.Context, due []domain.R
 			// the occurrence must not just vanish: the user gets told so
 			// they can set the budget and catch up manually, instead of
 			// silently losing track of a bill they thought was automated.
-			s.notify(ctx, re.UserID, "Recurring expense skipped",
-				fmt.Sprintf("Your recurring %s expense wasn't recorded — set a budget for this month first.", categoryName))
+			s.notify(ctx, re.UserID, "Pengeluaran rutin kelewat",
+				fmt.Sprintf("%s belum tercatat. Atur budget-nya buat bulan ini dulu ya.", categoryName))
 		} else {
 			expense := &domain.Expense{
 				ID:              uuid.NewString(),
@@ -204,8 +216,8 @@ func (s *recurringExpenseService) processDue(ctx context.Context, due []domain.R
 				log.Error().Err(err).Str("recurring_expense_id", re.ID).Msg("failed to create expense from recurring expense")
 				continue
 			}
-			s.notify(ctx, re.UserID, "Recurring expense recorded",
-				fmt.Sprintf("%s was recorded automatically.", categoryName))
+			s.notify(ctx, re.UserID, "Pengeluaran rutin tercatat",
+				fmt.Sprintf("%s udah tercatat otomatis.", categoryName))
 		}
 
 		re.LastRunAt = &now
@@ -234,6 +246,23 @@ func (s *recurringExpenseService) mustOwnRecurringExpense(ctx context.Context, u
 	return mustOwn(re, err, userID, "recurring expense not found")
 }
 
+// validateScheduleDay guards the half of the range check the binding tags
+// can't: which days are legal depends on the schedule type, and the DTO is
+// validated before the type is known. Weekly days are time.Weekday values
+// (Sunday=0), monthly days are calendar days starting at 1.
+func validateScheduleDay(scheduleType domain.RecurringScheduleType, day int) error {
+	if scheduleType == domain.RecurringScheduleWeekly {
+		if day < 0 || day > 6 {
+			return utils.ErrBadRequest("schedule_day must be 0-6 (Sunday-Saturday) for a weekly schedule")
+		}
+		return nil
+	}
+	if day < 1 || day > 31 {
+		return utils.ErrBadRequest("schedule_day must be 1-31 for a monthly schedule")
+	}
+	return nil
+}
+
 func computeNextRun(scheduleType domain.RecurringScheduleType, scheduleDay int, from time.Time) time.Time {
 	if scheduleType == domain.RecurringScheduleWeekly {
 		daysUntil := (scheduleDay - int(from.Weekday()) + 7) % 7
@@ -243,13 +272,29 @@ func computeNextRun(scheduleType domain.RecurringScheduleType, scheduleDay int, 
 		return from.AddDate(0, 0, daysUntil)
 	}
 
-	next := time.Date(from.Year(), from.Month(), 1, 0, 0, 0, 0, from.Location()).AddDate(0, 1, 0)
-	lastDayOfMonth := next.AddDate(0, 1, -1).Day()
+	// Try this month before rolling over: unconditionally jumping to next
+	// month means someone who sets "every 20th" on the 16th waits until next
+	// month's 20th, silently skipping the occurrence they were looking at
+	// when they set it up. Only roll over once this month's date has
+	// actually passed — which is also what keeps processDue from picking the
+	// same item up twice, since it recomputes with `now` after running.
+	if candidate := monthlyRun(from, scheduleDay, 0); candidate.After(from) {
+		return candidate
+	}
+	return monthlyRun(from, scheduleDay, 1)
+}
+
+// monthlyRun resolves scheduleDay against the month `monthOffset` months
+// from `from`, clamping to that month's length so day 31 lands on the 28th
+// in February rather than overflowing into March.
+func monthlyRun(from time.Time, scheduleDay, monthOffset int) time.Time {
+	firstOfMonth := time.Date(from.Year(), from.Month(), 1, 0, 0, 0, 0, from.Location()).AddDate(0, monthOffset, 0)
+	lastDayOfMonth := firstOfMonth.AddDate(0, 1, -1).Day()
 	day := scheduleDay
 	if day > lastDayOfMonth {
 		day = lastDayOfMonth
 	}
-	return time.Date(next.Year(), next.Month(), day, 0, 0, 0, 0, from.Location())
+	return time.Date(firstOfMonth.Year(), firstOfMonth.Month(), day, 0, 0, 0, 0, from.Location())
 }
 
 func toRecurringExpenseResponse(re *domain.RecurringExpense) response.RecurringExpenseResponse {

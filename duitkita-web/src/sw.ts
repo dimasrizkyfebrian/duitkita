@@ -57,7 +57,11 @@ self.addEventListener('push', (event: PushEvent) => {
     self.registration.showNotification(payload.title || 'DuitKita', {
       body: payload.body,
       icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
+      // Not the same image as `icon`: Android renders the badge in the
+      // status bar by keeping only its alpha channel and recolouring the
+      // rest, so the full-colour icon would arrive as a solid blob.
+      // badge-96 is the wallet as a flat silhouette.
+      badge: '/icons/badge-96.png',
       tag: payload.notification_id,
       data: { url },
     }),

@@ -25,6 +25,10 @@ export interface CreateRecurringExpenseRequest {
   schedule_day: number
 }
 
+/** Every field is optional and an omitted one is left untouched, so the two
+ * fields with a meaningful "empty" value need sending explicitly: `note: ''`
+ * clears the note (omitting it keeps the old one), and `schedule_day: 0`
+ * moves a weekly schedule to Sunday. */
 export interface UpdateRecurringExpenseRequest {
   amount?: number
   note?: string

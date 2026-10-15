@@ -1,4 +1,6 @@
 import { computed, ref } from 'vue'
+import { apiErrorMessage } from '@/shared/utils/apiError'
+import { useToast } from '@/shared/composables/useToast'
 import { listRecurringExpenses } from '../api/recurring.api'
 import type { RecurringExpense } from '../types'
 
@@ -7,6 +9,7 @@ import type { RecurringExpense } from '../types'
  * closest to actually firing), paused ones tucked at the bottom since
  * they're not doing anything right now. */
 export function useRecurringExpenses() {
+  const toast = useToast()
   const items = ref<RecurringExpense[]>([])
   const loading = ref(true)
 
@@ -14,6 +17,10 @@ export function useRecurringExpenses() {
     loading.value = true
     try {
       items.value = await listRecurringExpenses()
+    } catch (err) {
+      // Without this the list just renders its empty state, which reads as
+      // "you haven't set any up yet" when the truth is the request failed.
+      toast.error(apiErrorMessage(err, 'Gagal muat pengeluaran rutin.'))
     } finally {
       loading.value = false
     }

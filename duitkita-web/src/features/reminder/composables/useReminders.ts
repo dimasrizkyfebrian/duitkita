@@ -1,4 +1,6 @@
 import { computed, ref } from 'vue'
+import { apiErrorMessage } from '@/shared/utils/apiError'
+import { useToast } from '@/shared/composables/useToast'
 import { listReminders } from '../api/reminder.api'
 import type { Reminder } from '../types'
 
@@ -6,6 +8,7 @@ import type { Reminder } from '../types'
  * overdue first (most urgent), then upcoming sorted by nearest due date,
  * then done ones tucked at the bottom since they no longer need attention. */
 export function useReminders() {
+  const toast = useToast()
   const items = ref<Reminder[]>([])
   const loading = ref(true)
 
@@ -13,6 +16,10 @@ export function useReminders() {
     loading.value = true
     try {
       items.value = await listReminders()
+    } catch (err) {
+      // Same reason as useRecurringExpenses: a silent failure here is
+      // indistinguishable from "no reminders yet".
+      toast.error(apiErrorMessage(err, 'Gagal muat pengingat.'))
     } finally {
       loading.value = false
     }

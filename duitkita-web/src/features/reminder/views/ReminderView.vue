@@ -9,6 +9,8 @@ import RecurringExpenseSheet from '@/features/recurring/components/RecurringExpe
 import RecurringExpenseListItem from '@/features/recurring/components/RecurringExpenseListItem.vue'
 import { useReminders } from '../composables/useReminders'
 import { useRecurringExpenses } from '@/features/recurring/composables/useRecurringExpenses'
+import { apiErrorMessage } from '@/shared/utils/apiError'
+import { useToast } from '@/shared/composables/useToast'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import { getAvatarUrl } from '@/features/user/api/user.api'
 import { listCategories } from '@/features/category/api/category.api'
@@ -18,6 +20,7 @@ import type { RecurringExpense } from '@/features/recurring/types'
 
 const router = useRouter()
 const auth = useAuthStore()
+const toast = useToast()
 const myAvatarUrl = ref<string | null>(null)
 if (auth.user) getAvatarUrl(auth.user.id).then((url) => (myAvatarUrl.value = url))
 
@@ -36,7 +39,14 @@ const {
 // everyone, so just load it once up front rather than per-tab-switch.
 const categories = ref<Category[]>([])
 onMounted(async () => {
-  categories.value = await listCategories().catch(() => [])
+  try {
+    categories.value = await listCategories()
+  } catch (err) {
+    // Non-fatal: the Rutin list falls back to a generic label per item and
+    // the create sheet shows its "bikin kategori dulu" empty state, so the
+    // page stays usable — but the user still needs to know why.
+    toast.error(apiErrorMessage(err, 'Gagal muat kategori.'))
+  }
 })
 function categoryFor(categoryId: string) {
   return categories.value.find((c) => c.id === categoryId)
@@ -108,23 +118,30 @@ function openEditRecurring(item: RecurringExpense) {
         </button>
       </header>
 
-      <div class="px-5 pb-5" role="tablist">
-        <div class="flex gap-1 rounded-full bg-white/5 p-1">
+      <div class="px-5 pb-5">
+        <!-- role="tablist" belongs on the element that directly contains the
+             tabs — a generic wrapper in between breaks the relationship for
+             screen readers, which then announce neither tab's position. -->
+        <div class="flex gap-1 rounded-full bg-white/5 p-1" role="tablist">
           <button
+            id="tab-tagihan"
             type="button"
             role="tab"
             :aria-selected="tab === 'tagihan'"
-            class="flex-1 rounded-full py-2 text-[0.8125rem] font-bold transition-colors"
+            aria-controls="panel-tagihan"
+            class="focus-visible:ring-azure/40 flex-1 rounded-full py-2 text-[0.8125rem] font-bold transition-colors focus-visible:ring-2 focus-visible:outline-none"
             :class="tab === 'tagihan' ? 'bg-azure text-white' : 'text-sky/60'"
             @click="tab = 'tagihan'"
           >
             Tagihan
           </button>
           <button
+            id="tab-rutin"
             type="button"
             role="tab"
             :aria-selected="tab === 'rutin'"
-            class="flex-1 rounded-full py-2 text-[0.8125rem] font-bold transition-colors"
+            aria-controls="panel-rutin"
+            class="focus-visible:ring-azure/40 flex-1 rounded-full py-2 text-[0.8125rem] font-bold transition-colors focus-visible:ring-2 focus-visible:outline-none"
             :class="tab === 'rutin' ? 'bg-azure text-white' : 'text-sky/60'"
             @click="tab = 'rutin'"
           >
@@ -133,7 +150,13 @@ function openEditRecurring(item: RecurringExpense) {
         </div>
       </div>
 
-      <section v-if="tab === 'tagihan'" class="flex-1 px-5 pb-28">
+      <section
+        v-if="tab === 'tagihan'"
+        id="panel-tagihan"
+        role="tabpanel"
+        aria-labelledby="tab-tagihan"
+        class="flex-1 px-5 pb-28"
+      >
         <div v-if="loading" class="flex flex-col gap-3">
           <div v-for="n in 3" :key="n" class="h-16 animate-pulse rounded-2xl bg-white/5"></div>
         </div>
@@ -189,7 +212,13 @@ function openEditRecurring(item: RecurringExpense) {
         </div>
       </section>
 
-      <section v-else class="flex-1 px-5 pb-28">
+      <section
+        v-else
+        id="panel-rutin"
+        role="tabpanel"
+        aria-labelledby="tab-rutin"
+        class="flex-1 px-5 pb-28"
+      >
         <div v-if="recurringLoading" class="flex flex-col gap-3">
           <div v-for="n in 3" :key="n" class="h-16 animate-pulse rounded-2xl bg-white/5"></div>
         </div>

@@ -76,8 +76,8 @@ func main() {
 	if cfg.Internal.JobsSecret == "" {
 		logger.Warn().Msg("INTERNAL_JOBS_SECRET is empty — /internal/jobs/* routes will reject every request until it's set")
 	}
-	if cfg.VAPID.PublicKey == "" || cfg.VAPID.PrivateKey == "" {
-		logger.Warn().Msg("VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY not set — push notifications are disabled, subscriptions will be rejected")
+	if cfg.VAPID.PublicKey == "" || cfg.VAPID.PrivateKey == "" || cfg.VAPID.Subject == "" {
+		logger.Warn().Msg("VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY/VAPID_SUBJECT not all set — push notifications are disabled, subscriptions will be rejected")
 	}
 
 	services := service.NewServices(db, cfg.JWT, cfg.Retention, cfg.OTP, cfg.VAPID, storage, redisClient, mailer, taskEnqueuer)

@@ -80,6 +80,19 @@ jobs:
             INTERNAL_JOBS_SECRET=internal-jobs-secret:latest
             DB_PASSWORD=db-password:latest
             REDIS_PASSWORD=redis-password:latest
+            # Web Push (Sprint 3). Create both secrets before the first
+            # deploy that needs push, or the service boots with push
+            # disabled and every subscribe attempt is rejected:
+            #   npx web-push generate-vapid-keys
+            #   printf '%s' "<public>"  | gcloud secrets create vapid-public-key  --data-file=-
+            #   printf '%s' "<private>" | gcloud secrets create vapid-private-key --data-file=-
+            # The public key isn't secret (the browser receives it via
+            # GET /api/v1/push/public-key), it just lives here so this
+            # workflow holds no key material of its own. Rotating the pair
+            # invalidates every existing browser subscription — clients
+            # re-subscribe on their next visit to the notification settings.
+            VAPID_PUBLIC_KEY=vapid-public-key:latest
+            VAPID_PRIVATE_KEY=vapid-private-key:latest
           env_vars: |
             APP_ENV=production
             APP_PORT=8080
@@ -105,6 +118,11 @@ jobs:
             SMTP_PORT=587
             SMTP_USER=dimzky.project@gmail.com
             SMTP_FROM_NAME=DuitKita
+            # Contact a push service can use to reach us about a
+            # misbehaving integration (the VAPID JWT 'sub' claim). Reusing
+            # the project address; swap it if you'd rather it went
+            # elsewhere. Required — push stays disabled while it's empty.
+            VAPID_SUBJECT=dimzky.project@gmail.com
             OTP_TTL_MINUTES=10
             OTP_MAX_ATTEMPTS=5
             OTP_RESEND_COOLDOWN_SECONDS=60

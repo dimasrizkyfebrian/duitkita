@@ -168,7 +168,7 @@ func TestReminderService_ProcessDue(t *testing.T) {
 			require.Equal(t, domain.BillReminderStatusOverdue, r.Status)
 			return nil
 		})
-		notifSvc.EXPECT().Create(context.Background(), "user-1", domain.NotificationTypeBillReminder, "Bill reminder", mockMatchByType[string]()).Return(nil)
+		notifSvc.EXPECT().Create(context.Background(), "user-1", domain.NotificationTypeBillReminder, "Pengingat tagihan", mockMatchByType[string]()).Return(nil)
 
 		processed, err := svc.ProcessDue(context.Background())
 
@@ -181,7 +181,7 @@ func TestReminderService_ProcessDue(t *testing.T) {
 		due := []domain.BillReminder{{ID: "r-1", UserID: "user-1", Title: "Rent", DueDate: time.Now(), Status: domain.BillReminderStatusUpcoming}}
 		repo.EXPECT().FindDueForNotification(context.Background(), mockMatchByType[time.Time]()).Return(due, nil)
 		repo.EXPECT().Update(context.Background(), mockMatchByType[*domain.BillReminder]()).Return(nil)
-		notifSvc.EXPECT().Create(context.Background(), "user-1", domain.NotificationTypeBillReminder, "Bill reminder", mockMatchByType[string]()).Return(errors.New("smtp down"))
+		notifSvc.EXPECT().Create(context.Background(), "user-1", domain.NotificationTypeBillReminder, "Pengingat tagihan", mockMatchByType[string]()).Return(errors.New("smtp down"))
 
 		processed, err := svc.ProcessDue(context.Background())
 

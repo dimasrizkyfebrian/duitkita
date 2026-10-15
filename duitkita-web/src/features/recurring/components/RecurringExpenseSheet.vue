@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, useId, watch } from 'vue'
 import BottomSheet from '@/shared/components/BottomSheet.vue'
 import BaseButton from '@/shared/components/BaseButton.vue'
 import BaseInput from '@/shared/components/BaseInput.vue'
@@ -29,6 +29,14 @@ const toast = useToast()
 const isEdit = computed(() => Boolean(props.existing))
 
 const WEEKDAY_LABELS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
+
+// Each chip group is labelled by its own heading rather than wrapped in a
+// fieldset — BottomSheet already lays the form out, and a fieldset would
+// bring default styling that has to be undone anyway.
+const categoryLabelId = useId()
+const scheduleTypeLabelId = useId()
+const weekdayLabelId = useId()
+const monthlyDayId = useId()
 
 const categoryId = ref('')
 const amount = ref(0)
@@ -84,7 +92,8 @@ async function onSubmit() {
     if (isEdit.value && props.existing) {
       await updateRecurringExpense(props.existing.id, {
         amount: amount.value,
-        note: note.value || undefined,
+        // Sent even when empty — that's what clears a note the user wiped.
+        note: note.value,
         schedule_day: scheduleDay.value,
       })
       toast.success('Pengeluaran rutin udah diubah.')
@@ -159,15 +168,19 @@ async function onDelete() {
       @submit.prevent="onSubmit"
     >
       <div v-if="!isEdit" class="flex flex-col gap-2">
-        <span class="text-muted text-[0.6875rem] font-semibold tracking-widest uppercase">
+        <span
+          :id="categoryLabelId"
+          class="text-muted text-[0.6875rem] font-semibold tracking-widest uppercase"
+        >
           Kategori
         </span>
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2" role="group" :aria-labelledby="categoryLabelId">
           <button
             v-for="category in categories"
             :key="category.id"
             type="button"
-            class="rounded-control flex items-center gap-1.5 border px-3.5 py-2.5 text-[0.8125rem] font-bold transition-colors"
+            :aria-pressed="categoryId === category.id"
+            class="rounded-control focus-visible:ring-azure/30 flex items-center gap-1.5 border px-3.5 py-2.5 text-[0.8125rem] font-bold transition-colors focus-visible:ring-4 focus-visible:outline-none"
             :class="
               categoryId === category.id
                 ? 'border-navy bg-navy text-white'
@@ -180,7 +193,7 @@ async function onDelete() {
           </button>
         </div>
       </div>
-      <div v-else class="flex items-center gap-2 rounded-2xl bg-black/[0.03] px-4 py-3">
+      <div v-else class="flex items-center gap-2 rounded-2xl bg-black/3 px-4 py-3">
         <span v-if="selectedCategory?.icon">{{ selectedCategory.icon }}</span>
         <span class="text-ink text-[0.875rem] font-bold">{{ selectedCategory?.name }}</span>
       </div>
@@ -188,13 +201,17 @@ async function onDelete() {
       <CurrencyInput v-model="amount" label="Besaran" />
 
       <div v-if="!isEdit" class="flex flex-col gap-2">
-        <span class="text-muted text-[0.6875rem] font-semibold tracking-widest uppercase">
+        <span
+          :id="scheduleTypeLabelId"
+          class="text-muted text-[0.6875rem] font-semibold tracking-widest uppercase"
+        >
           Pengulangan
         </span>
-        <div class="flex gap-2">
+        <div class="flex gap-2" role="group" :aria-labelledby="scheduleTypeLabelId">
           <button
             type="button"
-            class="rounded-control flex-1 border px-3.5 py-2.5 text-[0.8125rem] font-bold transition-colors"
+            :aria-pressed="scheduleType === 'weekly'"
+            class="rounded-control focus-visible:ring-azure/30 flex-1 border px-3.5 py-2.5 text-[0.8125rem] font-bold transition-colors focus-visible:ring-4 focus-visible:outline-none"
             :class="
               scheduleType === 'weekly'
                 ? 'border-navy bg-navy text-white'
@@ -206,7 +223,8 @@ async function onDelete() {
           </button>
           <button
             type="button"
-            class="rounded-control flex-1 border px-3.5 py-2.5 text-[0.8125rem] font-bold transition-colors"
+            :aria-pressed="scheduleType === 'monthly'"
+            class="rounded-control focus-visible:ring-azure/30 flex-1 border px-3.5 py-2.5 text-[0.8125rem] font-bold transition-colors focus-visible:ring-4 focus-visible:outline-none"
             :class="
               scheduleType === 'monthly'
                 ? 'border-navy bg-navy text-white'
@@ -219,17 +237,20 @@ async function onDelete() {
         </div>
       </div>
 
-      <div class="flex flex-col gap-2">
-        <span class="text-muted text-[0.6875rem] font-semibold tracking-widest uppercase">
-          {{ scheduleType === 'weekly' ? 'Harinya' : 'Tanggalnya' }}
+      <div v-if="scheduleType === 'weekly'" class="flex flex-col gap-2">
+        <span
+          :id="weekdayLabelId"
+          class="text-muted text-[0.6875rem] font-semibold tracking-widest uppercase"
+        >
+          Harinya
         </span>
-
-        <div v-if="scheduleType === 'weekly'" class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2" role="group" :aria-labelledby="weekdayLabelId">
           <button
             v-for="(label, day) in WEEKDAY_LABELS"
             :key="day"
             type="button"
-            class="rounded-control border px-3.5 py-2.5 text-[0.8125rem] font-bold transition-colors"
+            :aria-pressed="scheduleDay === day"
+            class="rounded-control focus-visible:ring-azure/30 border px-3.5 py-2.5 text-[0.8125rem] font-bold transition-colors focus-visible:ring-4 focus-visible:outline-none"
             :class="
               scheduleDay === day
                 ? 'border-navy bg-navy text-white'
@@ -240,19 +261,28 @@ async function onDelete() {
             {{ label }}
           </button>
         </div>
+      </div>
 
-        <div v-else class="flex flex-col gap-2">
-          <input
-            v-model.number="scheduleDay"
-            type="number"
-            min="1"
-            max="31"
-            class="rounded-control border-hairline focus:border-azure focus:ring-azure/15 w-full border bg-white px-4 py-3.5 text-[0.9375rem] font-medium transition-colors duration-150 focus:ring-4 focus:outline-none"
-          />
-          <p class="text-muted text-[0.8125rem]">
-            Tanggal 29-31 otomatis nyesuaiin ke akhir bulan kalau bulannya lebih pendek.
-          </p>
-        </div>
+      <div v-else class="flex flex-col gap-2">
+        <label
+          :for="monthlyDayId"
+          class="text-muted text-[0.6875rem] font-semibold tracking-widest uppercase"
+        >
+          Tanggalnya
+        </label>
+        <input
+          :id="monthlyDayId"
+          v-model.number="scheduleDay"
+          type="number"
+          inputmode="numeric"
+          min="1"
+          max="31"
+          :aria-describedby="`${monthlyDayId}-hint`"
+          class="rounded-control border-hairline focus:border-azure focus:ring-azure/15 w-full border bg-white px-4 py-3.5 text-[0.9375rem] font-medium transition-colors duration-150 focus:ring-4 focus:outline-none"
+        />
+        <p :id="`${monthlyDayId}-hint`" class="text-muted text-[0.8125rem]">
+          Tanggal 29-31 otomatis nyesuaiin ke akhir bulan kalau bulannya lebih pendek.
+        </p>
       </div>
 
       <BaseInput v-model="note" label="Catatan (opsional)" placeholder="Misalnya: token listrik" />

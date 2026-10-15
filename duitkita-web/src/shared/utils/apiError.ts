@@ -44,6 +44,10 @@ const MESSAGES: Record<string, string> = {
     'Budget ini masih punya pengeluaran yang tercatat. Hapus pengeluarannya dulu ya.',
   'push notifications are not configured on this server':
     'Notifikasi push belum bisa diaktifin di server ini. Coba lagi lain waktu ya.',
+  'schedule_day must be 0-6 (Sunday-Saturday) for a weekly schedule':
+    'Pilih harinya dulu buat jadwal mingguan ya.',
+  'schedule_day must be 1-31 for a monthly schedule':
+    'Tanggalnya harus antara 1 sampai 31 buat jadwal bulanan.',
 }
 
 const FIELD_LABELS: Record<string, string> = {
