@@ -41,6 +41,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&domain.BillReminder{},
 		&domain.Notification{},
 		&domain.NotificationPreference{},
+		&domain.PushSubscription{},
 		&domain.ReportExport{},
 		&domain.Activity{},
 		&domain.SecurityAuditLog{},

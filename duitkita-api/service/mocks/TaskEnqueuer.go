@@ -21,6 +21,53 @@ func (_m *TaskEnqueuer) EXPECT() *TaskEnqueuer_Expecter {
 	return &TaskEnqueuer_Expecter{mock: &_m.Mock}
 }
 
+// EnqueuePushDispatch provides a mock function with given fields: ctx, notificationID
+func (_m *TaskEnqueuer) EnqueuePushDispatch(ctx context.Context, notificationID string) error {
+	ret := _m.Called(ctx, notificationID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for EnqueuePushDispatch")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, notificationID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// TaskEnqueuer_EnqueuePushDispatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EnqueuePushDispatch'
+type TaskEnqueuer_EnqueuePushDispatch_Call struct {
+	*mock.Call
+}
+
+// EnqueuePushDispatch is a helper method to define mock.On call
+//   - ctx context.Context
+//   - notificationID string
+func (_e *TaskEnqueuer_Expecter) EnqueuePushDispatch(ctx interface{}, notificationID interface{}) *TaskEnqueuer_EnqueuePushDispatch_Call {
+	return &TaskEnqueuer_EnqueuePushDispatch_Call{Call: _e.mock.On("EnqueuePushDispatch", ctx, notificationID)}
+}
+
+func (_c *TaskEnqueuer_EnqueuePushDispatch_Call) Run(run func(ctx context.Context, notificationID string)) *TaskEnqueuer_EnqueuePushDispatch_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *TaskEnqueuer_EnqueuePushDispatch_Call) Return(_a0 error) *TaskEnqueuer_EnqueuePushDispatch_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *TaskEnqueuer_EnqueuePushDispatch_Call) RunAndReturn(run func(context.Context, string) error) *TaskEnqueuer_EnqueuePushDispatch_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // EnqueueReportExportRender provides a mock function with given fields: ctx, exportID
 func (_m *TaskEnqueuer) EnqueueReportExportRender(ctx context.Context, exportID string) error {
 	ret := _m.Called(ctx, exportID)

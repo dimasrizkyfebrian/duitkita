@@ -1255,6 +1255,51 @@ paths:
         '200': { $ref: '#/components/responses/OK' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /push/public-key:
+    get:
+      tags: [Push]
+      summary: Get the VAPID public key to pass to pushManager.subscribe()
+      responses:
+        '200':
+          description: vapid public key retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/PushPublicKeyResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /push/subscriptions:
+    post:
+      tags: [Push]
+      summary: Save a browser push subscription for the current user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SubscribePushRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/OK' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: push notifications are not configured on this server
+    delete:
+      tags: [Push]
+      summary: Remove a browser push subscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UnsubscribePushRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/OK' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /reports/monthly:
     get:
       tags: [Reports]
@@ -1924,6 +1969,32 @@ components:
       properties:
         snoozed_until: { type: string, format: date }
       required: [snoozed_until]
+
+    SubscribePushRequest:
+      type: object
+      description: Mirrors the browser's PushSubscription.toJSON() shape.
+      properties:
+        endpoint: { type: string, format: uri }
+        keys:
+          type: object
+          properties:
+            p256dh: { type: string }
+            auth: { type: string }
+          required: [p256dh, auth]
+      required: [endpoint, keys]
+
+    UnsubscribePushRequest:
+      type: object
+      properties:
+        endpoint: { type: string, format: uri }
+      required: [endpoint]
+
+    PushPublicKeyResponse:
+      type: object
+      properties:
+        public_key:
+          type: string
+          description: Empty when push notifications aren't configured on the server.
 
     UpdateNotificationPreferenceRequest:
       type: object

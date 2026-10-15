@@ -5,6 +5,7 @@ go 1.26.0
 require (
 	cloud.google.com/go/cloudtasks v1.20.0
 	cloud.google.com/go/storage v1.68.0
+	github.com/SherClockHolmes/webpush-go v1.4.0
 	github.com/alicebob/miniredis/v2 v2.39.0
 	github.com/gin-contrib/cors v1.7.8
 	github.com/gin-gonic/gin v1.12.0

@@ -28,9 +28,10 @@ func NewRouter(svcs *service.Services, cfg *config.Config, logger zerolog.Logger
 	recurringExpenseHandler := handler.NewRecurringExpenseHandler(svcs.RecurringExpense)
 	reminderHandler := handler.NewReminderHandler(svcs.Reminder)
 	notificationHandler := handler.NewNotificationHandler(svcs.Notification)
+	pushHandler := handler.NewPushHandler(svcs.Push)
 	reportHandler := handler.NewReportHandler(svcs.Report, svcs.Insights, svcs.ReportExport, cfg.Feature.InsightsEnabled)
 	activityHandler := handler.NewActivityHandler(svcs.Activity)
-	internalHandler := handler.NewInternalHandler(svcs.RecurringExpense, svcs.Reminder, svcs.Maintenance, svcs.ReportExport)
+	internalHandler := handler.NewInternalHandler(svcs.RecurringExpense, svcs.Reminder, svcs.Maintenance, svcs.ReportExport, svcs.Push)
 
 	api := r.Group("/api/v1")
 
@@ -56,6 +57,7 @@ func NewRouter(svcs *service.Services, cfg *config.Config, logger zerolog.Logger
 	recurringExpenseHandler.RegisterRoutes(protected)
 	reminderHandler.RegisterRoutes(protected)
 	notificationHandler.RegisterRoutes(protected)
+	pushHandler.RegisterRoutes(protected)
 	reportHandler.RegisterRoutes(protected)
 	activityHandler.RegisterRoutes(protected)
 

@@ -18,14 +18,16 @@ type InternalHandler struct {
 	reminderSvc         service.ReminderService
 	maintenanceSvc      service.MaintenanceService
 	reportExportSvc     service.ReportExportService
+	pushSvc             service.PushService
 }
 
-func NewInternalHandler(recurringExpenseSvc service.RecurringExpenseService, reminderSvc service.ReminderService, maintenanceSvc service.MaintenanceService, reportExportSvc service.ReportExportService) *InternalHandler {
+func NewInternalHandler(recurringExpenseSvc service.RecurringExpenseService, reminderSvc service.ReminderService, maintenanceSvc service.MaintenanceService, reportExportSvc service.ReportExportService, pushSvc service.PushService) *InternalHandler {
 	return &InternalHandler{
 		recurringExpenseSvc: recurringExpenseSvc,
 		reminderSvc:         reminderSvc,
 		maintenanceSvc:      maintenanceSvc,
 		reportExportSvc:     reportExportSvc,
+		pushSvc:             pushSvc,
 	}
 }
 
@@ -35,6 +37,7 @@ func (h *InternalHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	jobs.POST("/reminders/run", h.runReminders)
 	jobs.POST("/cleanup/run", h.runCleanup)
 	jobs.POST("/report-exports/:id/render", h.renderReportExport)
+	jobs.POST("/notifications/:id/push", h.dispatchPush)
 }
 
 func (h *InternalHandler) runRecurringExpenses(c *gin.Context) {
@@ -70,4 +73,12 @@ func (h *InternalHandler) renderReportExport(c *gin.Context) {
 		return
 	}
 	utils.Success(c, http.StatusOK, "export rendered", nil)
+}
+
+func (h *InternalHandler) dispatchPush(c *gin.Context) {
+	if err := h.pushSvc.Dispatch(c.Request.Context(), c.Param("id")); err != nil {
+		c.Error(err)
+		return
+	}
+	utils.Success(c, http.StatusOK, "push dispatched", nil)
 }

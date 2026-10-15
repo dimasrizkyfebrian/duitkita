@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"gorm.io/gorm"
@@ -12,6 +13,7 @@ import (
 
 type NotificationRepository interface {
 	Create(ctx context.Context, notification *domain.Notification) error
+	FindByID(ctx context.Context, id string) (*domain.Notification, error)
 	FindAllByUserID(ctx context.Context, userID string, limit, offset int) ([]domain.Notification, error)
 	MarkRead(ctx context.Context, id, userID string) error
 	MarkAllRead(ctx context.Context, userID string) error
@@ -28,6 +30,18 @@ func NewNotificationRepository(db *gorm.DB) NotificationRepository {
 
 func (r *notificationRepository) Create(ctx context.Context, notification *domain.Notification) error {
 	return r.db.WithContext(ctx).Create(notification).Error
+}
+
+func (r *notificationRepository) FindByID(ctx context.Context, id string) (*domain.Notification, error) {
+	var notification domain.Notification
+	err := r.db.WithContext(ctx).First(&notification, "id = ?", id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &notification, nil
 }
 
 func (r *notificationRepository) FindAllByUserID(ctx context.Context, userID string, limit, offset int) ([]domain.Notification, error) {
