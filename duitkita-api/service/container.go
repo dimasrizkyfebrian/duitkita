@@ -1,6 +1,8 @@
 package service
 
 import (
+	"time"
+
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
@@ -42,6 +44,7 @@ func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.Reten
 	pushSubscriptionRepo := repository.NewPushSubscriptionRepository(db)
 	reportRepo := repository.NewReportRepository(db)
 	reportExportRepo := repository.NewReportExportRepository(db)
+	reportSnapshotRepo := repository.NewReportSnapshotRepository(db)
 	activityRepo := repository.NewActivityRepository(db)
 	securityAuditRepo := repository.NewSecurityAuditRepository(db)
 
@@ -65,7 +68,7 @@ func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.Reten
 		Push:             pushSvc,
 		Report:           reportSvc,
 		Insights:         NewInsightsService(reportSvc),
-		ReportExport:     NewReportExportService(reportExportRepo, reportSvc, storage, cloudTasksEnqueuer),
+		ReportExport:     NewReportExportService(reportExportRepo, NewReportSnapshotBuilder(reportSnapshotRepo, userRepo, coupleRepo, retentionCfg.ActivityDays, time.Now), storage, cloudTasksEnqueuer),
 		Activity:         activitySvc,
 		SecurityAudit:    securityAuditSvc,
 		Maintenance:      NewMaintenanceService(sessionRepo, notificationRepo, activityRepo, securityAuditRepo, retentionCfg),

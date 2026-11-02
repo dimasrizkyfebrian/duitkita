@@ -27,9 +27,15 @@ func (s *insightsService) Forecast(ctx context.Context, userID string) (*respons
 	if err != nil {
 		return nil, err
 	}
-	points := trend.Points
+	return forecastFromPoints(trend.Points), nil
+}
+
+// forecastFromPoints projects the month after the last point as the plain
+// average of the points given. Shared with the PDF export so the report's
+// projection matches the app's.
+func forecastFromPoints(points []response.TrendPoint) *response.ForecastResponse {
 	if len(points) == 0 {
-		return &response.ForecastResponse{Confidence: 0}, nil
+		return &response.ForecastResponse{Confidence: 0}
 	}
 
 	var sum int64
@@ -56,7 +62,7 @@ func (s *insightsService) Forecast(ctx context.Context, userID string) (*respons
 		Month:          nextMonth,
 		ProjectedTotal: avg,
 		Confidence:     confidence,
-	}, nil
+	}
 }
 
 func (s *insightsService) HealthScore(ctx context.Context, userID string, year, month int) (*response.HealthScoreResponse, error) {
@@ -64,12 +70,17 @@ func (s *insightsService) HealthScore(ctx context.Context, userID string, year, 
 	if err != nil {
 		return nil, err
 	}
+	return computeHealthScore(report.TotalSpent, report.TotalBudget), nil
+}
 
-	if report.TotalBudget == 0 {
-		return &response.HealthScoreResponse{Score: 0, Grade: "n/a", Reasons: []string{"no budget set for this period"}}, nil
+// computeHealthScore grades spent against budget. Shared with the PDF export
+// so the grade printed in a report is the one the app shows.
+func computeHealthScore(spent, budget int64) *response.HealthScoreResponse {
+	if budget == 0 {
+		return &response.HealthScoreResponse{Score: 0, Grade: "n/a", Reasons: []string{"no budget set for this period"}}
 	}
 
-	ratio := float64(report.TotalSpent) / float64(report.TotalBudget)
+	ratio := float64(spent) / float64(budget)
 	score := int((1 - ratio) * 100)
 	if score < 0 {
 		score = 0
@@ -94,5 +105,5 @@ func (s *insightsService) HealthScore(ctx context.Context, userID string, year, 
 		reasons = append(reasons, "spending is well under budget")
 	}
 
-	return &response.HealthScoreResponse{Score: score, Grade: grade, Reasons: reasons}, nil
+	return &response.HealthScoreResponse{Score: score, Grade: grade, Reasons: reasons}
 }

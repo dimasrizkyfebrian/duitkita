@@ -1,6 +1,7 @@
 package service_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -13,18 +14,34 @@ import (
 
 	"duitkita-api/model/domain"
 	"duitkita-api/model/dto/request"
-	"duitkita-api/model/dto/response"
+	"duitkita-api/pdfreport"
 	"duitkita-api/repository/mocks"
 	"duitkita-api/service"
 	svcmocks "duitkita-api/service/mocks"
 )
 
-func newReportExportService(t *testing.T) (service.ReportExportService, *mocks.ReportExportRepository, *svcmocks.ReportService, *svcmocks.FileStorage, *svcmocks.TaskEnqueuer) {
+// sampleReport is the smallest report the renderer accepts — the export
+// service tests care about the status flow, not the layout.
+func sampleReport(couple bool) *pdfreport.Report {
+	r := &pdfreport.Report{
+		Couple: couple, Year: 2026, Month: 1, DaysInMonth: 31,
+		GeneratedAt: time.Date(2026, 2, 3, 9, 0, 0, 0, pdfreport.WIB),
+		Owner:       pdfreport.Person{ID: "user-1", Name: "Dimas"},
+		Trend:       []pdfreport.TrendPoint{{Year: 2026, Month: 1}},
+	}
+	if couple {
+		r.Partner = &pdfreport.Person{ID: "user-2", Name: "Rina"}
+		r.CoupleStats = &pdfreport.CoupleSection{}
+	}
+	return r
+}
+
+func newReportExportService(t *testing.T) (service.ReportExportService, *mocks.ReportExportRepository, *svcmocks.ReportSnapshotBuilder, *svcmocks.FileStorage, *svcmocks.TaskEnqueuer) {
 	repo := mocks.NewReportExportRepository(t)
-	reportSvc := svcmocks.NewReportService(t)
+	builder := svcmocks.NewReportSnapshotBuilder(t)
 	storage := svcmocks.NewFileStorage(t)
 	enqueuer := svcmocks.NewTaskEnqueuer(t)
-	return service.NewReportExportService(repo, reportSvc, storage, enqueuer), repo, reportSvc, storage, enqueuer
+	return service.NewReportExportService(repo, builder, storage, enqueuer), repo, builder, storage, enqueuer
 }
 
 func TestReportExportService_Create(t *testing.T) {
@@ -99,12 +116,18 @@ func TestReportExportService_DownloadURL(t *testing.T) {
 
 func TestReportExportService_ProcessPending(t *testing.T) {
 	t.Run("renders and completes a pending export", func(t *testing.T) {
-		svc, repo, reportSvc, storage, _ := newReportExportService(t)
+		svc, repo, builder, storage, _ := newReportExportService(t)
 		pending := []domain.ReportExport{{ID: "exp-1", UserID: "user-1", Year: 2026, Month: 1}}
 		repo.EXPECT().FindPending(context.Background()).Return(pending, nil)
 		repo.EXPECT().Update(context.Background(), mockMatchByType[*domain.ReportExport]()).Return(nil).Twice()
-		reportSvc.EXPECT().MonthlyReport(context.Background(), "user-1", 2026, 1).Return(&response.MonthlyReportResponse{Year: 2026, Month: 1}, nil)
-		storage.EXPECT().Upload(context.Background(), "reports/user-1/exp-1.pdf", mockMatchByType[io.Reader](), "application/pdf").Return("", nil)
+		builder.EXPECT().Build(context.Background(), "user-1", 2026, 1, "").Return(sampleReport(false), nil)
+		storage.EXPECT().Upload(context.Background(), "reports/user-1/exp-1.pdf", mockMatchByType[io.Reader](), "application/pdf").
+			RunAndReturn(func(_ context.Context, _ string, r io.Reader, _ string) (string, error) {
+				body, err := io.ReadAll(r)
+				require.NoError(t, err)
+				require.True(t, bytes.HasPrefix(body, []byte("%PDF-")), "uploaded object should be a PDF")
+				return "", nil
+			})
 
 		processed, err := svc.ProcessPending(context.Background())
 
@@ -112,12 +135,12 @@ func TestReportExportService_ProcessPending(t *testing.T) {
 		require.Equal(t, 1, processed)
 	})
 
-	t.Run("couple scope renders the couple report, not the requester's personal one", func(t *testing.T) {
-		svc, repo, reportSvc, storage, _ := newReportExportService(t)
+	t.Run("couple scope asks the builder for the couple report, not the requester's personal one", func(t *testing.T) {
+		svc, repo, builder, storage, _ := newReportExportService(t)
 		pending := []domain.ReportExport{{ID: "exp-1", UserID: "user-1", Year: 2026, Month: 1, Scope: "couple"}}
 		repo.EXPECT().FindPending(context.Background()).Return(pending, nil)
 		repo.EXPECT().Update(context.Background(), mockMatchByType[*domain.ReportExport]()).Return(nil).Twice()
-		reportSvc.EXPECT().CoupleReport(context.Background(), "user-1", 2026, 1).Return(&response.CoupleReportResponse{Year: 2026, Month: 1, MyTotal: 100, PartnerTotal: 50}, nil)
+		builder.EXPECT().Build(context.Background(), "user-1", 2026, 1, "couple").Return(sampleReport(true), nil)
 		storage.EXPECT().Upload(context.Background(), "reports/user-1/exp-1.pdf", mockMatchByType[io.Reader](), "application/pdf").Return("", nil)
 
 		processed, err := svc.ProcessPending(context.Background())
@@ -127,13 +150,13 @@ func TestReportExportService_ProcessPending(t *testing.T) {
 	})
 
 	t.Run("render failure marks the export failed but keeps processing others", func(t *testing.T) {
-		svc, repo, reportSvc, _, _ := newReportExportService(t)
+		svc, repo, builder, _, _ := newReportExportService(t)
 		pending := []domain.ReportExport{{ID: "exp-1", UserID: "user-1", Year: 2026, Month: 1}}
 		repo.EXPECT().FindPending(context.Background()).Return(pending, nil)
 		repo.EXPECT().Update(context.Background(), mockMatchByType[*domain.ReportExport]()).RunAndReturn(func(_ context.Context, e *domain.ReportExport) error {
 			return nil
 		}).Twice()
-		reportSvc.EXPECT().MonthlyReport(context.Background(), "user-1", 2026, 1).Return(nil, errors.New("db down"))
+		builder.EXPECT().Build(context.Background(), "user-1", 2026, 1, "").Return(nil, errors.New("db down"))
 
 		processed, err := svc.ProcessPending(context.Background())
 
@@ -165,11 +188,11 @@ func TestReportExportService_ProcessPending(t *testing.T) {
 
 func TestReportExportService_RenderOne(t *testing.T) {
 	t.Run("renders a pending export", func(t *testing.T) {
-		svc, repo, reportSvc, storage, _ := newReportExportService(t)
+		svc, repo, builder, storage, _ := newReportExportService(t)
 		export := &domain.ReportExport{ID: "exp-1", UserID: "user-1", Year: 2026, Month: 1, Status: domain.ReportExportStatusPending}
 		repo.EXPECT().FindByID(context.Background(), "exp-1").Return(export, nil)
 		repo.EXPECT().Update(context.Background(), export).Return(nil).Twice()
-		reportSvc.EXPECT().MonthlyReport(context.Background(), "user-1", 2026, 1).Return(&response.MonthlyReportResponse{Year: 2026, Month: 1}, nil)
+		builder.EXPECT().Build(context.Background(), "user-1", 2026, 1, "").Return(sampleReport(false), nil)
 		storage.EXPECT().Upload(context.Background(), "reports/user-1/exp-1.pdf", mockMatchByType[io.Reader](), "application/pdf").Return("", nil)
 
 		err := svc.RenderOne(context.Background(), "exp-1")
