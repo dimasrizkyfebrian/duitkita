@@ -12,6 +12,7 @@ import (
 	"duitkita-api/model/domain"
 	"duitkita-api/model/dto/request"
 	"duitkita-api/model/dto/response"
+	"duitkita-api/pdfreport"
 	"duitkita-api/repository"
 	"duitkita-api/utils"
 )
@@ -26,14 +27,14 @@ type ReportExportService interface {
 }
 
 type reportExportService struct {
-	repo      repository.ReportExportRepository
-	reportSvc ReportService
-	storage   FileStorage
-	enqueuer  TaskEnqueuer
+	repo     repository.ReportExportRepository
+	builder  ReportSnapshotBuilder
+	storage  FileStorage
+	enqueuer TaskEnqueuer
 }
 
-func NewReportExportService(repo repository.ReportExportRepository, reportSvc ReportService, storage FileStorage, cloudTasksEnqueuer TaskEnqueuer) ReportExportService {
-	svc := &reportExportService{repo: repo, reportSvc: reportSvc, storage: storage}
+func NewReportExportService(repo repository.ReportExportRepository, builder ReportSnapshotBuilder, storage FileStorage, cloudTasksEnqueuer TaskEnqueuer) ReportExportService {
+	svc := &reportExportService{repo: repo, builder: builder, storage: storage}
 	if cloudTasksEnqueuer != nil {
 		svc.enqueuer = cloudTasksEnqueuer
 	} else {
@@ -110,24 +111,13 @@ func (s *reportExportService) renderPendingExport(ctx context.Context, export *d
 }
 
 func (s *reportExportService) render(ctx context.Context, export *domain.ReportExport) error {
-	// export.Scope used to be accepted on the request but never actually
-	// read here — every export rendered the requester's own personal
-	// report, so a "couple" export silently handed back the wrong PDF.
-	var pdfBytes []byte
-	var err error
-	if export.Scope == "couple" {
-		report, rerr := s.reportSvc.CoupleReport(ctx, export.UserID, export.Year, export.Month)
-		if rerr != nil {
-			return rerr
-		}
-		pdfBytes, err = renderCoupleReportPDF(report)
-	} else {
-		report, rerr := s.reportSvc.MonthlyReport(ctx, export.UserID, export.Year, export.Month)
-		if rerr != nil {
-			return rerr
-		}
-		pdfBytes, err = renderMonthlyReportPDF(report)
+	// export.Scope decides whose data goes in: "couple" renders both
+	// partners side by side, anything else the requester's own report.
+	report, err := s.builder.Build(ctx, export.UserID, export.Year, export.Month, export.Scope)
+	if err != nil {
+		return err
 	}
+	pdfBytes, err := pdfreport.Render(report)
 	if err != nil {
 		return fmt.Errorf("render report pdf: %w", err)
 	}
@@ -203,44 +193,6 @@ func (s *reportExportService) failExport(ctx context.Context, export *domain.Rep
 	if err := s.repo.Update(ctx, export); err != nil {
 		log.Error().Err(err).Str("export_id", export.ID).Msg("failed to persist export failure status")
 	}
-}
-
-func renderMonthlyReportPDF(report *response.MonthlyReportResponse) ([]byte, error) {
-	lines := []utils.PDFLine{
-		{Text: fmt.Sprintf("Period: %04d-%02d", report.Year, report.Month), Bold: true},
-		{Text: fmt.Sprintf("Total Spent: %d", report.TotalSpent)},
-		{Text: fmt.Sprintf("Total Budget: %d", report.TotalBudget)},
-		{Text: "By Category:", Bold: true},
-	}
-	for _, c := range report.ByCategory {
-		lines = append(lines, utils.PDFLine{Text: fmt.Sprintf("- %s: spent %d / budget %d", c.Name, c.Spent, c.Budget)})
-	}
-	return utils.GenerateSimplePDF("Monthly Report", lines)
-}
-
-func renderCoupleReportPDF(report *response.CoupleReportResponse) ([]byte, error) {
-	intro := []utils.PDFLine{
-		{Text: fmt.Sprintf("Period: %04d-%02d", report.Year, report.Month), Bold: true},
-		{Text: fmt.Sprintf("Combined Spent: %d", report.TotalSpent)},
-		{Text: fmt.Sprintf("Combined Budget: %d", report.TotalBudget)},
-	}
-
-	left := utils.PDFColumn{
-		Heading: fmt.Sprintf("Me - Total: %d", report.MyTotal),
-	}
-	right := utils.PDFColumn{
-		Heading: fmt.Sprintf("Partner - Total: %d", report.PartnerTotal),
-	}
-	for _, c := range report.ByCategory {
-		line := utils.PDFLine{Text: fmt.Sprintf("- %s: spent %d / budget %d", c.Name, c.Spent, c.Budget)}
-		if c.Owner == "partner" {
-			right.Lines = append(right.Lines, line)
-		} else {
-			left.Lines = append(left.Lines, line)
-		}
-	}
-
-	return utils.GenerateTwoColumnPDF("Couple Report", intro, left, right)
 }
 
 func toExportResponse(export *domain.ReportExport, downloadURL string) *response.ExportResponse {
