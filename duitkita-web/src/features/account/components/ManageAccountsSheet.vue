@@ -1,16 +1,19 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import BottomSheet from '@/shared/components/BottomSheet.vue'
-import { formatRupiah } from '@/shared/utils/currency'
+import { displayBalance } from '../utils/balance'
+import { useBalanceVisibility } from '../composables/useBalanceVisibility'
 import { useAccounts } from '../composables/useAccounts'
 import AccountLogo from './AccountLogo.vue'
 import AccountFormSheet from './AccountFormSheet.vue'
 import AccountDetailSheet from './AccountDetailSheet.vue'
+import BalanceToggle from './BalanceToggle.vue'
 import type { Account } from '../types'
 
 const open = defineModel<boolean>('open', { required: true })
 const { activeAccounts, archivedAccounts, totalBalance, hasAnyBalance, loading, reload } =
   useAccounts()
+const { hidden } = useBalanceVisibility()
 
 const showArchived = ref(false)
 const formOpen = ref(false)
@@ -35,9 +38,12 @@ async function afterCreate(account: Account) {
     <div class="flex max-h-[70vh] flex-col gap-3 overflow-y-auto pb-1">
       <div v-if="hasAnyBalance" class="rounded-2xl bg-black/3 px-4 py-3">
         <p class="text-muted text-[0.75rem] font-semibold">Total saldo di DuitKita</p>
-        <p class="text-ink mt-0.5 text-[1.25rem] font-extrabold tabular-nums">
-          {{ formatRupiah(totalBalance) }}
-        </p>
+        <div class="mt-0.5 flex items-center gap-2">
+          <p class="text-ink text-[1.25rem] font-extrabold tabular-nums">
+            {{ displayBalance(totalBalance, hidden) }}
+          </p>
+          <BalanceToggle />
+        </div>
       </div>
 
       <button
@@ -80,7 +86,11 @@ async function afterCreate(account: Account) {
               class="shrink-0 text-[0.8125rem] font-bold tabular-nums"
               :class="account.balance === null ? 'text-muted' : 'text-ink'"
             >
-              {{ account.balance === null ? 'Saldo belum diisi' : formatRupiah(account.balance) }}
+              {{
+                account.balance === null
+                  ? 'Saldo belum diisi'
+                  : displayBalance(account.balance, hidden)
+              }}
             </span>
           </button>
         </li>

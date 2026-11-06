@@ -8,6 +8,17 @@ export function formatSignedRupiah(delta: number) {
   return `${delta > 0 ? '+' : '−'}${formatRupiah(Math.abs(delta))}`
 }
 
+/** What a balance reads as while balances are hidden. */
+export const MASKED_BALANCE = 'Rp ••••••'
+
+export function displayBalance(amount: number, hidden: boolean) {
+  return hidden ? MASKED_BALANCE : formatRupiah(amount)
+}
+
+export function displaySignedBalance(delta: number, hidden: boolean) {
+  return hidden ? MASKED_BALANCE : formatSignedRupiah(delta)
+}
+
 export function todayIso() {
   const now = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
