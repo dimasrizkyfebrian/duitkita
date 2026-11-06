@@ -18,6 +18,7 @@ tags:
   - name: Users
   - name: Couples
   - name: Categories
+  - name: Accounts
   - name: Budgets
   - name: Expenses
   - name: Recurring Expenses
@@ -782,6 +783,218 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /institutions:
+    get:
+      tags: [Accounts]
+      summary: List the banks, e-wallets and cash an account can be opened for
+      description: >
+        Read-only master data, maintained via docs/sql/003_seed_institutions.sql
+        rather than the API. Only active institutions are listed, ordered for
+        display.
+      responses:
+        '200':
+          description: institutions retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/InstitutionResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /accounts:
+    get:
+      tags: [Accounts]
+      summary: List the current user's accounts, with computed balances
+      description: >
+        Accounts are private to their owner — a linked partner never sees
+        them. Active accounts come first. total_balance sums the balances of
+        active accounts that have an opening balance.
+      parameters:
+        - in: query
+          name: include_archived
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: accounts retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/AccountListResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Accounts]
+      summary: Create an account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateAccountRequest' }
+      responses:
+        '201':
+          description: account created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/AccountResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /accounts/{id}:
+    get:
+      tags: [Accounts]
+      summary: Get one account with its computed balance
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: account retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/AccountResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Accounts]
+      summary: Rename an account, or give it an opening balance
+      description: >
+        There is no DELETE — accounts are archived instead, so expenses
+        tagged with one keep pointing at a named account.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateAccountRequest' }
+      responses:
+        '200':
+          description: account updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/AccountResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /accounts/{id}/archive:
+    post:
+      tags: [Accounts]
+      summary: Archive an account
+      description: >
+        Hides it from account pickers and leaves it out of total_balance.
+        Expenses already tagged with it are unchanged. Idempotent.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: account archived
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/AccountResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /accounts/{id}/unarchive:
+    post:
+      tags: [Accounts]
+      summary: Bring an archived account back
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: account unarchived
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/AccountResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /accounts/{id}/adjustments:
+    get:
+      tags: [Accounts]
+      summary: List an account's balance adjustments, newest first
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: balance adjustments retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/BalanceAdjustmentResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Accounts]
+      summary: Correct the balance to what the real bank/e-wallet shows
+      description: >
+        Records the difference between the computed balance and new_balance
+        as an append-only adjustment; the opening balance and past expenses
+        are left untouched. Requires an opening balance and an account that
+        is not archived (400 otherwise).
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdjustBalanceRequest' }
+      responses:
+        '201':
+          description: balance adjusted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/BalanceAdjustmentResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /expenses:
     post:
       tags: [Expenses]
@@ -810,6 +1023,7 @@ paths:
       summary: List the current user's expenses
       parameters:
         - $ref: '#/components/parameters/CategoryIdQuery'
+        - $ref: '#/components/parameters/AccountIdQuery'
         - $ref: '#/components/parameters/From'
         - $ref: '#/components/parameters/To'
         - $ref: '#/components/parameters/Limit'
@@ -1408,6 +1622,31 @@ paths:
                       data: { $ref: '#/components/schemas/DailyReportResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /reports/accounts:
+    get:
+      tags: [Reports]
+      summary: The month's spending broken down by account
+      description: >
+        Personal only — accounts are private, so there is no couple variant.
+        Counts every expense in the month, including ones dated before an
+        account's opening balance date. Expenses with no account are grouped
+        into one row with a null account_id.
+      parameters:
+        - $ref: '#/components/parameters/Year'
+        - $ref: '#/components/parameters/Month'
+      responses:
+        '200':
+          description: account breakdown retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/AccountReportResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /reports/top-expenses:
     get:
       tags: [Reports]
@@ -1712,6 +1951,11 @@ components:
       in: query
       name: category_id
       schema: { type: string, format: uuid }
+    AccountIdQuery:
+      in: query
+      name: account_id
+      description: Only expenses tagged with this account. A malformed id is rejected with 400.
+      schema: { type: string, format: uuid }
     From:
       in: query
       name: from
@@ -1913,6 +2157,10 @@ components:
         amount: { type: integer, format: int64, minimum: 1 }
         note: { type: string, maxLength: 255 }
         expense_date: { type: string, format: date, example: "2026-01-15" }
+        account_id:
+          type: string
+          format: uuid
+          description: Optional. Must be one of the user's own, non-archived accounts.
       required: [category_id, monthly_budget_id, amount, expense_date]
 
     UpdateExpenseRequest:
@@ -1931,11 +2179,25 @@ components:
           maxLength: 255
           description: Send an empty string to clear an existing note.
         expense_date: { type: string, format: date }
+        account_id:
+          type: string
+          description: >
+            Omit to keep the current account, send "" to remove it, or send
+            another account's id to move the expense there (it must be the
+            user's own and not archived). Re-sending the current account is
+            always accepted, even if it has been archived since.
 
     CreateRecurringExpenseRequest:
       type: object
       properties:
         category_id: { type: string, format: uuid }
+        account_id:
+          type: string
+          format: uuid
+          description: >
+            Optional. Copied onto every expense the schedule records — unless
+            the account has been archived by then, in which case the expense
+            is recorded without one.
         amount: { type: integer, format: int64, minimum: 1 }
         note: { type: string, maxLength: 255 }
         schedule_type: { type: string, enum: [weekly, monthly] }
@@ -1967,6 +2229,9 @@ components:
           minimum: 0
           maximum: 31
           description: Must be valid for the item's existing schedule_type (0-6 weekly, 1-31 monthly), else 400.
+        account_id:
+          type: string
+          description: Omit to keep, "" to remove, or another account's id — same rules as UpdateExpenseRequest.
 
     CreateReminderRequest:
       type: object
@@ -2116,6 +2381,127 @@ components:
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
+    CreateAccountRequest:
+      type: object
+      description: >
+        opening_balance is optional — without it the account is just a label
+        and has no balance. Given without opening_balance_date, the date
+        defaults to today; a date without a balance is rejected with 400.
+      properties:
+        institution_id: { type: string, format: uuid }
+        name: { type: string, maxLength: 100, example: "ShopeePay Pribadi" }
+        opening_balance: { type: integer, format: int64, minimum: 0 }
+        opening_balance_date:
+          type: string
+          format: date
+          description: >
+            Only expenses dated on or after this day reduce the balance —
+            the opening balance already reflects anything earlier.
+      required: [institution_id, name]
+
+    UpdateAccountRequest:
+      type: object
+      description: >
+        Every field is optional. The opening balance can only be set here
+        while it is still empty; once set, change the balance through
+        POST /accounts/{id}/adjustments instead (409 otherwise).
+      properties:
+        name: { type: string, maxLength: 100 }
+        opening_balance: { type: integer, format: int64, minimum: 0 }
+        opening_balance_date: { type: string, format: date }
+
+    AdjustBalanceRequest:
+      type: object
+      properties:
+        new_balance:
+          type: integer
+          format: int64
+          minimum: 0
+          description: The balance the real bank/e-wallet shows right now.
+        note: { type: string, maxLength: 255 }
+      required: [new_balance]
+
+    InstitutionResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, example: bca }
+        name: { type: string, example: BCA }
+        type: { type: string, enum: [bank, ewallet, cash] }
+        logo_path: { type: string, nullable: true, example: /institutions/bca.svg }
+
+    AccountResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        institution: { $ref: '#/components/schemas/InstitutionResponse' }
+        opening_balance: { type: integer, format: int64, nullable: true }
+        opening_balance_date: { type: string, format: date, nullable: true }
+        balance:
+          type: integer
+          format: int64
+          nullable: true
+          description: >
+            opening_balance + every adjustment − every expense dated on or
+            after opening_balance_date. Null when there is no opening balance.
+        archived: { type: boolean }
+        archived_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    AccountListResponse:
+      type: object
+      properties:
+        accounts:
+          type: array
+          items: { $ref: '#/components/schemas/AccountResponse' }
+        total_balance:
+          type: integer
+          format: int64
+          description: Sum of balances of active accounts that have one.
+
+    AccountSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        archived: { type: boolean }
+        institution: { $ref: '#/components/schemas/InstitutionResponse' }
+
+    BalanceAdjustmentResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        account_id: { type: string, format: uuid }
+        previous_balance: { type: integer, format: int64 }
+        new_balance: { type: integer, format: int64 }
+        delta: { type: integer, format: int64, description: new_balance − previous_balance }
+        note: { type: string }
+        created_at: { type: string, format: date-time }
+
+    AccountSpend:
+      type: object
+      properties:
+        account_id: { type: string, format: uuid, nullable: true }
+        name: { type: string, description: Empty on the no-account row. }
+        archived: { type: boolean }
+        institution:
+          allOf:
+            - $ref: '#/components/schemas/InstitutionResponse'
+          nullable: true
+        total: { type: integer, format: int64 }
+        share: { type: integer, description: Whole percentage of the month's total. }
+
+    AccountReportResponse:
+      type: object
+      properties:
+        year: { type: integer }
+        month: { type: integer }
+        total: { type: integer, format: int64 }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/AccountSpend' }
+
     ExpenseResponse:
       type: object
       properties:
@@ -2126,12 +2512,19 @@ components:
         note: { type: string }
         expense_date: { type: string, format: date-time }
         created_at: { type: string, format: date-time }
+        account_id:
+          type: string
+          format: uuid
+          description: Absent when the expense has no account, and always absent on a partner's expenses.
+        account:
+          $ref: '#/components/schemas/AccountSummary'
 
     RecurringExpenseResponse:
       type: object
       properties:
         id: { type: string, format: uuid }
         category_id: { type: string, format: uuid }
+        account_id: { type: string, format: uuid, description: Absent when the schedule has no account. }
         amount: { type: integer, format: int64 }
         note: { type: string }
         schedule_type: { type: string, enum: [weekly, monthly] }

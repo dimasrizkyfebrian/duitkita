@@ -5,16 +5,24 @@ import (
 	"errors"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"duitkita-api/model/domain"
 )
 
+// Field-for-field identical to service.ExpenseListFilter, which is converted
+// into this type directly — keep the two in the same order.
 type ExpenseFilter struct {
 	CategoryID string
+	AccountID  string
 	From       string // YYYY-MM-DD
 	To         string // YYYY-MM-DD
 	Limit      int
 	Offset     int
+	// WithAccount preloads each expense's account and institution. Only the
+	// owner's own lists ask for it: accounts are private, so a partner's list
+	// has no use for them.
+	WithAccount bool
 }
 
 type ExpenseRepository interface {
@@ -44,8 +52,11 @@ func NewExpenseRepository(db *gorm.DB) ExpenseRepository {
 	return &expenseRepository{db: db}
 }
 
+// Create and Update omit associations: an expense may carry a preloaded
+// Account (with its Institution), which must never be written back through
+// an expense save.
 func (r *expenseRepository) Create(ctx context.Context, expense *domain.Expense) error {
-	return r.db.WithContext(ctx).Create(expense).Error
+	return r.db.WithContext(ctx).Omit(clause.Associations).Create(expense).Error
 }
 
 func (r *expenseRepository) FindByID(ctx context.Context, id string) (*domain.Expense, error) {
@@ -62,8 +73,14 @@ func (r *expenseRepository) FindByID(ctx context.Context, id string) (*domain.Ex
 
 func (r *expenseRepository) FindAllByUserID(ctx context.Context, userID string, filter ExpenseFilter) ([]domain.Expense, error) {
 	query := r.db.WithContext(ctx).Where("user_id = ?", userID)
+	if filter.WithAccount {
+		query = query.Preload("Account.Institution")
+	}
 	if filter.CategoryID != "" {
 		query = query.Where("category_id = ?", filter.CategoryID)
+	}
+	if filter.AccountID != "" {
+		query = query.Where("account_id = ?", filter.AccountID)
 	}
 	if filter.From != "" {
 		query = query.Where("expense_date >= ?", filter.From)
@@ -85,12 +102,12 @@ func (r *expenseRepository) FindAllByUserID(ctx context.Context, userID string, 
 
 func (r *expenseRepository) FindAllByBudgetID(ctx context.Context, budgetID string) ([]domain.Expense, error) {
 	var expenses []domain.Expense
-	err := r.db.WithContext(ctx).Where("monthly_budget_id = ?", budgetID).Order(expenseListOrder).Find(&expenses).Error
+	err := r.db.WithContext(ctx).Preload("Account.Institution").Where("monthly_budget_id = ?", budgetID).Order(expenseListOrder).Find(&expenses).Error
 	return expenses, err
 }
 
 func (r *expenseRepository) Update(ctx context.Context, expense *domain.Expense) error {
-	return r.db.WithContext(ctx).Save(expense).Error
+	return r.db.WithContext(ctx).Omit(clause.Associations).Save(expense).Error
 }
 
 func (r *expenseRepository) Delete(ctx context.Context, id string) error {

@@ -10,6 +10,9 @@ import CategoryDonut from '../components/CategoryDonut.vue'
 import CategoryTrendSheet from '../components/CategoryTrendSheet.vue'
 import ExportReportCard from '../components/ExportReportCard.vue'
 import TopExpensesCard from '../components/TopExpensesCard.vue'
+import AccountBreakdownCard from '../components/AccountBreakdownCard.vue'
+import { useAccountBreakdown } from '../composables/useAccountBreakdown'
+import { useAccounts } from '@/features/account/composables/useAccounts'
 import MonthComparisonCard from '../components/MonthComparisonCard.vue'
 import { useReportPeriod } from '../composables/useReportPeriod'
 import { useMonthlySummary, type CategoryBreakdownItem } from '../composables/useMonthlySummary'
@@ -67,6 +70,14 @@ const {
 } = useMonthComparison(year, month, monthlyReport)
 
 const { score: healthScore } = useHealthScore(year, month)
+
+// Only worth a card once the user has set up accounts at all — before that
+// every expense would land in the single "Tanpa akun" row.
+const { accounts } = useAccounts()
+const { items: accountBreakdown, loading: accountBreakdownLoading } = useAccountBreakdown(
+  year,
+  month,
+)
 
 const { forecast } = useForecast()
 
@@ -342,6 +353,14 @@ const confidenceLabel = computed(() => {
             :title="`Pengeluaran terbesar ${periodLabel}`"
             :items="topExpenses"
             :loading="topExpensesLoading"
+          />
+
+          <!-- Where the money came from: personal only, accounts are private -->
+          <AccountBreakdownCard
+            v-if="accounts.length > 0"
+            :title="`Pengeluaran per akun — ${periodLabel}`"
+            :items="accountBreakdown"
+            :loading="accountBreakdownLoading"
           />
 
           <!-- Daily breakdown within the selected month -->

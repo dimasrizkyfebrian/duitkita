@@ -10,10 +10,14 @@ type Expense struct {
 	Category        Category      `gorm:"foreignKey:CategoryID"`
 	MonthlyBudgetID string        `gorm:"column:monthly_budget_id;type:uuid;index;not null"`
 	MonthlyBudget   MonthlyBudget `gorm:"foreignKey:MonthlyBudgetID"`
-	Amount          int64         `gorm:"not null"`
-	Note            *string       `gorm:"size:255"`
-	ExpenseDate     time.Time     `gorm:"column:expense_date;type:date;index:idx_expenses_user_date,priority:2;not null"`
-	CreatedAt       time.Time     `gorm:"column:created_at;autoCreateTime"`
+	// Optional: nil means "no account", which is what every expense recorded
+	// before accounts existed has, and stays a valid choice afterwards.
+	AccountID   *string   `gorm:"column:account_id;type:uuid;index:idx_expenses_account_date,priority:1"`
+	Account     *Account  `gorm:"foreignKey:AccountID;constraint:OnDelete:SET NULL"`
+	Amount      int64     `gorm:"not null"`
+	Note        *string   `gorm:"size:255"`
+	ExpenseDate time.Time `gorm:"column:expense_date;type:date;index:idx_expenses_user_date,priority:2;index:idx_expenses_account_date,priority:2;not null"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime"`
 }
 
 func (Expense) TableName() string {

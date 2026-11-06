@@ -1,5 +1,6 @@
 import { authRequest } from '@/lib/http'
 import type {
+  AccountReport,
   CoupleReport,
   CoupleTopExpensesResponse,
   CreateExportRequest,
@@ -70,6 +71,10 @@ export function createExport(payload: CreateExportRequest) {
 
 export function getExport(id: string) {
   return authRequest<ReportExport>(`/reports/exports/${id}`)
+}
+
+export function getAccountBreakdown(year: number, month: number) {
+  return authRequest<AccountReport>(`/reports/accounts?year=${year}&month=${month}`)
 }
 
 export function getExportDownloadUrl(id: string) {

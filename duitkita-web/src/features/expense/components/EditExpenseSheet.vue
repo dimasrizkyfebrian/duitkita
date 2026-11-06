@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, useId, watch } from 'vue'
+import { computed, ref, useId, watch } from 'vue'
 import BottomSheet from '@/shared/components/BottomSheet.vue'
 import BaseButton from '@/shared/components/BaseButton.vue'
 import BaseInput from '@/shared/components/BaseInput.vue'
@@ -7,6 +7,8 @@ import CurrencyInput from '@/shared/components/CurrencyInput.vue'
 import { apiErrorMessage } from '@/shared/utils/apiError'
 import { useToast } from '@/shared/composables/useToast'
 import type { CategoryOverviewItem } from '@/features/dashboard/types'
+import AccountPicker from '@/features/account/components/AccountPicker.vue'
+import { useAccounts } from '@/features/account/composables/useAccounts'
 import { deleteExpense, updateExpense } from '../api/expense.api'
 import type { Expense } from '../types'
 
@@ -23,6 +25,18 @@ const emit = defineEmits<{ saved: []; deleted: [] }>()
 const open = defineModel<boolean>('open', { required: true })
 const toast = useToast()
 const dateId = useId()
+const { activeAccounts, reload: reloadAccounts } = useAccounts()
+
+// An expense already on an archived account keeps that account selectable
+// (and selected), so editing its amount doesn't quietly drop the account —
+// it just can't be moved onto a different archived one.
+const pickableAccounts = computed(() => {
+  const current = props.expense?.account
+  if (current?.archived && !activeAccounts.value.some((a) => a.id === current.id)) {
+    return [...activeAccounts.value, current]
+  }
+  return activeAccounts.value
+})
 
 function todayIso() {
   const now = new Date()
@@ -34,6 +48,7 @@ const selectedId = ref('')
 const amount = ref(0)
 const note = ref('')
 const expenseDate = ref(todayIso())
+const accountId = ref('')
 const saving = ref(false)
 const confirmingDelete = ref(false)
 const deleting = ref(false)
@@ -46,6 +61,7 @@ watch(open, (isOpen) => {
   amount.value = props.expense.amount
   note.value = props.expense.note ?? ''
   expenseDate.value = props.expense.expense_date.slice(0, 10)
+  accountId.value = props.expense.account_id ?? ''
   confirmingDelete.value = false
 })
 
@@ -62,10 +78,13 @@ async function onSubmit() {
       amount: amount.value,
       note: note.value,
       expense_date: expenseDate.value,
+      // '' takes it off its account, same as an emptied note.
+      account_id: accountId.value,
     })
     toast.success('Pengeluaran udah diperbarui.')
     open.value = false
     emit('saved')
+    if (accountId.value || props.expense.account_id) reloadAccounts()
   } catch (err) {
     toast.error(apiErrorMessage(err, 'Gagal memperbarui pengeluaran.'))
   } finally {
@@ -86,6 +105,7 @@ async function onDelete() {
     toast.success('Pengeluaran udah dihapus.')
     open.value = false
     emit('deleted')
+    if (props.expense.account_id) reloadAccounts()
   } catch (err) {
     toast.error(apiErrorMessage(err, 'Gagal menghapus pengeluaran.'))
   } finally {
@@ -138,6 +158,8 @@ async function onDelete() {
           class="rounded-control border-hairline focus:border-azure focus:ring-azure/15 w-full border bg-white px-4 py-3.5 text-[0.9375rem] font-medium transition-colors duration-150 focus:ring-4 focus:outline-none"
         />
       </div>
+
+      <AccountPicker v-model="accountId" :accounts="pickableAccounts" />
 
       <BaseInput v-model="note" label="Catatan" placeholder="Misalnya: makan siang berdua" />
 

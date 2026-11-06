@@ -16,8 +16,9 @@ import (
 // HealthScore calls MonthlyReport internally, and the trend math backs
 // both /reports/trend and /reports/forecast. All of it is cached here,
 // keyed off a per-user version counter rather than invalidated key-by-key:
-// every expense and budget mutation bumps that counter (invalidateReportCache),
-// which orphans every previously cached entry for that user in one write —
+// every expense, budget, category and account mutation bumps that counter
+// (invalidateReportCache), which orphans every previously cached entry for
+// that user in one write —
 // old entries are never deleted, they just age out via TTL. The TTL is kept
 // short regardless, as a backstop against any mutation path that forgets to
 // invalidate.

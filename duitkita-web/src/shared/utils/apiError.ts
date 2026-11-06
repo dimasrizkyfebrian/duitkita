@@ -48,6 +48,17 @@ const MESSAGES: Record<string, string> = {
     'Pilih harinya dulu buat jadwal mingguan ya.',
   'schedule_day must be 1-31 for a monthly schedule':
     'Tanggalnya harus antara 1 sampai 31 buat jadwal bulanan.',
+  'account not found': 'Akunnya gak ketemu. Coba refresh dulu ya.',
+  'institution not found': 'Bank atau e-wallet itu gak ketemu. Coba pilih yang lain ya.',
+  'name is required': 'Nama akunnya belum diisi.',
+  'invalid account_id': 'Akunnya gak valid. Coba pilih ulang ya.',
+  'invalid opening_balance_date': 'Tanggal saldo awalnya belum valid.',
+  'opening_balance_date requires opening_balance':
+    'Isi saldo awalnya dulu kalau mau pakai tanggal.',
+  'opening balance already set, use balance adjustment instead':
+    'Saldo awalnya udah diisi. Pakai "Sesuaikan saldo" buat ngubahnya ya.',
+  'account has no opening balance': 'Isi saldo awal dulu sebelum nyesuaiin saldo.',
+  'account is archived': 'Akun ini udah diarsipkan. Aktifin lagi dulu kalau mau dipakai.',
 }
 
 const FIELD_LABELS: Record<string, string> = {

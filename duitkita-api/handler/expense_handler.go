@@ -46,6 +46,7 @@ func (h *ExpenseHandler) list(c *gin.Context) {
 	limit, offset := parsePagination(c)
 	filter := service.ExpenseListFilter{
 		CategoryID: c.Query("category_id"),
+		AccountID:  c.Query("account_id"),
 		From:       c.Query("from"),
 		To:         c.Query("to"),
 		Limit:      limit,

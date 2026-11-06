@@ -37,6 +37,20 @@ type TopExpense struct {
 	ExpenseDate  time.Time `gorm:"column:expense_date"`
 }
 
+// AccountTotal is one row of the per-account breakdown. Every account field
+// is nil on the row that totals expenses with no account.
+type AccountTotal struct {
+	AccountID       *string `gorm:"column:account_id"`
+	AccountName     *string `gorm:"column:account_name"`
+	InstitutionID   *string `gorm:"column:institution_id"`
+	InstitutionCode *string `gorm:"column:institution_code"`
+	InstitutionName *string `gorm:"column:institution_name"`
+	InstitutionType *string `gorm:"column:institution_type"`
+	LogoPath        *string `gorm:"column:logo_path"`
+	Archived        bool    `gorm:"column:archived"`
+	Total           int64   `gorm:"column:total"`
+}
+
 type ReportRepository interface {
 	SumExpensesByUserAndPeriod(ctx context.Context, userID string, year, month int) (int64, error)
 	SumBudgetByUserAndPeriod(ctx context.Context, userID string, year, month int) (int64, error)
@@ -45,6 +59,7 @@ type ReportRepository interface {
 	MonthlyTrendByCategory(ctx context.Context, userID, categoryID string, months int) ([]MonthTotal, error)
 	SpentByDayForPeriod(ctx context.Context, userID string, year, month int) ([]DayTotal, error)
 	TopExpensesForPeriod(ctx context.Context, userID string, year, month, limit int) ([]TopExpense, error)
+	SpentByAccountForPeriod(ctx context.Context, userID string, year, month int) ([]AccountTotal, error)
 }
 
 type reportRepository struct {
@@ -148,6 +163,36 @@ func (r *reportRepository) TopExpensesForPeriod(ctx context.Context, userID stri
 		ORDER BY e.amount DESC, e.expense_date DESC
 		LIMIT ?
 	`, userID, start, end, limit).Scan(&results).Error
+	return results, err
+}
+
+// SpentByAccountForPeriod totals the month's spending per account, with all
+// expenses that have no account grouped into one row. Unlike an account's
+// balance, this counts every expense in the period regardless of the
+// opening balance date — it answers "what did I spend from where", not
+// "what's left". Archived accounts still appear if they were spent from.
+func (r *reportRepository) SpentByAccountForPeriod(ctx context.Context, userID string, year, month int) ([]AccountTotal, error) {
+	start, end := monthRange(year, month)
+
+	var results []AccountTotal
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT
+			e.account_id AS account_id,
+			a.name AS account_name,
+			fi.id AS institution_id,
+			fi.code AS institution_code,
+			fi.name AS institution_name,
+			fi.type AS institution_type,
+			fi.logo_path AS logo_path,
+			(a.archived_at IS NOT NULL) AS archived,
+			SUM(e.amount) AS total
+		FROM expenses e
+		LEFT JOIN accounts a ON a.id = e.account_id
+		LEFT JOIN financial_institutions fi ON fi.id = a.institution_id
+		WHERE e.user_id = ? AND e.expense_date >= ? AND e.expense_date < ?
+		GROUP BY e.account_id, a.name, a.archived_at, fi.id, fi.code, fi.name, fi.type, fi.logo_path
+		ORDER BY total DESC, account_name ASC
+	`, userID, start, end).Scan(&results).Error
 	return results, err
 }
 

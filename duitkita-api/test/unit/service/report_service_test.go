@@ -431,3 +431,38 @@ func TestReportService_CachingAndInvalidation(t *testing.T) {
 		require.Equal(t, int64(150), res2.TotalSpent)
 	})
 }
+
+func TestReportService_AccountBreakdown(t *testing.T) {
+	t.Run("computes shares and keeps the unassigned row", func(t *testing.T) {
+		svc, reportRepo, _, _ := newReportService(t)
+		accountID, name, code := "acc-1", "BCA Utama", "bca"
+		instID, instName, instType := "inst-bca", "BCA", "bank"
+		reportRepo.EXPECT().SpentByAccountForPeriod(context.Background(), "user-1", 2026, 10).Return([]repository.AccountTotal{
+			{AccountID: &accountID, AccountName: &name, InstitutionID: &instID, InstitutionCode: &code, InstitutionName: &instName, InstitutionType: &instType, Total: 300_000},
+			{Total: 100_000}, // expenses with no account
+		}, nil)
+
+		res, err := svc.AccountBreakdown(context.Background(), "user-1", 2026, 10)
+
+		require.NoError(t, err)
+		require.Equal(t, int64(400_000), res.Total)
+		require.Len(t, res.Items, 2)
+		require.Equal(t, "BCA Utama", res.Items[0].Name)
+		require.Equal(t, "bca", res.Items[0].Institution.Code)
+		require.Equal(t, 75, res.Items[0].Share)
+		require.Nil(t, res.Items[1].AccountID)
+		require.Nil(t, res.Items[1].Institution)
+		require.Equal(t, 25, res.Items[1].Share)
+	})
+
+	t.Run("empty period has no rows and no division by zero", func(t *testing.T) {
+		svc, reportRepo, _, _ := newReportService(t)
+		reportRepo.EXPECT().SpentByAccountForPeriod(context.Background(), "user-1", 2026, 10).Return(nil, nil)
+
+		res, err := svc.AccountBreakdown(context.Background(), "user-1", 2026, 10)
+
+		require.NoError(t, err)
+		require.Equal(t, int64(0), res.Total)
+		require.Empty(t, res.Items)
+	})
+}

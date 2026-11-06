@@ -15,6 +15,7 @@ import (
 
 type ExpenseListFilter struct {
 	CategoryID string
+	AccountID  string
 	From       string
 	To         string
 	Limit      int
@@ -35,12 +36,13 @@ type expenseService struct {
 	repo        repository.ExpenseRepository
 	budgetRepo  repository.BudgetRepository
 	coupleRepo  repository.CoupleRepository
+	accountRepo repository.AccountRepository
 	activitySvc ActivityService
 	redis       *redis.Client
 }
 
-func NewExpenseService(repo repository.ExpenseRepository, budgetRepo repository.BudgetRepository, coupleRepo repository.CoupleRepository, activitySvc ActivityService, redisClient *redis.Client) ExpenseService {
-	return &expenseService{repo: repo, budgetRepo: budgetRepo, coupleRepo: coupleRepo, activitySvc: activitySvc, redis: redisClient}
+func NewExpenseService(repo repository.ExpenseRepository, budgetRepo repository.BudgetRepository, coupleRepo repository.CoupleRepository, accountRepo repository.AccountRepository, activitySvc ActivityService, redisClient *redis.Client) ExpenseService {
+	return &expenseService{repo: repo, budgetRepo: budgetRepo, coupleRepo: coupleRepo, accountRepo: accountRepo, activitySvc: activitySvc, redis: redisClient}
 }
 
 func (s *expenseService) Create(ctx context.Context, userID string, req request.CreateExpenseRequest) (*response.ExpenseResponse, error) {
@@ -57,6 +59,14 @@ func (s *expenseService) Create(ctx context.Context, userID string, req request.
 		return nil, utils.ErrNotFound("budget not found")
 	}
 
+	var account *domain.Account
+	if req.AccountID != "" {
+		account, err = requireTaggableAccount(ctx, s.accountRepo, userID, req.AccountID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	expenseDate, err := utils.ParseDateOnly(req.ExpenseDate)
 	if err != nil {
 		return nil, utils.ErrBadRequest("invalid expense_date")
@@ -67,6 +77,7 @@ func (s *expenseService) Create(ctx context.Context, userID string, req request.
 		UserID:          userID,
 		CategoryID:      req.CategoryID,
 		MonthlyBudgetID: req.MonthlyBudgetID,
+		AccountID:       utils.StringPtr(req.AccountID),
 		Amount:          req.Amount,
 		Note:            utils.StringPtr(req.Note),
 		ExpenseDate:     expenseDate,
@@ -78,16 +89,24 @@ func (s *expenseService) Create(ctx context.Context, userID string, req request.
 
 	s.activitySvc.LogActivity(ctx, userID, domain.ActivityActionCreated, domain.ActivityEntityTypeExpense, expense.ID, nil)
 
-	res := toExpenseResponse(expense)
+	expense.Account = account
+	res := toExpenseResponse(expense, true)
 	return &res, nil
 }
 
 func (s *expenseService) List(ctx context.Context, userID string, filter ExpenseListFilter) ([]response.ExpenseResponse, error) {
-	expenses, err := s.repo.FindAllByUserID(ctx, userID, repository.ExpenseFilter(filter))
+	// account_id is compared against a uuid column; a malformed one would
+	// surface as a Postgres cast error (500) instead of a bad request.
+	if filter.AccountID != "" {
+		if _, err := uuid.Parse(filter.AccountID); err != nil {
+			return nil, utils.ErrBadRequest("invalid account_id")
+		}
+	}
+	expenses, err := s.repo.FindAllByUserID(ctx, userID, toRepoExpenseFilter(filter, true))
 	if err != nil {
 		return nil, utils.ErrInternal("failed to list expenses")
 	}
-	return toExpenseResponses(expenses), nil
+	return toExpenseResponses(expenses, true), nil
 }
 
 func (s *expenseService) ListByBudget(ctx context.Context, userID, budgetID string) ([]response.ExpenseResponse, error) {
@@ -103,7 +122,7 @@ func (s *expenseService) ListByBudget(ctx context.Context, userID, budgetID stri
 	if err != nil {
 		return nil, utils.ErrInternal("failed to list expenses")
 	}
-	return toExpenseResponses(expenses), nil
+	return toExpenseResponses(expenses, true), nil
 }
 
 func (s *expenseService) ListPartnerExpenses(ctx context.Context, userID string, filter ExpenseListFilter) ([]response.ExpenseResponse, error) {
@@ -120,11 +139,12 @@ func (s *expenseService) ListPartnerExpenses(ctx context.Context, userID string,
 		partnerID = couple.User1ID
 	}
 
-	expenses, err := s.repo.FindAllByUserID(ctx, partnerID, repository.ExpenseFilter(filter))
+	expenses, err := s.repo.FindAllByUserID(ctx, partnerID, toRepoExpenseFilter(filter, false))
 	if err != nil {
 		return nil, utils.ErrInternal("failed to list partner expenses")
 	}
-	return toExpenseResponses(expenses), nil
+	// Accounts are private: never part of what a partner gets to see.
+	return toExpenseResponses(expenses, false), nil
 }
 
 func (s *expenseService) GetByID(ctx context.Context, userID, id string) (*response.ExpenseResponse, error) {
@@ -132,12 +152,18 @@ func (s *expenseService) GetByID(ctx context.Context, userID, id string) (*respo
 	if err != nil {
 		return nil, err
 	}
-	res := toExpenseResponse(expense)
+	s.attachAccount(ctx, expense)
+	res := toExpenseResponse(expense, true)
 	return &res, nil
 }
 
 func (s *expenseService) Update(ctx context.Context, userID, id string, req request.UpdateExpenseRequest) (*response.ExpenseResponse, error) {
 	expense, err := s.mustOwnExpense(ctx, userID, id)
+	if err != nil {
+		return nil, err
+	}
+
+	accountID, account, err := resolveAccountChange(ctx, s.accountRepo, userID, expense.AccountID, req.AccountID)
 	if err != nil {
 		return nil, err
 	}
@@ -189,6 +215,7 @@ func (s *expenseService) Update(ctx context.Context, userID, id string, req requ
 
 	expense.CategoryID = categoryID
 	expense.ExpenseDate = expenseDate
+	expense.AccountID = accountID
 	if req.Amount != 0 {
 		expense.Amount = req.Amount
 	}
@@ -203,7 +230,12 @@ func (s *expenseService) Update(ctx context.Context, userID, id string, req requ
 
 	s.activitySvc.LogActivity(ctx, userID, domain.ActivityActionUpdated, domain.ActivityEntityTypeExpense, expense.ID, nil)
 
-	res := toExpenseResponse(expense)
+	if account != nil {
+		expense.Account = account
+	} else {
+		s.attachAccount(ctx, expense)
+	}
+	res := toExpenseResponse(expense, true)
 	return &res, nil
 }
 
@@ -226,7 +258,23 @@ func (s *expenseService) mustOwnExpense(ctx context.Context, userID, id string) 
 	return mustOwn(expense, err, userID, "expense not found")
 }
 
-func toExpenseResponse(expense *domain.Expense) response.ExpenseResponse {
+// attachAccount loads the expense's account, for the summary in a
+// single-expense response. Best-effort: the expense itself is already
+// saved or found, so a failed lookup only means the summary is missing.
+func (s *expenseService) attachAccount(ctx context.Context, expense *domain.Expense) {
+	if expense.AccountID == nil || expense.Account != nil {
+		return
+	}
+	account, err := s.accountRepo.FindByID(ctx, *expense.AccountID)
+	if err == nil && account != nil {
+		expense.Account = account
+	}
+}
+
+// withAccount is false for anything shown to a partner — accounts are
+// private to their owner, so both fields are left out rather than just
+// blanked.
+func toExpenseResponse(expense *domain.Expense, withAccount bool) response.ExpenseResponse {
 	res := response.ExpenseResponse{
 		ID:              expense.ID,
 		CategoryID:      expense.CategoryID,
@@ -238,13 +286,29 @@ func toExpenseResponse(expense *domain.Expense) response.ExpenseResponse {
 	if expense.Note != nil {
 		res.Note = *expense.Note
 	}
+	if withAccount {
+		res.AccountID = expense.AccountID
+		res.Account = toAccountSummary(expense.Account)
+	}
 	return res
 }
 
-func toExpenseResponses(expenses []domain.Expense) []response.ExpenseResponse {
+func toExpenseResponses(expenses []domain.Expense, withAccount bool) []response.ExpenseResponse {
 	out := make([]response.ExpenseResponse, 0, len(expenses))
 	for i := range expenses {
-		out = append(out, toExpenseResponse(&expenses[i]))
+		out = append(out, toExpenseResponse(&expenses[i], withAccount))
 	}
 	return out
+}
+
+func toRepoExpenseFilter(f ExpenseListFilter, withAccount bool) repository.ExpenseFilter {
+	return repository.ExpenseFilter{
+		CategoryID:  f.CategoryID,
+		AccountID:   f.AccountID,
+		From:        f.From,
+		To:          f.To,
+		Limit:       f.Limit,
+		Offset:      f.Offset,
+		WithAccount: withAccount,
+	}
 }

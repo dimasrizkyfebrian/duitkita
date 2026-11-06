@@ -143,6 +143,67 @@ func (_c *ReportRepository_MonthlyTrendByCategory_Call) RunAndReturn(run func(co
 	return _c
 }
 
+// SpentByAccountForPeriod provides a mock function with given fields: ctx, userID, year, month
+func (_m *ReportRepository) SpentByAccountForPeriod(ctx context.Context, userID string, year int, month int) ([]repository.AccountTotal, error) {
+	ret := _m.Called(ctx, userID, year, month)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SpentByAccountForPeriod")
+	}
+
+	var r0 []repository.AccountTotal
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, int, int) ([]repository.AccountTotal, error)); ok {
+		return rf(ctx, userID, year, month)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, int, int) []repository.AccountTotal); ok {
+		r0 = rf(ctx, userID, year, month)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]repository.AccountTotal)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, int, int) error); ok {
+		r1 = rf(ctx, userID, year, month)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ReportRepository_SpentByAccountForPeriod_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SpentByAccountForPeriod'
+type ReportRepository_SpentByAccountForPeriod_Call struct {
+	*mock.Call
+}
+
+// SpentByAccountForPeriod is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - year int
+//   - month int
+func (_e *ReportRepository_Expecter) SpentByAccountForPeriod(ctx interface{}, userID interface{}, year interface{}, month interface{}) *ReportRepository_SpentByAccountForPeriod_Call {
+	return &ReportRepository_SpentByAccountForPeriod_Call{Call: _e.mock.On("SpentByAccountForPeriod", ctx, userID, year, month)}
+}
+
+func (_c *ReportRepository_SpentByAccountForPeriod_Call) Run(run func(ctx context.Context, userID string, year int, month int)) *ReportRepository_SpentByAccountForPeriod_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(int), args[3].(int))
+	})
+	return _c
+}
+
+func (_c *ReportRepository_SpentByAccountForPeriod_Call) Return(_a0 []repository.AccountTotal, _a1 error) *ReportRepository_SpentByAccountForPeriod_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ReportRepository_SpentByAccountForPeriod_Call) RunAndReturn(run func(context.Context, string, int, int) ([]repository.AccountTotal, error)) *ReportRepository_SpentByAccountForPeriod_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SpentByCategoryForPeriod provides a mock function with given fields: ctx, userID, year, month
 func (_m *ReportRepository) SpentByCategoryForPeriod(ctx context.Context, userID string, year int, month int) ([]repository.CategoryTotal, error) {
 	ret := _m.Called(ctx, userID, year, month)

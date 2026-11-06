@@ -113,3 +113,22 @@ type ExportResponse struct {
 	RequestedAt time.Time  `json:"requested_at"`
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
 }
+
+// AccountReportResponse breaks a month's spending down by account. Share is
+// a whole percentage of Total. The row for expenses with no account has a
+// null AccountID and Institution and an empty Name — the client labels it.
+type AccountReportResponse struct {
+	Year  int            `json:"year"`
+	Month int            `json:"month"`
+	Total int64          `json:"total"`
+	Items []AccountSpend `json:"items"`
+}
+
+type AccountSpend struct {
+	AccountID   *string              `json:"account_id"`
+	Name        string               `json:"name"`
+	Archived    bool                 `json:"archived"`
+	Institution *InstitutionResponse `json:"institution"`
+	Total       int64                `json:"total"`
+	Share       int                  `json:"share"`
+}
