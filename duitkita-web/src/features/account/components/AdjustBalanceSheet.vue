@@ -22,6 +22,9 @@ const actual = ref(0)
 const note = ref('')
 const loading = ref(false)
 
+// Not masked by the shared eye (useBalanceVisibility): this form is a
+// deliberate "reconcile my balance" step, it prefills the input with the
+// current balance, and the difference it shows would give it away anyway.
 const current = computed(() => props.account?.balance ?? 0)
 const delta = computed(() => actual.value - current.value)
 

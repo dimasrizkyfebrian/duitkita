@@ -4,13 +4,14 @@ import BottomSheet from '@/shared/components/BottomSheet.vue'
 import BaseButton from '@/shared/components/BaseButton.vue'
 import { apiErrorMessage } from '@/shared/utils/apiError'
 import { useToast } from '@/shared/composables/useToast'
-import { formatRupiah } from '@/shared/utils/currency'
 import { archiveAccount, listBalanceAdjustments, unarchiveAccount } from '../api/account.api'
 import { useAccounts } from '../composables/useAccounts'
-import { formatSignedRupiah } from '../utils/balance'
+import { useBalanceVisibility } from '../composables/useBalanceVisibility'
+import { displayBalance, displaySignedBalance } from '../utils/balance'
 import AccountLogo from './AccountLogo.vue'
 import AccountFormSheet from './AccountFormSheet.vue'
 import AdjustBalanceSheet from './AdjustBalanceSheet.vue'
+import BalanceToggle from './BalanceToggle.vue'
 import type { BalanceAdjustment } from '../types'
 
 const props = defineProps<{ accountId: string | null }>()
@@ -18,6 +19,7 @@ const props = defineProps<{ accountId: string | null }>()
 const open = defineModel<boolean>('open', { required: true })
 const toast = useToast()
 const { accounts, reload } = useAccounts()
+const { hidden } = useBalanceVisibility()
 
 // Looked up from the shared list rather than passed in, so it shows the
 // fresh balance as soon as an adjustment or rename reloads that list.
@@ -105,11 +107,14 @@ function formatDate(iso: string) {
       <div class="rounded-2xl bg-black/3 px-4 py-3.5">
         <template v-if="account.balance !== null">
           <p class="text-muted text-[0.75rem] font-semibold">Saldo di DuitKita</p>
-          <p class="text-ink mt-0.5 text-[1.5rem] font-extrabold tabular-nums">
-            {{ formatRupiah(account.balance) }}
-          </p>
+          <div class="mt-0.5 flex items-center gap-2">
+            <p class="text-ink text-[1.5rem] font-extrabold tabular-nums">
+              {{ displayBalance(account.balance, hidden) }}
+            </p>
+            <BalanceToggle />
+          </div>
           <p class="text-muted mt-1 text-[0.75rem] leading-snug">
-            Dari saldo awal {{ formatRupiah(account.opening_balance ?? 0) }} per
+            Dari saldo awal {{ displayBalance(account.opening_balance ?? 0, hidden) }} per
             {{ formatDate(account.opening_balance_date ?? '') }}, dikurangi pengeluaran yang kamu
             catat<template v-if="adjustments.length > 0"
               >, ditambah penyesuaian saldo di bawah</template
@@ -164,10 +169,10 @@ function formatDate(iso: string) {
                 class="text-[0.8125rem] font-extrabold tabular-nums"
                 :class="adj.delta < 0 ? 'text-danger' : 'text-success'"
               >
-                {{ formatSignedRupiah(adj.delta) }}
+                {{ displaySignedBalance(adj.delta, hidden) }}
               </p>
               <p class="text-muted text-[0.6875rem] tabular-nums">
-                jadi {{ formatRupiah(adj.new_balance) }}
+                jadi {{ displayBalance(adj.new_balance, hidden) }}
               </p>
             </div>
           </li>
