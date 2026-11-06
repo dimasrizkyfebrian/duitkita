@@ -118,6 +118,65 @@ func (_c *RecurringExpenseRepository_Delete_Call) RunAndReturn(run func(context.
 	return _c
 }
 
+// FindActiveByUserID provides a mock function with given fields: ctx, userID
+func (_m *RecurringExpenseRepository) FindActiveByUserID(ctx context.Context, userID string) ([]domain.RecurringExpense, error) {
+	ret := _m.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindActiveByUserID")
+	}
+
+	var r0 []domain.RecurringExpense
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) ([]domain.RecurringExpense, error)); ok {
+		return rf(ctx, userID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) []domain.RecurringExpense); ok {
+		r0 = rf(ctx, userID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]domain.RecurringExpense)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// RecurringExpenseRepository_FindActiveByUserID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindActiveByUserID'
+type RecurringExpenseRepository_FindActiveByUserID_Call struct {
+	*mock.Call
+}
+
+// FindActiveByUserID is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+func (_e *RecurringExpenseRepository_Expecter) FindActiveByUserID(ctx interface{}, userID interface{}) *RecurringExpenseRepository_FindActiveByUserID_Call {
+	return &RecurringExpenseRepository_FindActiveByUserID_Call{Call: _e.mock.On("FindActiveByUserID", ctx, userID)}
+}
+
+func (_c *RecurringExpenseRepository_FindActiveByUserID_Call) Run(run func(ctx context.Context, userID string)) *RecurringExpenseRepository_FindActiveByUserID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *RecurringExpenseRepository_FindActiveByUserID_Call) Return(_a0 []domain.RecurringExpense, _a1 error) *RecurringExpenseRepository_FindActiveByUserID_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *RecurringExpenseRepository_FindActiveByUserID_Call) RunAndReturn(run func(context.Context, string) ([]domain.RecurringExpense, error)) *RecurringExpenseRepository_FindActiveByUserID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FindAllByUserID provides a mock function with given fields: ctx, userID, limit, offset
 func (_m *RecurringExpenseRepository) FindAllByUserID(ctx context.Context, userID string, limit int, offset int) ([]domain.RecurringExpense, error) {
 	ret := _m.Called(ctx, userID, limit, offset)

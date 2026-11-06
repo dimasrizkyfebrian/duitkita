@@ -10,6 +10,9 @@ import CategoryDonut from '../components/CategoryDonut.vue'
 import CategoryTrendSheet from '../components/CategoryTrendSheet.vue'
 import ExportReportCard from '../components/ExportReportCard.vue'
 import TopExpensesCard from '../components/TopExpensesCard.vue'
+import ForecastCard from '../components/ForecastCard.vue'
+import HealthScoreSheet from '../components/HealthScoreSheet.vue'
+import { tipMessages } from '../utils/scoreTips'
 import AccountBreakdownCard from '../components/AccountBreakdownCard.vue'
 import { useAccountBreakdown } from '../composables/useAccountBreakdown'
 import { useAccounts } from '@/features/account/composables/useAccounts'
@@ -79,7 +82,7 @@ const { items: accountBreakdown, loading: accountBreakdownLoading } = useAccount
   month,
 )
 
-const { forecast } = useForecast()
+const { forecast, loading: forecastLoading } = useForecast()
 
 function monthAbbrev(p: { year: number; month: number }) {
   return new Date(p.year, p.month - 1).toLocaleDateString('id-ID', { month: 'short' })
@@ -117,9 +120,6 @@ function coupleShare(value: number) {
   return Math.round((value / combinedCoupleTotal.value) * 100)
 }
 
-// Reasons text from the backend ("spending is within a healthy range") is
-// plain English meant for logs, not this screen — the friendly copy here is
-// derived straight from the grade instead of translating that string 1:1.
 const healthTone = computed(() => {
   switch (healthScore.value?.grade) {
     case 'A':
@@ -138,37 +138,12 @@ const healthGradeDisplay = computed(() => {
   const grade = healthScore.value?.grade
   return grade && grade !== 'n/a' ? grade : '–'
 })
-const healthDescription = computed(() => {
-  switch (healthScore.value?.grade) {
-    case 'A':
-      return 'Mantap, pengeluaran kamu masih jauh di bawah budget.'
-    case 'B':
-      return 'Bagus, pengeluaran kamu masih di batas yang sehat.'
-    case 'C':
-      return 'Hati-hati, pengeluaran kamu udah mepet sama budget.'
-    case 'D':
-      return 'Pengeluaran kamu udah ngelewatin budget bulan ini.'
-    case 'n/a':
-      return 'Atur budget dulu ya biar skornya bisa dihitung.'
-    default:
-      return 'Belum ada data buat periode ini.'
-  }
+// The card leads with the most important tip; the sheet has all of them.
+const healthHeadline = computed(() => {
+  if (!healthScore.value) return 'Belum ada data buat periode ini.'
+  return tipMessages(healthScore.value.tips)[0] ?? ''
 })
-
-const confidenceDots = computed(() => {
-  const c = forecast.value?.confidence ?? 0
-  if (c >= 0.75) return 3
-  if (c >= 0.5) return 2
-  if (c > 0) return 1
-  return 0
-})
-const confidenceLabel = computed(() => {
-  const dots = confidenceDots.value
-  if (dots === 0) return 'Belum cukup data'
-  if (dots === 1) return 'Keyakinan rendah'
-  if (dots === 2) return 'Keyakinan menengah'
-  return 'Keyakinan tinggi'
-})
+const healthSheetOpen = ref(false)
 </script>
 
 <template>
@@ -273,45 +248,37 @@ const confidenceLabel = computed(() => {
           />
 
           <!-- Health score -->
-          <article class="rounded-3xl border p-4" :class="[healthTone.bg, healthTone.border]">
-            <p class="text-sky/60 text-[0.6875rem] font-semibold tracking-widest uppercase">
-              Skor keuangan
-            </p>
+          <button
+            type="button"
+            class="focus-visible:ring-azure/30 rounded-3xl border p-4 text-left transition-colors focus-visible:ring-4 focus-visible:outline-none active:brightness-110"
+            :class="[healthTone.bg, healthTone.border]"
+            :disabled="!healthScore"
+            @click="healthSheetOpen = true"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <p class="text-sky/60 text-[0.6875rem] font-semibold tracking-widest uppercase">
+                Skor keuangan
+              </p>
+              <IconChevronRight v-if="healthScore" class="text-sky/50 h-3.5 w-3.5 shrink-0" />
+            </div>
             <p class="mt-2 text-[2rem] leading-none font-extrabold" :class="healthTone.text">
               {{ healthGradeDisplay }}
             </p>
-            <p class="text-sky/70 mt-1 text-[0.75rem] font-bold tabular-nums">
-              {{ healthScore?.score ?? 0 }}/100
-            </p>
-            <p class="text-sky/60 mt-2 text-[0.6875rem] leading-snug">{{ healthDescription }}</p>
-          </article>
-
-          <!-- Forecast -->
-          <article class="rounded-3xl border border-white/10 bg-white/5 p-4">
-            <div class="flex items-center gap-1.5">
-              <IconTrendingUp class="text-sky h-3.5 w-3.5" />
-              <p class="text-sky/60 text-[0.6875rem] font-semibold tracking-widest uppercase">
-                Prediksi bulan depan
-              </p>
-            </div>
-            <p class="mt-2 text-[1.25rem] font-extrabold tabular-nums text-white">
-              {{ formatRupiahShort(forecast?.projected_total ?? 0) }}
-            </p>
-            <div class="mt-2 flex items-center gap-1">
+            <p class="text-sky/70 mt-1 flex items-center gap-1.5 text-[0.75rem] font-bold">
+              <span class="tabular-nums">{{ healthScore?.score ?? 0 }}/100</span>
               <span
-                v-for="n in 3"
-                :key="n"
-                class="h-1.5 w-1.5 rounded-full"
-                :class="n <= confidenceDots ? 'bg-sky' : 'bg-white/15'"
-              ></span>
-              <span class="text-sky/60 ml-1 text-[0.6875rem] font-semibold">{{
-                confidenceLabel
-              }}</span>
-            </div>
-            <p class="text-sky/50 mt-2 text-[0.6875rem] leading-snug">
-              Diperkirakan dari rata-rata 3 bulan terakhir kamu.
+                v-if="healthScore?.provisional"
+                class="text-sky rounded-full bg-white/10 px-1.5 py-0.5 text-[0.625rem] font-bold"
+              >
+                Sementara
+              </span>
             </p>
-          </article>
+            <p class="text-sky/60 mt-2 line-clamp-3 text-[0.6875rem] leading-snug">
+              {{ healthHeadline }}
+            </p>
+          </button>
+
+          <ForecastCard :forecast="forecast" :loading="forecastLoading" />
 
           <!-- Category breakdown -->
           <article class="col-span-2 rounded-3xl border border-white/10 bg-white/5 p-4">
@@ -532,5 +499,6 @@ const confidenceLabel = computed(() => {
       :year="year"
       :month="month"
     />
+    <HealthScoreSheet v-model:open="healthSheetOpen" :score="healthScore" />
   </main>
 </template>

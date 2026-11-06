@@ -76,6 +76,35 @@ describe('AccountsSummaryCard', () => {
     expect(sheetOpen(wrapper)).toBe(true)
   })
 
+  // Logos sit beside the amount, so a long revealed total takes the room of
+  // the second logo instead of being cut off; "+N" counts what's left out.
+  describe('logos beside the amount', () => {
+    beforeEach(() => {
+      activeAccounts.value = [account('bca', 1), account('ovo', 1), account('dana', 1)]
+    })
+    const logos = (w: ReturnType<typeof mountCard>) => w.findAll('[data-logo]').length
+    const badges = (w: ReturnType<typeof mountCard>) =>
+      w.findAll('[data-more]').map((b) => b.text())
+
+    it('offers two logos for a short total', async () => {
+      totalBalance.value = 83_800_000
+      const wrapper = mountCard()
+      await wrapper.get('button[aria-label="Tampilkan saldo"]').trigger('click')
+      expect(logos(wrapper)).toBe(2)
+      // the narrow-card fallback ("+2", one logo) and the wide one ("+1")
+      expect(badges(wrapper)).toEqual(['+2', '+1'])
+    })
+
+    it('keeps one logo for a long revealed total', async () => {
+      totalBalance.value = 183_800_000
+      const wrapper = mountCard()
+      expect(logos(wrapper)).toBe(2) // still masked, so it's short
+      await wrapper.get('button[aria-label="Tampilkan saldo"]').trigger('click')
+      expect(logos(wrapper)).toBe(1)
+      expect(badges(wrapper)).toEqual(['+2'])
+    })
+  })
+
   it('shows no eye button when no account has a balance', () => {
     activeAccounts.value = [account('bca', null)]
     totalBalance.value = 0

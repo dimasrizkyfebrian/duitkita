@@ -89,17 +89,57 @@ type CoupleTopExpensesResponse struct {
 	Items []CoupleTopExpenseItem `json:"items"`
 }
 
+// ForecastResponse predicts next month (year/month) and, in current_month,
+// where the running month is heading.
 type ForecastResponse struct {
 	Year           int     `json:"year"`
 	Month          int     `json:"month"`
 	ProjectedTotal int64   `json:"projected_total"`
+	ProjectedLow   int64   `json:"projected_low"`
+	ProjectedHigh  int64   `json:"projected_high"`
+	RecurringTotal int64   `json:"recurring_total"`
+	MonthsWithData int     `json:"months_with_data"`
 	Confidence     float64 `json:"confidence"`
+
+	CurrentMonth *CurrentMonthProjection `json:"current_month"`
 }
 
+type CurrentMonthProjection struct {
+	Year               int   `json:"year"`
+	Month              int   `json:"month"`
+	Spent              int64 `json:"spent"`
+	ProjectedTotal     int64 `json:"projected_total"`
+	Budget             int64 `json:"budget"`
+	RecurringRemaining int64 `json:"recurring_remaining"`
+}
+
+// HealthScoreResponse grades a month out of 100. Reasons is kept for older
+// clients; the app phrases tips itself from their codes.
 type HealthScoreResponse struct {
-	Score   int      `json:"score"`
-	Grade   string   `json:"grade"`
-	Reasons []string `json:"reasons"`
+	Score          int              `json:"score"`
+	Grade          string           `json:"grade"`
+	Reasons        []string         `json:"reasons"`
+	Provisional    bool             `json:"provisional"`
+	Period         string           `json:"period"`
+	ProjectedSpent int64            `json:"projected_spent"`
+	TotalBudget    int64            `json:"total_budget"`
+	Components     []ScoreComponent `json:"components"`
+	Tips           []ScoreTip       `json:"tips"`
+}
+
+type ScoreComponent struct {
+	Key    string `json:"key"`
+	Points int    `json:"points"`
+	Max    int    `json:"max"`
+}
+
+type ScoreTip struct {
+	Code         string `json:"code"`
+	CategoryName string `json:"category_name,omitempty"`
+	Percent      int    `json:"percent,omitempty"`
+	Amount       int64  `json:"amount,omitempty"`
+	Budget       int64  `json:"budget,omitempty"`
+	Weeks        int    `json:"weeks,omitempty"`
 }
 
 type ExportResponse struct {

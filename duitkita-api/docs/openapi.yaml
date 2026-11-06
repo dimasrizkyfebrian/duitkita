@@ -1771,7 +1771,12 @@ paths:
   /reports/health-score:
     get:
       tags: [Reports]
-      summary: Budget health score/grade for a period (experimental, feature-flagged)
+      summary: Health score for a period (feature-flagged)
+      description: >
+        Out of 100 from three parts: projected total vs total budget (50),
+        each category vs its budget (30), and how regularly spending was
+        recorded (20). The running month is judged on its projected
+        end-of-month spending. Grade A >= 85, B >= 70, C >= 50, else D.
       parameters:
         - $ref: '#/components/parameters/Year'
         - $ref: '#/components/parameters/Month'
@@ -2700,11 +2705,27 @@ components:
 
     ForecastResponse:
       type: object
+      description: Next month (year/month, in WIB) predicted from the three full months before the running one, plus where the running month is heading.
       properties:
         year: { type: integer }
         month: { type: integer }
         projected_total: { type: integer, format: int64 }
-        confidence: { type: number, format: double, description: "0.4 with under 3 months of history, else 0.6" }
+        projected_low: { type: integer, format: int64 }
+        projected_high: { type: integer, format: int64 }
+        recurring_total: { type: integer, format: int64, description: "Scheduled recurring spending in the predicted month, included in projected_total" }
+        months_with_data: { type: integer, minimum: 0, maximum: 3 }
+        confidence: { type: number, format: double, minimum: 0, maximum: 1, description: From how many of the 3 months had data and how steady they were }
+        current_month: { $ref: '#/components/schemas/CurrentMonthProjection' }
+
+    CurrentMonthProjection:
+      type: object
+      properties:
+        year: { type: integer }
+        month: { type: integer }
+        spent: { type: integer, format: int64 }
+        projected_total: { type: integer, format: int64, description: "Spent so far, plus the daily pace for the days left, plus scheduled recurring still to run" }
+        budget: { type: integer, format: int64 }
+        recurring_remaining: { type: integer, format: int64 }
 
     HealthScoreResponse:
       type: object
@@ -2713,7 +2734,37 @@ components:
         grade: { type: string, enum: [A, B, C, D, "n/a"] }
         reasons:
           type: array
+          description: Plain-English summary kept for older clients
           items: { type: string }
+        provisional: { type: boolean, description: The running month is under 5 days old or has under 3 days of records }
+        period: { type: string, enum: [past, current, future] }
+        projected_spent: { type: integer, format: int64 }
+        total_budget: { type: integer, format: int64 }
+        components:
+          type: array
+          items: { $ref: '#/components/schemas/ScoreComponent' }
+        tips:
+          type: array
+          maxItems: 3
+          items: { $ref: '#/components/schemas/ScoreTip' }
+
+    ScoreComponent:
+      type: object
+      properties:
+        key: { type: string, enum: [budget, categories, recording] }
+        points: { type: integer }
+        max: { type: integer }
+
+    ScoreTip:
+      type: object
+      description: A code plus the numbers needed to phrase it; the app writes the sentence.
+      properties:
+        code: { type: string, enum: [category_over, pace_over_budget, recording_gap, all_good, no_budget, no_records_yet, period_not_started] }
+        category_name: { type: string }
+        percent: { type: integer }
+        amount: { type: integer, format: int64 }
+        budget: { type: integer, format: int64 }
+        weeks: { type: integer }
 
     ExportResponse:
       type: object
