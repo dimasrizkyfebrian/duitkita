@@ -7,6 +7,8 @@ import CurrencyInput from '@/shared/components/CurrencyInput.vue'
 import { apiErrorMessage } from '@/shared/utils/apiError'
 import { useToast } from '@/shared/composables/useToast'
 import type { Category } from '@/features/category/types'
+import AccountPicker from '@/features/account/components/AccountPicker.vue'
+import { useAccounts } from '@/features/account/composables/useAccounts'
 import {
   createRecurringExpense,
   deleteRecurringExpense,
@@ -28,6 +30,15 @@ const toast = useToast()
 
 const isEdit = computed(() => Boolean(props.existing))
 
+const { accounts, activeAccounts } = useAccounts()
+// Same rule as editing an expense: a schedule already on an archived
+// account keeps showing it rather than silently losing it on save.
+const pickableAccounts = computed(() => {
+  const currentId = props.existing?.account_id
+  const current = accounts.value.find((a) => a.id === currentId)
+  return current?.archived ? [...activeAccounts.value, current] : activeAccounts.value
+})
+
 const WEEKDAY_LABELS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
 
 // Each chip group is labelled by its own heading rather than wrapped in a
@@ -43,6 +54,7 @@ const amount = ref(0)
 const note = ref('')
 const scheduleType = ref<RecurringScheduleType>('monthly')
 const scheduleDay = ref(1)
+const accountId = ref('')
 const loading = ref(false)
 
 const confirmingDelete = ref(false)
@@ -59,12 +71,14 @@ watch(open, (isOpen) => {
     note.value = props.existing.note ?? ''
     scheduleType.value = props.existing.schedule_type
     scheduleDay.value = props.existing.schedule_day
+    accountId.value = props.existing.account_id ?? ''
   } else {
     categoryId.value = props.categories[0]?.id ?? ''
     amount.value = 0
     note.value = ''
     scheduleType.value = 'monthly'
     scheduleDay.value = 1
+    accountId.value = ''
   }
 })
 
@@ -95,6 +109,7 @@ async function onSubmit() {
         // Sent even when empty — that's what clears a note the user wiped.
         note: note.value,
         schedule_day: scheduleDay.value,
+        account_id: accountId.value,
       })
       toast.success('Pengeluaran rutin udah diubah.')
     } else {
@@ -104,6 +119,7 @@ async function onSubmit() {
         note: note.value || undefined,
         schedule_type: scheduleType.value,
         schedule_day: scheduleDay.value,
+        account_id: accountId.value || undefined,
       })
       toast.success('Pengeluaran rutin udah dibuat.')
     }
@@ -284,6 +300,8 @@ async function onDelete() {
           Tanggal 29-31 otomatis nyesuaiin ke akhir bulan kalau bulannya lebih pendek.
         </p>
       </div>
+
+      <AccountPicker v-model="accountId" :accounts="pickableAccounts" />
 
       <BaseInput v-model="note" label="Catatan (opsional)" placeholder="Misalnya: token listrik" />
 

@@ -32,6 +32,7 @@ func (h *ReportHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	reports.GET("/daily", h.daily)
 	reports.GET("/top-expenses", h.topExpenses)
 	reports.GET("/couple/top-expenses", h.coupleTopExpenses)
+	reports.GET("/accounts", h.accounts)
 	reports.POST("/exports", h.createExport)
 	reports.GET("/exports", h.listExports)
 	reports.GET("/exports/:id/download", h.downloadExport)
@@ -62,6 +63,16 @@ func (h *ReportHandler) couple(c *gin.Context) {
 		return
 	}
 	utils.Success(c, http.StatusOK, "couple report retrieved", res)
+}
+
+func (h *ReportHandler) accounts(c *gin.Context) {
+	year, month := parseYearMonth(c)
+	res, err := h.reportSvc.AccountBreakdown(c.Request.Context(), currentUserID(c), year, month)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	utils.Success(c, http.StatusOK, "account breakdown retrieved", res)
 }
 
 func (h *ReportHandler) trend(c *gin.Context) {

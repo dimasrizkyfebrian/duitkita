@@ -22,6 +22,67 @@ func (_m *ReportService) EXPECT() *ReportService_Expecter {
 	return &ReportService_Expecter{mock: &_m.Mock}
 }
 
+// AccountBreakdown provides a mock function with given fields: ctx, userID, year, month
+func (_m *ReportService) AccountBreakdown(ctx context.Context, userID string, year int, month int) (*response.AccountReportResponse, error) {
+	ret := _m.Called(ctx, userID, year, month)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AccountBreakdown")
+	}
+
+	var r0 *response.AccountReportResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, int, int) (*response.AccountReportResponse, error)); ok {
+		return rf(ctx, userID, year, month)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, int, int) *response.AccountReportResponse); ok {
+		r0 = rf(ctx, userID, year, month)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*response.AccountReportResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, int, int) error); ok {
+		r1 = rf(ctx, userID, year, month)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ReportService_AccountBreakdown_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AccountBreakdown'
+type ReportService_AccountBreakdown_Call struct {
+	*mock.Call
+}
+
+// AccountBreakdown is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - year int
+//   - month int
+func (_e *ReportService_Expecter) AccountBreakdown(ctx interface{}, userID interface{}, year interface{}, month interface{}) *ReportService_AccountBreakdown_Call {
+	return &ReportService_AccountBreakdown_Call{Call: _e.mock.On("AccountBreakdown", ctx, userID, year, month)}
+}
+
+func (_c *ReportService_AccountBreakdown_Call) Run(run func(ctx context.Context, userID string, year int, month int)) *ReportService_AccountBreakdown_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(int), args[3].(int))
+	})
+	return _c
+}
+
+func (_c *ReportService_AccountBreakdown_Call) Return(_a0 *response.AccountReportResponse, _a1 error) *ReportService_AccountBreakdown_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ReportService_AccountBreakdown_Call) RunAndReturn(run func(context.Context, string, int, int) (*response.AccountReportResponse, error)) *ReportService_AccountBreakdown_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CoupleReport provides a mock function with given fields: ctx, userID, year, month
 func (_m *ReportService) CoupleReport(ctx context.Context, userID string, year int, month int) (*response.CoupleReportResponse, error) {
 	ret := _m.Called(ctx, userID, year, month)

@@ -7,6 +7,14 @@ import CurrencyInput from '@/shared/components/CurrencyInput.vue'
 import { apiErrorMessage } from '@/shared/utils/apiError'
 import { useToast } from '@/shared/composables/useToast'
 import type { CategoryOverviewItem } from '@/features/dashboard/types'
+import { useAuthStore } from '@/features/auth/stores/auth.store'
+import AccountPicker from '@/features/account/components/AccountPicker.vue'
+import { useAccounts } from '@/features/account/composables/useAccounts'
+import {
+  getLastUsedAccountId,
+  pickDefaultAccountId,
+  setLastUsedAccountId,
+} from '@/features/account/utils/lastUsedAccount'
 import { createExpense } from '../api/expense.api'
 
 const props = defineProps<{
@@ -20,6 +28,8 @@ const emit = defineEmits<{ created: [] }>()
 const open = defineModel<boolean>('open', { required: true })
 const toast = useToast()
 const dateId = useId()
+const auth = useAuthStore()
+const { activeAccounts, reload: reloadAccounts } = useAccounts()
 
 function todayIso() {
   const now = new Date()
@@ -31,6 +41,10 @@ const selectedId = ref('')
 const amount = ref(0)
 const note = ref('')
 const expenseDate = ref(todayIso())
+const accountId = ref('')
+// '' is both "nothing picked yet" and an explicit "Tanpa akun", so track
+// whether the user has touched the picker since the sheet opened.
+const accountPicked = ref(false)
 const loading = ref(false)
 
 const maxDate = todayIso()
@@ -41,8 +55,29 @@ watch(open, (isOpen) => {
     amount.value = 0
     note.value = ''
     expenseDate.value = todayIso()
+    accountId.value = defaultAccountId()
+    accountPicked.value = false
   }
 })
+
+// Accounts may still be loading the first time the sheet opens — apply the
+// remembered default once they arrive, unless the user already picked
+// (including picking "Tanpa akun"). A pick that stopped being active (archived
+// from another sheet) falls back to "Tanpa akun" so saving doesn't fail.
+watch(activeAccounts, (accounts) => {
+  if (!open.value) return
+  if (!accountPicked.value) {
+    accountId.value = defaultAccountId()
+  } else if (accountId.value && !accounts.some((a) => a.id === accountId.value)) {
+    accountId.value = ''
+  }
+})
+
+function defaultAccountId() {
+  const userId = auth.user?.id
+  if (!userId) return ''
+  return pickDefaultAccountId(getLastUsedAccountId(userId), activeAccounts.value)
+}
 
 async function onSubmit() {
   const category = props.categories.find((c) => c.category_id === selectedId.value)
@@ -56,10 +91,16 @@ async function onSubmit() {
       amount: amount.value,
       note: note.value || undefined,
       expense_date: expenseDate.value,
+      account_id: accountId.value || undefined,
     })
+    if (auth.user && activeAccounts.value.length > 0) {
+      setLastUsedAccountId(auth.user.id, accountId.value)
+    }
     toast.success('Pengeluaran udah dicatat.')
     open.value = false
     emit('created')
+    // The account's balance just moved.
+    if (accountId.value) reloadAccounts()
   } catch (err) {
     toast.error(apiErrorMessage(err, 'Gagal nyatat pengeluaran.'))
   } finally {
@@ -112,6 +153,12 @@ async function onSubmit() {
           class="rounded-control border-hairline focus:border-azure focus:ring-azure/15 w-full border bg-white px-4 py-3.5 text-[0.9375rem] font-medium transition-colors duration-150 focus:ring-4 focus:outline-none"
         />
       </div>
+
+      <AccountPicker
+        v-model="accountId"
+        :accounts="activeAccounts"
+        @update:model-value="accountPicked = true"
+      />
 
       <BaseInput v-model="note" label="Catatan" placeholder="Misalnya: makan siang berdua" />
 

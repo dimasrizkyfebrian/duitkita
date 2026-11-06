@@ -32,6 +32,29 @@ describe('apiErrorMessage', () => {
     expect(apiErrorMessage(apiError(400, 'Name: is required'))).toBe('Nama belum diisi.')
   })
 
+  it('translates every account error the API can return', () => {
+    const accountErrors = [
+      'account not found',
+      'institution not found',
+      'name is required',
+      'invalid account_id',
+      'invalid opening_balance_date',
+      'opening_balance_date requires opening_balance',
+      'opening balance already set, use balance adjustment instead',
+      'account has no opening balance',
+      'account is archived',
+    ]
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const untranslated = accountErrors.filter(
+      (raw) => apiErrorMessage(apiError(400, raw), 'FALLBACK') === 'FALLBACK',
+    )
+    warn.mockRestore()
+    expect(untranslated).toEqual([])
+    expect(apiErrorMessage(apiError(400, 'account is archived'))).toBe(
+      'Akun ini udah diarsipkan. Aktifin lagi dulu kalau mau dipakai.',
+    )
+  })
+
   it('explains network failures', () => {
     expect(apiErrorMessage(new NetworkError())).toBe(
       'Gagal nyambung ke server. Cek koneksi kamu ya.',

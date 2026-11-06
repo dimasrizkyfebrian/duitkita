@@ -15,6 +15,7 @@ type Services struct {
 	User             UserService
 	Couple           CoupleService
 	Category         CategoryService
+	Account          AccountService
 	Budget           BudgetService
 	Expense          ExpenseService
 	RecurringExpense RecurringExpenseService
@@ -35,6 +36,8 @@ func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.Reten
 	coupleRepo := repository.NewCoupleRepository(db)
 	invitationRepo := repository.NewCoupleInvitationRepository(db)
 	categoryRepo := repository.NewCategoryRepository(db)
+	institutionRepo := repository.NewInstitutionRepository(db)
+	accountRepo := repository.NewAccountRepository(db)
 	budgetRepo := repository.NewBudgetRepository(db)
 	expenseRepo := repository.NewExpenseRepository(db)
 	recurringExpenseRepo := repository.NewRecurringExpenseRepository(db)
@@ -59,10 +62,11 @@ func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.Reten
 		Auth:             NewAuthService(userRepo, sessionRepo, securityAuditSvc, otpSvc, jwtCfg),
 		User:             NewUserService(userRepo, securityAuditSvc, storage, redisClient),
 		Couple:           NewCoupleService(coupleRepo, invitationRepo, userRepo, securityAuditSvc),
-		Category:         NewCategoryService(categoryRepo, coupleRepo, budgetRepo),
+		Category:         NewCategoryService(categoryRepo, coupleRepo, budgetRepo, redisClient),
+		Account:          NewAccountService(accountRepo, institutionRepo, redisClient),
 		Budget:           NewBudgetService(budgetRepo, categoryRepo, coupleRepo, activitySvc, expenseRepo, redisClient),
-		Expense:          NewExpenseService(expenseRepo, budgetRepo, coupleRepo, activitySvc, redisClient),
-		RecurringExpense: NewRecurringExpenseService(recurringExpenseRepo, categoryRepo, budgetRepo, expenseRepo, notificationSvc),
+		Expense:          NewExpenseService(expenseRepo, budgetRepo, coupleRepo, accountRepo, activitySvc, redisClient),
+		RecurringExpense: NewRecurringExpenseService(recurringExpenseRepo, categoryRepo, budgetRepo, expenseRepo, accountRepo, notificationSvc),
 		Reminder:         NewReminderService(reminderRepo, notificationSvc),
 		Notification:     notificationSvc,
 		Push:             pushSvc,

@@ -37,11 +37,12 @@ type recurringExpenseService struct {
 	categoryRepo repository.CategoryRepository
 	budgetRepo   repository.BudgetRepository
 	expenseRepo  repository.ExpenseRepository
+	accountRepo  repository.AccountRepository
 	notifSvc     NotificationService
 }
 
-func NewRecurringExpenseService(repo repository.RecurringExpenseRepository, categoryRepo repository.CategoryRepository, budgetRepo repository.BudgetRepository, expenseRepo repository.ExpenseRepository, notifSvc NotificationService) RecurringExpenseService {
-	return &recurringExpenseService{repo: repo, categoryRepo: categoryRepo, budgetRepo: budgetRepo, expenseRepo: expenseRepo, notifSvc: notifSvc}
+func NewRecurringExpenseService(repo repository.RecurringExpenseRepository, categoryRepo repository.CategoryRepository, budgetRepo repository.BudgetRepository, expenseRepo repository.ExpenseRepository, accountRepo repository.AccountRepository, notifSvc NotificationService) RecurringExpenseService {
+	return &recurringExpenseService{repo: repo, categoryRepo: categoryRepo, budgetRepo: budgetRepo, expenseRepo: expenseRepo, accountRepo: accountRepo, notifSvc: notifSvc}
 }
 
 func (s *recurringExpenseService) Create(ctx context.Context, userID string, req request.CreateRecurringExpenseRequest) (*response.RecurringExpenseResponse, error) {
@@ -53,6 +54,12 @@ func (s *recurringExpenseService) Create(ctx context.Context, userID string, req
 		return nil, utils.ErrNotFound("category not found")
 	}
 
+	if req.AccountID != "" {
+		if _, err := requireTaggableAccount(ctx, s.accountRepo, userID, req.AccountID); err != nil {
+			return nil, err
+		}
+	}
+
 	scheduleType := domain.RecurringScheduleType(req.ScheduleType)
 	if err := validateScheduleDay(scheduleType, req.ScheduleDay); err != nil {
 		return nil, err
@@ -62,6 +69,7 @@ func (s *recurringExpenseService) Create(ctx context.Context, userID string, req
 		ID:           uuid.NewString(),
 		UserID:       userID,
 		CategoryID:   req.CategoryID,
+		AccountID:    utils.StringPtr(req.AccountID),
 		Amount:       req.Amount,
 		Note:         utils.StringPtr(req.Note),
 		ScheduleType: scheduleType,
@@ -103,6 +111,12 @@ func (s *recurringExpenseService) Update(ctx context.Context, userID, id string,
 	if err != nil {
 		return nil, err
 	}
+
+	accountID, _, err := resolveAccountChange(ctx, s.accountRepo, userID, re.AccountID, req.AccountID)
+	if err != nil {
+		return nil, err
+	}
+	re.AccountID = accountID
 
 	if req.Amount != 0 {
 		re.Amount = req.Amount
@@ -208,6 +222,7 @@ func (s *recurringExpenseService) processDue(ctx context.Context, due []domain.R
 				UserID:          re.UserID,
 				CategoryID:      re.CategoryID,
 				MonthlyBudgetID: budget.ID,
+				AccountID:       s.usableAccountID(ctx, re),
 				Amount:          re.Amount,
 				Note:            re.Note,
 				ExpenseDate:     now,
@@ -239,6 +254,25 @@ func (s *recurringExpenseService) notify(ctx context.Context, userID, title, bod
 	if err := s.notifSvc.Create(ctx, userID, domain.NotificationTypeRecurringExpense, title, body); err != nil {
 		log.Error().Err(err).Str("user_id", userID).Msg("failed to send recurring expense notification")
 	}
+}
+
+// usableAccountID decides which account, if any, an occurrence is recorded
+// against. A schedule set up on an account that has since been archived (or
+// can't be looked up right now) still records the expense — just without an
+// account — rather than skipping a bill the user thinks is automated.
+func (s *recurringExpenseService) usableAccountID(ctx context.Context, re *domain.RecurringExpense) *string {
+	if re.AccountID == nil {
+		return nil
+	}
+	account, err := s.accountRepo.FindByID(ctx, *re.AccountID)
+	if err != nil {
+		log.Error().Err(err).Str("recurring_expense_id", re.ID).Msg("failed to look up account for recurring expense, recording without it")
+		return nil
+	}
+	if account == nil || account.UserID != re.UserID || account.IsArchived() {
+		return nil
+	}
+	return re.AccountID
 }
 
 func (s *recurringExpenseService) mustOwnRecurringExpense(ctx context.Context, userID, id string) (*domain.RecurringExpense, error) {
@@ -301,6 +335,7 @@ func toRecurringExpenseResponse(re *domain.RecurringExpense) response.RecurringE
 	res := response.RecurringExpenseResponse{
 		ID:           re.ID,
 		CategoryID:   re.CategoryID,
+		AccountID:    re.AccountID,
 		Amount:       re.Amount,
 		ScheduleType: string(re.ScheduleType),
 		ScheduleDay:  re.ScheduleDay,

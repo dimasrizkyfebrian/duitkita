@@ -20,9 +20,15 @@ import (
 )
 
 func newExpenseService(t *testing.T) (service.ExpenseService, *mocks.ExpenseRepository, *mocks.BudgetRepository, *mocks.CoupleRepository, *svcmocks.ActivityService) {
+	svc, repo, budgetRepo, coupleRepo, _, activitySvc := newExpenseServiceWithAccounts(t)
+	return svc, repo, budgetRepo, coupleRepo, activitySvc
+}
+
+func newExpenseServiceWithAccounts(t *testing.T) (service.ExpenseService, *mocks.ExpenseRepository, *mocks.BudgetRepository, *mocks.CoupleRepository, *mocks.AccountRepository, *svcmocks.ActivityService) {
 	repo := mocks.NewExpenseRepository(t)
 	budgetRepo := mocks.NewBudgetRepository(t)
 	coupleRepo := mocks.NewCoupleRepository(t)
+	accountRepo := mocks.NewAccountRepository(t)
 	activitySvc := svcmocks.NewActivityService(t)
 	// Unreachable rather than mocked — cache invalidation is best-effort, so
 	// this exercises that fallback for free. See user_service_test.go.
@@ -32,7 +38,7 @@ func newExpenseService(t *testing.T) (service.ExpenseService, *mocks.ExpenseRepo
 		DialTimeout: 100 * time.Millisecond,
 	})
 	t.Cleanup(func() { _ = redisClient.Close() })
-	return service.NewExpenseService(repo, budgetRepo, coupleRepo, activitySvc, redisClient), repo, budgetRepo, coupleRepo, activitySvc
+	return service.NewExpenseService(repo, budgetRepo, coupleRepo, accountRepo, activitySvc, redisClient), repo, budgetRepo, coupleRepo, accountRepo, activitySvc
 }
 
 func TestExpenseService_Create(t *testing.T) {
@@ -87,7 +93,7 @@ func TestExpenseService_Create(t *testing.T) {
 func TestExpenseService_List(t *testing.T) {
 	svc, repo, _, _, _ := newExpenseService(t)
 	filter := service.ExpenseListFilter{CategoryID: "cat-1", Limit: 20, Offset: 0}
-	repo.EXPECT().FindAllByUserID(context.Background(), "user-1", repository.ExpenseFilter(filter)).Return([]domain.Expense{{ID: "e-1", Amount: 100}}, nil)
+	repo.EXPECT().FindAllByUserID(context.Background(), "user-1", repository.ExpenseFilter{CategoryID: "cat-1", Limit: 20, WithAccount: true}).Return([]domain.Expense{{ID: "e-1", Amount: 100}}, nil)
 
 	res, err := svc.List(context.Background(), "user-1", filter)
 
@@ -121,7 +127,7 @@ func TestExpenseService_ListPartnerExpenses(t *testing.T) {
 	svc, repo, _, coupleRepo, _ := newExpenseService(t)
 	coupleRepo.EXPECT().FindByUserID(context.Background(), "user-1").Return(&domain.Couple{User1ID: "user-1", User2ID: "partner-1"}, nil)
 	filter := service.ExpenseListFilter{Limit: 20}
-	repo.EXPECT().FindAllByUserID(context.Background(), "partner-1", repository.ExpenseFilter(filter)).Return(nil, nil)
+	repo.EXPECT().FindAllByUserID(context.Background(), "partner-1", repository.ExpenseFilter{Limit: 20, WithAccount: false}).Return(nil, nil)
 
 	_, err := svc.ListPartnerExpenses(context.Background(), "user-1", filter)
 
@@ -291,4 +297,164 @@ func TestExpenseService_Create_ValidateOwnershipError(t *testing.T) {
 	_, err := svc.Create(context.Background(), "user-1", request.CreateExpenseRequest{CategoryID: "cat-1", MonthlyBudgetID: "budget-1", ExpenseDate: "2026-01-01"})
 
 	requireAppError(t, err, http.StatusInternalServerError, "failed to validate ownership")
+}
+
+func TestExpenseService_Accounts(t *testing.T) {
+	bcaInst := domain.FinancialInstitution{ID: "inst-bca", Code: "bca", Name: "BCA", Type: domain.InstitutionTypeBank}
+	req := request.CreateExpenseRequest{CategoryID: "cat-1", MonthlyBudgetID: "budget-1", Amount: 5000, ExpenseDate: "2026-01-15", AccountID: accountA}
+
+	t.Run("create with account validates it and returns its summary", func(t *testing.T) {
+		svc, repo, _, _, accountRepo, activitySvc := newExpenseServiceWithAccounts(t)
+		repo.EXPECT().ValidateOwnership(context.Background(), "user-1", "cat-1", "budget-1").Return(true, true, nil)
+		accountRepo.EXPECT().FindByID(context.Background(), accountA).Return(&domain.Account{ID: accountA, UserID: "user-1", Name: "BCA Utama", Institution: bcaInst}, nil)
+		repo.EXPECT().Create(context.Background(), mockMatchByType[*domain.Expense]()).RunAndReturn(func(_ context.Context, e *domain.Expense) error {
+			require.Equal(t, accountA, *e.AccountID)
+			return nil
+		})
+		activitySvc.EXPECT().LogActivity(context.Background(), "user-1", domain.ActivityActionCreated, domain.ActivityEntityTypeExpense, mock.Anything, mock.Anything).Return()
+
+		res, err := svc.Create(context.Background(), "user-1", req)
+
+		require.NoError(t, err)
+		require.Equal(t, accountA, *res.AccountID)
+		require.Equal(t, "BCA Utama", res.Account.Name)
+		require.Equal(t, "bca", res.Account.Institution.Code)
+	})
+
+	t.Run("create with archived account is rejected", func(t *testing.T) {
+		svc, repo, _, _, accountRepo, _ := newExpenseServiceWithAccounts(t)
+		repo.EXPECT().ValidateOwnership(context.Background(), "user-1", "cat-1", "budget-1").Return(true, true, nil)
+		archivedAt := time.Now()
+		accountRepo.EXPECT().FindByID(context.Background(), accountA).Return(&domain.Account{ID: accountA, UserID: "user-1", ArchivedAt: &archivedAt}, nil)
+
+		_, err := svc.Create(context.Background(), "user-1", req)
+
+		requireAppError(t, err, http.StatusBadRequest, "account is archived")
+	})
+
+	t.Run("create with another user's account is not found", func(t *testing.T) {
+		svc, repo, _, _, accountRepo, _ := newExpenseServiceWithAccounts(t)
+		repo.EXPECT().ValidateOwnership(context.Background(), "user-1", "cat-1", "budget-1").Return(true, true, nil)
+		accountRepo.EXPECT().FindByID(context.Background(), accountA).Return(&domain.Account{ID: accountA, UserID: "someone-else"}, nil)
+
+		_, err := svc.Create(context.Background(), "user-1", req)
+
+		requireAppError(t, err, http.StatusNotFound, "account not found")
+	})
+
+	existing := func(accountID *string) *domain.Expense {
+		return &domain.Expense{ID: "e-1", UserID: "user-1", CategoryID: "cat-1", MonthlyBudgetID: "budget-1", AccountID: accountID, Amount: 100, ExpenseDate: time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)}
+	}
+
+	t.Run("update keeps archived account untouched", func(t *testing.T) {
+		svc, repo, _, _, accountRepo, activitySvc := newExpenseServiceWithAccounts(t)
+		current := accountA
+		repo.EXPECT().FindByID(context.Background(), "e-1").Return(existing(&current), nil)
+		archivedAt := time.Now()
+		// Looked up only to render the summary: an unchanged account is
+		// never re-validated, so being archived must not reject the edit.
+		accountRepo.EXPECT().FindByID(context.Background(), accountA).Return(&domain.Account{ID: accountA, UserID: "user-1", Name: "Lama", ArchivedAt: &archivedAt}, nil).Maybe()
+		repo.EXPECT().Update(context.Background(), mockMatchByType[*domain.Expense]()).RunAndReturn(func(_ context.Context, e *domain.Expense) error {
+			require.Equal(t, accountA, *e.AccountID)
+			require.Equal(t, int64(200), e.Amount)
+			return nil
+		})
+		activitySvc.EXPECT().LogActivity(context.Background(), "user-1", domain.ActivityActionUpdated, domain.ActivityEntityTypeExpense, "e-1", mock.Anything).Return()
+
+		_, err := svc.Update(context.Background(), "user-1", "e-1", request.UpdateExpenseRequest{Amount: 200, AccountID: strPtr(accountA)})
+
+		require.NoError(t, err)
+	})
+
+	t.Run("update moving to an archived account is rejected", func(t *testing.T) {
+		svc, repo, _, _, accountRepo, _ := newExpenseServiceWithAccounts(t)
+		repo.EXPECT().FindByID(context.Background(), "e-1").Return(existing(nil), nil)
+		archivedAt := time.Now()
+		accountRepo.EXPECT().FindByID(context.Background(), accountB).Return(&domain.Account{ID: accountB, UserID: "user-1", ArchivedAt: &archivedAt}, nil)
+
+		_, err := svc.Update(context.Background(), "user-1", "e-1", request.UpdateExpenseRequest{AccountID: strPtr(accountB)})
+
+		requireAppError(t, err, http.StatusBadRequest, "account is archived")
+	})
+
+	t.Run("update clears account with empty string", func(t *testing.T) {
+		svc, repo, _, _, _, activitySvc := newExpenseServiceWithAccounts(t)
+		current := accountA
+		repo.EXPECT().FindByID(context.Background(), "e-1").Return(existing(&current), nil)
+		repo.EXPECT().Update(context.Background(), mockMatchByType[*domain.Expense]()).RunAndReturn(func(_ context.Context, e *domain.Expense) error {
+			require.Nil(t, e.AccountID)
+			return nil
+		})
+		activitySvc.EXPECT().LogActivity(context.Background(), "user-1", domain.ActivityActionUpdated, domain.ActivityEntityTypeExpense, "e-1", mock.Anything).Return()
+
+		res, err := svc.Update(context.Background(), "user-1", "e-1", request.UpdateExpenseRequest{AccountID: strPtr("")})
+
+		require.NoError(t, err)
+		require.Nil(t, res.AccountID)
+		require.Nil(t, res.Account)
+	})
+
+	t.Run("update without account_id keeps it", func(t *testing.T) {
+		svc, repo, _, _, accountRepo, activitySvc := newExpenseServiceWithAccounts(t)
+		current := accountA
+		repo.EXPECT().FindByID(context.Background(), "e-1").Return(existing(&current), nil)
+		accountRepo.EXPECT().FindByID(context.Background(), accountA).Return(&domain.Account{ID: accountA, UserID: "user-1", Name: "BCA"}, nil).Maybe()
+		repo.EXPECT().Update(context.Background(), mockMatchByType[*domain.Expense]()).RunAndReturn(func(_ context.Context, e *domain.Expense) error {
+			require.Equal(t, accountA, *e.AccountID)
+			return nil
+		})
+		activitySvc.EXPECT().LogActivity(context.Background(), "user-1", domain.ActivityActionUpdated, domain.ActivityEntityTypeExpense, "e-1", mock.Anything).Return()
+
+		res, err := svc.Update(context.Background(), "user-1", "e-1", request.UpdateExpenseRequest{Amount: 300})
+
+		require.NoError(t, err)
+		require.Equal(t, accountA, *res.AccountID)
+	})
+
+	t.Run("update rejects malformed account_id", func(t *testing.T) {
+		svc, repo, _, _, _, _ := newExpenseServiceWithAccounts(t)
+		repo.EXPECT().FindByID(context.Background(), "e-1").Return(existing(nil), nil)
+
+		_, err := svc.Update(context.Background(), "user-1", "e-1", request.UpdateExpenseRequest{AccountID: strPtr("not-a-uuid")})
+
+		requireAppError(t, err, http.StatusBadRequest, "invalid account_id")
+	})
+
+	t.Run("own list carries the preloaded account", func(t *testing.T) {
+		svc, repo, _, _, _, _ := newExpenseServiceWithAccounts(t)
+		account := accountA
+		filter := service.ExpenseListFilter{AccountID: accountA, Limit: 20}
+		repo.EXPECT().FindAllByUserID(context.Background(), "user-1", repository.ExpenseFilter{AccountID: accountA, Limit: 20, WithAccount: true}).Return([]domain.Expense{
+			{ID: "e-1", UserID: "user-1", AccountID: &account, Account: &domain.Account{ID: accountA, Name: "BCA", Institution: bcaInst}},
+		}, nil)
+
+		res, err := svc.List(context.Background(), "user-1", filter)
+
+		require.NoError(t, err)
+		require.Equal(t, "BCA", res[0].Account.Name)
+	})
+
+	t.Run("list rejects a malformed account_id filter", func(t *testing.T) {
+		svc, _, _, _, _, _ := newExpenseServiceWithAccounts(t)
+
+		_, err := svc.List(context.Background(), "user-1", service.ExpenseListFilter{AccountID: "bca", Limit: 20})
+
+		requireAppError(t, err, http.StatusBadRequest, "invalid account_id")
+	})
+
+	t.Run("partner list never includes account", func(t *testing.T) {
+		svc, repo, _, coupleRepo, _, _ := newExpenseServiceWithAccounts(t)
+		coupleRepo.EXPECT().FindByUserID(context.Background(), "user-1").Return(&domain.Couple{User1ID: "user-1", User2ID: "partner-1"}, nil)
+		account := accountA
+		filter := service.ExpenseListFilter{Limit: 20}
+		repo.EXPECT().FindAllByUserID(context.Background(), "partner-1", repository.ExpenseFilter{Limit: 20, WithAccount: false}).Return([]domain.Expense{
+			{ID: "e-9", UserID: "partner-1", AccountID: &account, Account: &domain.Account{ID: accountA, Name: "Rahasia", Institution: bcaInst}},
+		}, nil)
+
+		res, err := svc.ListPartnerExpenses(context.Background(), "user-1", filter)
+
+		require.NoError(t, err)
+		require.Nil(t, res[0].AccountID)
+		require.Nil(t, res[0].Account)
+	})
 }

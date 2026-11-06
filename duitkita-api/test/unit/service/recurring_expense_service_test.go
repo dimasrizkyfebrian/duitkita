@@ -17,12 +17,18 @@ import (
 )
 
 func newRecurringExpenseService(t *testing.T) (service.RecurringExpenseService, *mocks.RecurringExpenseRepository, *mocks.CategoryRepository, *mocks.BudgetRepository, *mocks.ExpenseRepository, *servicemocks.NotificationService) {
+	svc, repo, categoryRepo, budgetRepo, expenseRepo, _, notifSvc := newRecurringExpenseServiceWithAccounts(t)
+	return svc, repo, categoryRepo, budgetRepo, expenseRepo, notifSvc
+}
+
+func newRecurringExpenseServiceWithAccounts(t *testing.T) (service.RecurringExpenseService, *mocks.RecurringExpenseRepository, *mocks.CategoryRepository, *mocks.BudgetRepository, *mocks.ExpenseRepository, *mocks.AccountRepository, *servicemocks.NotificationService) {
 	repo := mocks.NewRecurringExpenseRepository(t)
 	categoryRepo := mocks.NewCategoryRepository(t)
 	budgetRepo := mocks.NewBudgetRepository(t)
 	expenseRepo := mocks.NewExpenseRepository(t)
+	accountRepo := mocks.NewAccountRepository(t)
 	notifSvc := servicemocks.NewNotificationService(t)
-	return service.NewRecurringExpenseService(repo, categoryRepo, budgetRepo, expenseRepo, notifSvc), repo, categoryRepo, budgetRepo, expenseRepo, notifSvc
+	return service.NewRecurringExpenseService(repo, categoryRepo, budgetRepo, expenseRepo, accountRepo, notifSvc), repo, categoryRepo, budgetRepo, expenseRepo, accountRepo, notifSvc
 }
 
 func TestRecurringExpenseService_Create(t *testing.T) {
@@ -352,6 +358,105 @@ func TestRecurringExpenseService_RunDue(t *testing.T) {
 		budgetRepo.EXPECT().FindByUserCategoryPeriod(context.Background(), "user-1", "cat-1", now.Year(), int(now.Month())).Return(&domain.MonthlyBudget{ID: "budget-1"}, nil)
 		expenseRepo.EXPECT().Create(context.Background(), mockMatchByType[*domain.Expense]()).Return(nil)
 		notifSvc.EXPECT().Create(context.Background(), "user-1", domain.NotificationTypeRecurringExpense, mockMatchByType[string](), mockMatchByType[string]()).Return(errors.New("notifications down"))
+		repo.EXPECT().Update(context.Background(), mockMatchByType[*domain.RecurringExpense]()).Return(nil)
+
+		processed, err := svc.RunDue(context.Background())
+
+		require.NoError(t, err)
+		require.Equal(t, 1, processed)
+	})
+}
+
+// Fixed UUIDs: account ids are parsed as UUIDs before any lookup.
+const (
+	accountA = "7f3c2a10-0000-4000-8000-00000000000a"
+	accountB = "7f3c2a10-0000-4000-8000-00000000000b"
+)
+
+func TestRecurringExpenseService_Accounts(t *testing.T) {
+	t.Run("create with an archived account is rejected", func(t *testing.T) {
+		svc, _, categoryRepo, _, _, accountRepo, _ := newRecurringExpenseServiceWithAccounts(t)
+		categoryRepo.EXPECT().FindByID(context.Background(), "cat-1").Return(&domain.Category{ID: "cat-1", UserID: "user-1"}, nil)
+		archivedAt := time.Now()
+		accountRepo.EXPECT().FindByID(context.Background(), accountA).Return(&domain.Account{ID: accountA, UserID: "user-1", ArchivedAt: &archivedAt}, nil)
+
+		_, err := svc.Create(context.Background(), "user-1", request.CreateRecurringExpenseRequest{
+			CategoryID: "cat-1", AccountID: accountA, Amount: 1000, ScheduleType: "monthly", ScheduleDay: 1,
+		})
+
+		requireAppError(t, err, http.StatusBadRequest, "account is archived")
+	})
+
+	t.Run("create stores the account", func(t *testing.T) {
+		svc, repo, categoryRepo, _, _, accountRepo, _ := newRecurringExpenseServiceWithAccounts(t)
+		categoryRepo.EXPECT().FindByID(context.Background(), "cat-1").Return(&domain.Category{ID: "cat-1", UserID: "user-1"}, nil)
+		accountRepo.EXPECT().FindByID(context.Background(), accountA).Return(&domain.Account{ID: accountA, UserID: "user-1"}, nil)
+		repo.EXPECT().Create(context.Background(), mockMatchByType[*domain.RecurringExpense]()).RunAndReturn(func(_ context.Context, re *domain.RecurringExpense) error {
+			require.Equal(t, accountA, *re.AccountID)
+			return nil
+		})
+
+		res, err := svc.Create(context.Background(), "user-1", request.CreateRecurringExpenseRequest{
+			CategoryID: "cat-1", AccountID: accountA, Amount: 1000, ScheduleType: "monthly", ScheduleDay: 1,
+		})
+
+		require.NoError(t, err)
+		require.Equal(t, accountA, *res.AccountID)
+	})
+
+	t.Run("update switches and clears the account", func(t *testing.T) {
+		svc, repo, _, _, _, accountRepo, _ := newRecurringExpenseServiceWithAccounts(t)
+		current := accountA
+		re := &domain.RecurringExpense{ID: "re-1", UserID: "user-1", AccountID: &current, ScheduleType: domain.RecurringScheduleMonthly, ScheduleDay: 1}
+		repo.EXPECT().FindByID(context.Background(), "re-1").Return(re, nil)
+		accountRepo.EXPECT().FindByID(context.Background(), accountB).Return(&domain.Account{ID: accountB, UserID: "user-1"}, nil)
+		repo.EXPECT().Update(context.Background(), re).Return(nil)
+
+		res, err := svc.Update(context.Background(), "user-1", "re-1", request.UpdateRecurringExpenseRequest{AccountID: strPtr(accountB)})
+		require.NoError(t, err)
+		require.Equal(t, accountB, *res.AccountID)
+
+		res, err = svc.Update(context.Background(), "user-1", "re-1", request.UpdateRecurringExpenseRequest{AccountID: strPtr("")})
+		require.NoError(t, err)
+		require.Nil(t, res.AccountID)
+	})
+
+	t.Run("run carries an active account onto the expense", func(t *testing.T) {
+		svc, repo, categoryRepo, budgetRepo, expenseRepo, accountRepo, notifSvc := newRecurringExpenseServiceWithAccounts(t)
+		account := accountA
+		due := []domain.RecurringExpense{{ID: "re-1", UserID: "user-1", CategoryID: "cat-1", AccountID: &account, Amount: 500, ScheduleType: domain.RecurringScheduleMonthly, ScheduleDay: 1}}
+		repo.EXPECT().FindDue(context.Background(), mockMatchByType[time.Time]()).Return(due, nil)
+		categoryRepo.EXPECT().FindByID(context.Background(), "cat-1").Return(&domain.Category{ID: "cat-1", Name: "Listrik"}, nil)
+		budgetRepo.EXPECT().FindByUserCategoryPeriod(context.Background(), "user-1", "cat-1", mockMatchByType[int](), mockMatchByType[int]()).Return(&domain.MonthlyBudget{ID: "budget-1"}, nil)
+		accountRepo.EXPECT().FindByID(context.Background(), accountA).Return(&domain.Account{ID: accountA, UserID: "user-1"}, nil)
+		expenseRepo.EXPECT().Create(context.Background(), mockMatchByType[*domain.Expense]()).RunAndReturn(func(_ context.Context, e *domain.Expense) error {
+			require.NotNil(t, e.AccountID)
+			require.Equal(t, accountA, *e.AccountID)
+			return nil
+		})
+		notifSvc.EXPECT().Create(context.Background(), "user-1", domain.NotificationTypeRecurringExpense, mockMatchByType[string](), mockMatchByType[string]()).Return(nil)
+		repo.EXPECT().Update(context.Background(), mockMatchByType[*domain.RecurringExpense]()).Return(nil)
+
+		processed, err := svc.RunDue(context.Background())
+
+		require.NoError(t, err)
+		require.Equal(t, 1, processed)
+	})
+
+	t.Run("run drops an archived account but still records the expense", func(t *testing.T) {
+		svc, repo, categoryRepo, budgetRepo, expenseRepo, accountRepo, notifSvc := newRecurringExpenseServiceWithAccounts(t)
+		account := accountA
+		archivedAt := time.Now()
+		due := []domain.RecurringExpense{{ID: "re-1", UserID: "user-1", CategoryID: "cat-1", AccountID: &account, Amount: 500, ScheduleType: domain.RecurringScheduleMonthly, ScheduleDay: 1}}
+		repo.EXPECT().FindDue(context.Background(), mockMatchByType[time.Time]()).Return(due, nil)
+		categoryRepo.EXPECT().FindByID(context.Background(), "cat-1").Return(&domain.Category{ID: "cat-1", Name: "Listrik"}, nil)
+		budgetRepo.EXPECT().FindByUserCategoryPeriod(context.Background(), "user-1", "cat-1", mockMatchByType[int](), mockMatchByType[int]()).Return(&domain.MonthlyBudget{ID: "budget-1"}, nil)
+		accountRepo.EXPECT().FindByID(context.Background(), accountA).Return(&domain.Account{ID: accountA, UserID: "user-1", ArchivedAt: &archivedAt}, nil)
+		expenseRepo.EXPECT().Create(context.Background(), mockMatchByType[*domain.Expense]()).RunAndReturn(func(_ context.Context, e *domain.Expense) error {
+			require.Nil(t, e.AccountID)
+			return nil
+		})
+		notifSvc.EXPECT().Create(context.Background(), "user-1", domain.NotificationTypeRecurringExpense, mockMatchByType[string](), mockMatchByType[string]()).Return(nil)
 		repo.EXPECT().Update(context.Background(), mockMatchByType[*domain.RecurringExpense]()).Return(nil)
 
 		processed, err := svc.RunDue(context.Background())

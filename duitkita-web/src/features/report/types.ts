@@ -1,3 +1,5 @@
+import type { Institution } from '@/features/account/types'
+
 export interface CategorySpend {
   category_id: string
   name: string
@@ -62,6 +64,25 @@ export interface TopExpensesResponse {
   year: number
   month: number
   items: TopExpenseItem[]
+}
+
+/** One account's share of the month's spending. The row for expenses with
+ * no account has `account_id` and `institution` null and an empty name. */
+export interface AccountSpend {
+  account_id: string | null
+  name: string
+  archived: boolean
+  institution: Institution | null
+  total: number
+  /** Whole percentage of the month's total. */
+  share: number
+}
+
+export interface AccountReport {
+  year: number
+  month: number
+  total: number
+  items: AccountSpend[]
 }
 
 export interface CoupleTopExpenseItem extends TopExpenseItem {

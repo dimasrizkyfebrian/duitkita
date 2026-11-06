@@ -10,11 +10,15 @@ const (
 )
 
 type RecurringExpense struct {
-	ID           string                `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	UserID       string                `gorm:"column:user_id;type:uuid;index;not null"`
-	User         User                  `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
-	CategoryID   string                `gorm:"column:category_id;type:uuid;not null"`
-	Category     Category              `gorm:"foreignKey:CategoryID;constraint:OnDelete:CASCADE"`
+	ID         string   `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	UserID     string   `gorm:"column:user_id;type:uuid;index;not null"`
+	User       User     `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
+	CategoryID string   `gorm:"column:category_id;type:uuid;not null"`
+	Category   Category `gorm:"foreignKey:CategoryID;constraint:OnDelete:CASCADE"`
+	// Copied onto each expense the schedule creates — unless the account has
+	// been archived by then, in which case the expense is created without one.
+	AccountID    *string               `gorm:"column:account_id;type:uuid"`
+	Account      *Account              `gorm:"foreignKey:AccountID;constraint:OnDelete:SET NULL"`
 	Amount       int64                 `gorm:"not null"`
 	Note         *string               `gorm:"size:255"`
 	ScheduleType RecurringScheduleType `gorm:"column:schedule_type;type:varchar(10);not null"`

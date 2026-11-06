@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 
 	"duitkita-api/model/domain"
 	"duitkita-api/model/dto/request"
@@ -25,10 +26,11 @@ type categoryService struct {
 	repo       repository.CategoryRepository
 	coupleRepo repository.CoupleRepository
 	budgetRepo repository.BudgetRepository
+	redis      *redis.Client
 }
 
-func NewCategoryService(repo repository.CategoryRepository, coupleRepo repository.CoupleRepository, budgetRepo repository.BudgetRepository) CategoryService {
-	return &categoryService{repo: repo, coupleRepo: coupleRepo, budgetRepo: budgetRepo}
+func NewCategoryService(repo repository.CategoryRepository, coupleRepo repository.CoupleRepository, budgetRepo repository.BudgetRepository, redisClient *redis.Client) CategoryService {
+	return &categoryService{repo: repo, coupleRepo: coupleRepo, budgetRepo: budgetRepo, redis: redisClient}
 }
 
 func (s *categoryService) Create(ctx context.Context, userID string, req request.CreateCategoryRequest) (*response.CategoryResponse, error) {
@@ -41,6 +43,7 @@ func (s *categoryService) Create(ctx context.Context, userID string, req request
 	if err := s.repo.Create(ctx, category); err != nil {
 		return nil, utils.ErrInternal("failed to create category")
 	}
+	invalidateReportCache(ctx, s.redis, userID)
 	res := toCategoryResponse(category)
 	return &res, nil
 }
@@ -82,6 +85,7 @@ func (s *categoryService) Update(ctx context.Context, userID, id string, req req
 	if err := s.repo.Update(ctx, category); err != nil {
 		return nil, utils.ErrInternal("failed to update category")
 	}
+	invalidateReportCache(ctx, s.redis, userID)
 	res := toCategoryResponse(category)
 	return &res, nil
 }
@@ -102,6 +106,7 @@ func (s *categoryService) Delete(ctx context.Context, userID, id string) error {
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return utils.ErrInternal("failed to delete category")
 	}
+	invalidateReportCache(ctx, s.redis, userID)
 	return nil
 }
 

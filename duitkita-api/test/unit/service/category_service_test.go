@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/alicebob/miniredis/v2"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 
 	"duitkita-api/model/domain"
@@ -15,10 +17,74 @@ import (
 )
 
 func newCategoryService(t *testing.T) (service.CategoryService, *mocks.CategoryRepository, *mocks.CoupleRepository, *mocks.BudgetRepository) {
+	svc, repo, coupleRepo, budgetRepo, _ := newCategoryServiceWithCache(t)
+	return svc, repo, coupleRepo, budgetRepo
+}
+
+// newCategoryServiceWithCache also hands back the miniredis instance, for
+// tests asserting that a category change bumps the report cache version.
+func newCategoryServiceWithCache(t *testing.T) (service.CategoryService, *mocks.CategoryRepository, *mocks.CoupleRepository, *mocks.BudgetRepository, *miniredis.Miniredis) {
 	repo := mocks.NewCategoryRepository(t)
 	coupleRepo := mocks.NewCoupleRepository(t)
 	budgetRepo := mocks.NewBudgetRepository(t)
-	return service.NewCategoryService(repo, coupleRepo, budgetRepo), repo, coupleRepo, budgetRepo
+	mr := miniredis.RunT(t)
+	redisClient := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = redisClient.Close() })
+	return service.NewCategoryService(repo, coupleRepo, budgetRepo, redisClient), repo, coupleRepo, budgetRepo, mr
+}
+
+// The dashboard's category list comes from the cached monthly report, so a
+// category change that doesn't bump the version leaves it stale for up to
+// the cache TTL.
+func TestCategoryService_InvalidatesReportCache(t *testing.T) {
+	const versionKey = "report_cache_version:user-1"
+
+	t.Run("create", func(t *testing.T) {
+		svc, repo, _, _, mr := newCategoryServiceWithCache(t)
+		repo.EXPECT().Create(context.Background(), mockMatchByType[*domain.Category]()).Return(nil)
+
+		_, err := svc.Create(context.Background(), "user-1", request.CreateCategoryRequest{Name: "Food"})
+
+		require.NoError(t, err)
+		got, _ := mr.Get(versionKey)
+		require.Equal(t, "1", got)
+	})
+
+	t.Run("update", func(t *testing.T) {
+		svc, repo, _, _, mr := newCategoryServiceWithCache(t)
+		existing := &domain.Category{ID: "cat-1", UserID: "user-1", Name: "Food"}
+		repo.EXPECT().FindByID(context.Background(), "cat-1").Return(existing, nil)
+		repo.EXPECT().Update(context.Background(), existing).Return(nil)
+
+		_, err := svc.Update(context.Background(), "user-1", "cat-1", request.UpdateCategoryRequest{Name: "Groceries"})
+
+		require.NoError(t, err)
+		got, _ := mr.Get(versionKey)
+		require.Equal(t, "1", got)
+	})
+
+	t.Run("delete", func(t *testing.T) {
+		svc, repo, _, budgetRepo, mr := newCategoryServiceWithCache(t)
+		repo.EXPECT().FindByID(context.Background(), "cat-1").Return(&domain.Category{ID: "cat-1", UserID: "user-1"}, nil)
+		budgetRepo.EXPECT().ExistsByCategoryID(context.Background(), "cat-1").Return(false, nil)
+		repo.EXPECT().Delete(context.Background(), "cat-1").Return(nil)
+
+		err := svc.Delete(context.Background(), "user-1", "cat-1")
+
+		require.NoError(t, err)
+		got, _ := mr.Get(versionKey)
+		require.Equal(t, "1", got)
+	})
+
+	t.Run("failed create leaves the cache alone", func(t *testing.T) {
+		svc, repo, _, _, mr := newCategoryServiceWithCache(t)
+		repo.EXPECT().Create(context.Background(), mockMatchByType[*domain.Category]()).Return(errors.New("db down"))
+
+		_, err := svc.Create(context.Background(), "user-1", request.CreateCategoryRequest{Name: "Food"})
+
+		require.Error(t, err)
+		require.False(t, mr.Exists(versionKey))
+	})
 }
 
 func TestCategoryService_Create(t *testing.T) {

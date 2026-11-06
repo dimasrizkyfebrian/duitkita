@@ -3,6 +3,9 @@ export type RecurringScheduleType = 'weekly' | 'monthly'
 export interface RecurringExpense {
   id: string
   category_id: string
+  // Copied onto each expense it records — unless the account has been
+  // archived by then, in which case the expense is recorded without one.
+  account_id?: string
   amount: number
   note?: string
   schedule_type: RecurringScheduleType
@@ -23,14 +26,17 @@ export interface CreateRecurringExpenseRequest {
   note?: string
   schedule_type: RecurringScheduleType
   schedule_day: number
+  account_id?: string
 }
 
-/** Every field is optional and an omitted one is left untouched, so the two
+/** Every field is optional and an omitted one is left untouched, so the
  * fields with a meaningful "empty" value need sending explicitly: `note: ''`
- * clears the note (omitting it keeps the old one), and `schedule_day: 0`
- * moves a weekly schedule to Sunday. */
+ * clears the note (omitting it keeps the old one), `account_id: ''` takes the
+ * schedule off its account, and `schedule_day: 0` moves a weekly schedule to
+ * Sunday. */
 export interface UpdateRecurringExpenseRequest {
   amount?: number
   note?: string
   schedule_day?: number
+  account_id?: string
 }

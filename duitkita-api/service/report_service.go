@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"math"
 	"sort"
 
 	"github.com/redis/go-redis/v9"
@@ -21,6 +22,7 @@ type ReportService interface {
 	DailyBreakdown(ctx context.Context, userID string, year, month int) (*response.DailyReportResponse, error)
 	TopExpenses(ctx context.Context, userID string, year, month, limit int) (*response.TopExpensesResponse, error)
 	CoupleTopExpenses(ctx context.Context, userID string, year, month, limit int) (*response.CoupleTopExpensesResponse, error)
+	AccountBreakdown(ctx context.Context, userID string, year, month int) (*response.AccountReportResponse, error)
 }
 
 const (
@@ -310,6 +312,58 @@ func (s *reportService) TopExpenses(ctx context.Context, userID string, year, mo
 	res := &response.TopExpensesResponse{Year: year, Month: month, Items: items}
 	setReportCache(ctx, s.redis, key, *res)
 	return res, nil
+}
+
+// AccountBreakdown is personal only — accounts are private, so there is no
+// couple variant. Cached like the other period reports; account renames
+// and archiving bump the same cache version as expense changes do.
+func (s *reportService) AccountBreakdown(ctx context.Context, userID string, year, month int) (*response.AccountReportResponse, error) {
+	key := reportCacheKey("accounts", reportCacheVersion(ctx, s.redis, userID), userID, year, month)
+	if cached, ok := getReportCache[response.AccountReportResponse](ctx, s.redis, key); ok {
+		return &cached, nil
+	}
+
+	rows, err := s.reportRepo.SpentByAccountForPeriod(ctx, userID, year, month)
+	if err != nil {
+		return nil, utils.ErrInternal("failed to compute account breakdown")
+	}
+
+	var total int64
+	for _, r := range rows {
+		total += r.Total
+	}
+
+	items := make([]response.AccountSpend, 0, len(rows))
+	for _, r := range rows {
+		item := response.AccountSpend{AccountID: r.AccountID, Archived: r.Archived, Total: r.Total}
+		if r.AccountName != nil {
+			item.Name = *r.AccountName
+		}
+		if r.InstitutionID != nil {
+			item.Institution = &response.InstitutionResponse{
+				ID:       *r.InstitutionID,
+				Code:     derefString(r.InstitutionCode),
+				Name:     derefString(r.InstitutionName),
+				Type:     derefString(r.InstitutionType),
+				LogoPath: r.LogoPath,
+			}
+		}
+		if total > 0 {
+			item.Share = int(math.Round(float64(r.Total) * 100 / float64(total)))
+		}
+		items = append(items, item)
+	}
+
+	res := &response.AccountReportResponse{Year: year, Month: month, Total: total, Items: items}
+	setReportCache(ctx, s.redis, key, *res)
+	return res, nil
+}
+
+func derefString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 func (s *reportService) Rollover(ctx context.Context, userID, categoryID string, year, month int) (int64, error) {

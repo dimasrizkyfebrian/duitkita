@@ -12,6 +12,8 @@ import ManageBudgetsSheet from '@/features/budget/components/ManageBudgetsSheet.
 import CreateExpenseSheet from '@/features/expense/components/CreateExpenseSheet.vue'
 import EditExpenseSheet from '@/features/expense/components/EditExpenseSheet.vue'
 import PartnerSheet from '@/features/couple/components/PartnerSheet.vue'
+import AccountsSummaryCard from '@/features/account/components/AccountsSummaryCard.vue'
+import { useAccounts } from '@/features/account/composables/useAccounts'
 import IconWallet from '@/shared/icons/IconWallet.vue'
 import IconCategory from '@/shared/icons/IconCategory.vue'
 import IconPartner from '@/shared/icons/IconPartner.vue'
@@ -42,6 +44,10 @@ const {
   loading: recentLoading,
   reload: reloadRecent,
 } = useRecentExpenses()
+
+// Names come from the live account list so a rename shows up in the feed
+// without refetching it.
+const { accountName } = useAccounts()
 
 const allCategories = computed(() => [...budgeted.value, ...unbudgeted.value])
 
@@ -305,6 +311,8 @@ const visibleRecentItems = computed(() => recentItems.value.slice(0, recentExpan
           </button>
         </div>
 
+        <AccountsSummaryCard />
+
         <!-- Recent expenses: own + partner's, merged, newest first. Collapsed to
              2 by default so this doesn't push the budget breakdown too far down. -->
         <div class="mt-8 flex items-center justify-between">
@@ -368,6 +376,9 @@ const visibleRecentItems = computed(() => recentItems.value.slice(0, recentExpan
               <p class="text-sky/50 mt-0.5 truncate text-[0.75rem]">
                 <template v-if="item.categoryName">{{ item.categoryName }} · </template>
                 {{ item.owner === 'me' ? 'Kamu' : partnerName }}
+                <template v-if="item.account">
+                  · {{ accountName(item.account_id, item.account.name) }}</template
+                >
                 · {{ formatShortDate(item.expense_date) }}
               </p>
             </div>
@@ -475,8 +486,11 @@ const visibleRecentItems = computed(() => recentItems.value.slice(0, recentExpan
                       <p class="truncate text-[0.8125rem] font-semibold text-white">
                         {{ expense.note || category.name }}
                       </p>
-                      <p class="text-sky/50 mt-0.5 text-[0.6875rem]">
+                      <p class="text-sky/50 mt-0.5 truncate text-[0.6875rem]">
                         {{ formatShortDate(expense.expense_date) }}
+                        <template v-if="expense.account">
+                          · {{ accountName(expense.account_id, expense.account.name) }}</template
+                        >
                       </p>
                     </div>
                     <p class="shrink-0 text-[0.8125rem] font-bold text-white tabular-nums">
