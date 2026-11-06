@@ -71,7 +71,7 @@ func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.Reten
 		Notification:     notificationSvc,
 		Push:             pushSvc,
 		Report:           reportSvc,
-		Insights:         NewInsightsService(reportSvc),
+		Insights:         NewInsightsService(reportSvc, recurringExpenseRepo, time.Now),
 		ReportExport:     NewReportExportService(reportExportRepo, NewReportSnapshotBuilder(reportSnapshotRepo, userRepo, coupleRepo, retentionCfg.ActivityDays, time.Now), storage, cloudTasksEnqueuer),
 		Activity:         activitySvc,
 		SecurityAudit:    securityAuditSvc,

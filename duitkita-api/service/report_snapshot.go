@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"math"
 	"sort"
 	"strings"
 	"time"
@@ -11,8 +10,8 @@ import (
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 
+	"duitkita-api/insights"
 	"duitkita-api/model/domain"
-	"duitkita-api/model/dto/response"
 	"duitkita-api/pdfreport"
 	"duitkita-api/repository"
 	"duitkita-api/utils"
@@ -265,7 +264,21 @@ func assembleReport(in snapshotInput) *pdfreport.Report {
 			s.ZeroSpendDays++
 		}
 	}
-	if hs := computeHealthScore(totalSpent, totalBudget); hs.Grade != "n/a" {
+	// Score and projections use the same insights functions as the app, so
+	// the PDF prints the numbers the person saw on screen.
+	scoreIn := insights.ScoreInput{Year: in.year, Month: in.month, Today: in.now}
+	for _, c := range cats {
+		scoreIn.Categories = append(scoreIn.Categories, insights.CategoryInput{ID: c.id, Name: c.row.Name, Budget: c.row.Budget, Spent: c.row.Spent})
+	}
+	for d, n := range dayCount {
+		if n > 0 {
+			scoreIn.DaysWithSpend = append(scoreIn.DaysWithSpend, d+1)
+		}
+	}
+	for _, re := range in.recurring {
+		scoreIn.Schedules = append(scoreIn.Schedules, toSchedule(re.CategoryID, re.Amount, re.ScheduleType, re.ScheduleDay, re.CreatedAt))
+	}
+	if hs := insights.ComputeScore(scoreIn); hs.Grade != "n/a" {
 		s.Health = pdfreport.Health{Score: hs.Score, Grade: hs.Grade}
 	}
 
@@ -341,22 +354,19 @@ func assembleReport(in snapshotInput) *pdfreport.Report {
 	nextMonth := start.AddDate(0, 1, 0)
 	switch {
 	case r.Partial && r.AsOfDay > 0 && totalSpent > 0:
+		projected, _ := insights.ProjectSpent(scoreIn)
 		r.Projection = &pdfreport.Projection{
-			Kind: pdfreport.ProjectionEndOfMonth, Year: in.year, Month: in.month,
-			Amount: int64(math.Round(float64(totalSpent) * float64(daysInMonth) / float64(r.AsOfDay))),
+			Kind: pdfreport.ProjectionEndOfMonth, Year: in.year, Month: in.month, Amount: projected,
 		}
 	case !r.Partial && !nextMonth.Before(time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, time.UTC)):
 		// Only worth projecting when the next month hasn't already happened.
-		var pts []response.TrendPoint
-		for _, t := range r.Trend[last-2:] {
-			if t.Total() > 0 {
-				pts = append(pts, response.TrendPoint{Year: t.Year, Month: t.Month, Total: t.Total()})
-			}
+		next := insights.NextMonthInput{Year: nextMonth.Year(), Month: int(nextMonth.Month()), Schedules: scoreIn.Schedules}
+		for i, t := range r.Trend[last-2:] {
+			next.Totals[i] = t.Total()
 		}
-		if len(pts) > 0 {
-			f := forecastFromPoints(pts)
+		if f := insights.ForecastNextMonth(next); f.MonthsWithData > 0 {
 			r.Projection = &pdfreport.Projection{
-				Kind: pdfreport.ProjectionNextMonth, Year: nextMonth.Year(), Month: int(nextMonth.Month()), Amount: f.ProjectedTotal,
+				Kind: pdfreport.ProjectionNextMonth, Year: nextMonth.Year(), Month: int(nextMonth.Month()), Amount: f.Projected,
 			}
 		}
 	}

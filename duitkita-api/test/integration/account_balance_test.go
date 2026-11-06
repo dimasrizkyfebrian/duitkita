@@ -4,8 +4,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"duitkita-api/model/domain"
 	"duitkita-api/repository"
 )
 
@@ -154,4 +156,29 @@ func TestAccountListOrder(t *testing.T) {
 	onlyActive, err := repo.FindAllByUserID(ctx, f.userID, false)
 	require.NoError(t, err)
 	require.Len(t, onlyActive, 1)
+}
+
+func TestRecurringFindActive(t *testing.T) {
+	tx := openTx(t)
+	ctx := context.Background()
+	f := newFixture(t, tx, 2026, 10)
+	repo := repository.NewRecurringExpenseRepository(tx)
+
+	schedule := func(amount int64) *domain.RecurringExpense {
+		re := &domain.RecurringExpense{
+			ID: uuid.NewString(), UserID: f.userID, CategoryID: f.categoryID, Amount: amount,
+			ScheduleType: domain.RecurringScheduleMonthly, ScheduleDay: 1, NextRunAt: date(t, "2026-11-01"), IsActive: true,
+		}
+		require.NoError(t, tx.Omit("User", "Category", "Account").Create(re).Error)
+		return re
+	}
+	active := schedule(100_000)
+	paused := schedule(200_000)
+	// is_active defaults to true, so a false on Create would be dropped.
+	require.NoError(t, tx.Model(paused).Update("is_active", false).Error)
+
+	got, err := repo.FindActiveByUserID(ctx, f.userID)
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	require.Equal(t, active.ID, got[0].ID)
 }

@@ -44,12 +44,14 @@ type SnapshotMonthCategoryTotal struct {
 type SnapshotRecurring struct {
 	ID           string    `gorm:"column:id"`
 	UserID       string    `gorm:"column:user_id"`
+	CategoryID   string    `gorm:"column:category_id"`
 	CategoryName string    `gorm:"column:category_name"`
 	Note         *string   `gorm:"column:note"`
 	Amount       int64     `gorm:"column:amount"`
 	ScheduleType string    `gorm:"column:schedule_type"`
 	ScheduleDay  int       `gorm:"column:schedule_day"`
 	NextRunAt    time.Time `gorm:"column:next_run_at"`
+	CreatedAt    time.Time `gorm:"column:created_at"`
 }
 
 type SnapshotActivityCount struct {
@@ -150,12 +152,14 @@ func (r *reportSnapshotRepository) ActiveRecurring(ctx context.Context, userIDs 
 		SELECT
 			re.id AS id,
 			re.user_id AS user_id,
+			re.category_id AS category_id,
 			c.name AS category_name,
 			re.note AS note,
 			re.amount AS amount,
 			re.schedule_type AS schedule_type,
 			re.schedule_day AS schedule_day,
-			re.next_run_at AS next_run_at
+			re.next_run_at AS next_run_at,
+			re.created_at AS created_at
 		FROM recurring_expenses re
 		JOIN categories c ON c.id = re.category_id
 		WHERE re.user_id IN ? AND re.is_active = TRUE

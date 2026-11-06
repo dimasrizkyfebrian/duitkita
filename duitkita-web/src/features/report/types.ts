@@ -95,17 +95,69 @@ export interface CoupleTopExpensesResponse {
   items: CoupleTopExpenseItem[]
 }
 
+/** Where the running month is heading. */
+export interface CurrentMonthProjection {
+  year: number
+  month: number
+  spent: number
+  projected_total: number
+  budget: number
+  recurring_remaining: number
+}
+
+/** Next month (year/month) predicted from the three full months before the
+ * running one, plus current_month. */
 export interface Forecast {
   year: number
   month: number
   projected_total: number
+  projected_low: number
+  projected_high: number
+  recurring_total: number
+  months_with_data: number
+  /** 0..1 */
   confidence: number
+  current_month: CurrentMonthProjection | null
+}
+
+export type ScoreComponentKey = 'budget' | 'categories' | 'recording'
+
+export interface ScoreComponent {
+  key: ScoreComponentKey
+  points: number
+  max: number
+}
+
+export type ScoreTipCode =
+  | 'category_over'
+  | 'pace_over_budget'
+  | 'recording_gap'
+  | 'all_good'
+  | 'no_budget'
+  | 'no_records_yet'
+  | 'period_not_started'
+
+/** A code plus the numbers to phrase it; the app writes the sentence. */
+export interface ScoreTip {
+  code: ScoreTipCode | (string & {})
+  category_name?: string
+  percent?: number
+  amount?: number
+  budget?: number
+  weeks?: number
 }
 
 export interface HealthScore {
   score: number
-  grade: string
+  grade: 'A' | 'B' | 'C' | 'D' | 'n/a'
+  /** Plain English for older clients; not shown. */
   reasons: string[]
+  provisional: boolean
+  period: 'past' | 'current' | 'future'
+  projected_spent: number
+  total_budget: number
+  components: ScoreComponent[]
+  tips: ScoreTip[]
 }
 
 export type ExportFormat = 'pdf'

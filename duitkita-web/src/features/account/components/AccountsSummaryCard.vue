@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import IconChevronRight from '@/shared/icons/IconChevronRight.vue'
 import { useAccounts } from '../composables/useAccounts'
 import { useBalanceVisibility } from '../composables/useBalanceVisibility'
@@ -15,9 +15,19 @@ const { activeAccounts, totalBalance, hasAnyBalance, loading } = useAccounts()
 const { hidden } = useBalanceVisibility()
 const sheetOpen = ref(false)
 
-// Logos are wide wordmark tiles, so they sit side by side instead of
-// overlapping; two fit beside the label on a phone, the rest is "+N".
-const MAX_LOGOS = 2
+const amountText = computed(() => displayBalance(totalBalance.value, hidden.value))
+
+// The logos sit beside the amount, centred with the chevron. They're wide
+// wordmark tiles, so two of them only fit next to a short amount on a card
+// that isn't narrow: a revealed total of "Rp 100.000.000" or longer, or a
+// narrow phone (the @container rules below), gets one logo instead, and the
+// amount is never cut off. "+N" counts the accounts left out.
+const LONG_AMOUNT = 14
+const roomForTwo = computed(() => amountText.value.length < LONG_AMOUNT)
+const first = computed(() => activeAccounts.value[0])
+const second = computed(() => (roomForTwo.value ? activeAccounts.value[1] : undefined))
+const moreAfterOne = computed(() => activeAccounts.value.length - 1)
+const moreAfterTwo = computed(() => activeAccounts.value.length - 2)
 </script>
 
 <template>
@@ -25,7 +35,7 @@ const MAX_LOGOS = 2
        and a button can't sit inside another button. So the opening button is
        stretched over the card and the eye button sits above it. -->
   <div
-    class="relative mt-3 flex w-full items-center gap-3 rounded-3xl border border-white/10 bg-white/5 px-4 py-3.5 transition-colors has-[>button:active]:bg-white/10"
+    class="@container relative mt-3 flex w-full items-center gap-3 rounded-3xl border border-white/10 bg-white/5 px-4 py-3.5 transition-colors has-[>button:active]:bg-white/10"
   >
     <button
       type="button"
@@ -35,9 +45,6 @@ const MAX_LOGOS = 2
     ></button>
 
     <div class="pointer-events-none min-w-0 flex-1">
-      <!-- Label, eye and logos share the top line so the amount below gets a
-           line to itself: a long total never fights the logos for room, and
-           nothing shifts when it's revealed. -->
       <div class="flex items-center gap-2">
         <p class="text-sky/60 text-[0.6875rem] font-semibold tracking-widest uppercase">
           Akun saya
@@ -47,21 +54,6 @@ const MAX_LOGOS = 2
           tone="dark"
           class="pointer-events-auto relative -my-2"
         />
-        <div v-if="activeAccounts.length > 0" class="ml-auto flex shrink-0 items-center gap-1">
-          <AccountLogo
-            v-for="account in activeAccounts.slice(0, MAX_LOGOS)"
-            :key="account.id"
-            :institution="account.institution"
-            size="sm"
-          />
-          <span
-            v-if="activeAccounts.length > MAX_LOGOS"
-            class="text-sky flex h-[1.625rem] min-w-[1.625rem] items-center justify-center rounded-md bg-white/10 px-1.5 text-[0.6875rem] font-bold tabular-nums"
-          >
-            +{{ activeAccounts.length - MAX_LOGOS }}
-          </span>
-        </div>
-        <span v-else class="text-sky ml-auto shrink-0 text-[0.8125rem] font-bold">Tambah</span>
       </div>
       <p
         v-if="loading && activeAccounts.length === 0"
@@ -69,9 +61,9 @@ const MAX_LOGOS = 2
       ></p>
       <p
         v-else-if="hasAnyBalance"
-        class="mt-1 truncate text-[1.0625rem] font-extrabold text-white tabular-nums"
+        class="mt-1 text-[1.0625rem] font-extrabold whitespace-nowrap text-white tabular-nums"
       >
-        {{ displayBalance(totalBalance, hidden) }}
+        {{ amountText }}
       </p>
       <p v-else-if="activeAccounts.length > 0" class="mt-1 text-[0.875rem] font-bold text-white">
         {{ activeAccounts.length }} akun
@@ -81,6 +73,32 @@ const MAX_LOGOS = 2
       </p>
     </div>
 
+    <div v-if="first" class="pointer-events-none flex shrink-0 items-center gap-1">
+      <span data-logo><AccountLogo :institution="first.institution" size="sm" /></span>
+      <span v-if="second" data-logo class="hidden @min-[19rem]:block">
+        <AccountLogo :institution="second.institution" size="sm" />
+      </span>
+      <!-- Shown when only the first logo is: always without room for two,
+           otherwise only on a narrow card. -->
+      <span
+        v-if="moreAfterOne > 0"
+        data-more
+        class="text-sky flex h-[1.625rem] min-w-[1.625rem] items-center justify-center rounded-md bg-white/10 px-1.5 text-[0.6875rem] font-bold tabular-nums"
+        :class="second ? '@min-[19rem]:hidden' : ''"
+      >
+        +{{ moreAfterOne }}
+      </span>
+      <span
+        v-if="second && moreAfterTwo > 0"
+        data-more
+        class="text-sky hidden h-[1.625rem] min-w-[1.625rem] items-center justify-center rounded-md bg-white/10 px-1.5 text-[0.6875rem] font-bold tabular-nums @min-[19rem]:flex"
+      >
+        +{{ moreAfterTwo }}
+      </span>
+    </div>
+    <span v-else class="text-sky pointer-events-none shrink-0 text-[0.8125rem] font-bold">
+      Tambah
+    </span>
     <IconChevronRight class="text-sky/50 pointer-events-none h-4 w-4 shrink-0" aria-hidden="true" />
   </div>
 

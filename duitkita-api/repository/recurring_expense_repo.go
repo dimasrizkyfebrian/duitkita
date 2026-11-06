@@ -16,6 +16,9 @@ type RecurringExpenseRepository interface {
 	FindAllByUserID(ctx context.Context, userID string, limit, offset int) ([]domain.RecurringExpense, error)
 	FindDue(ctx context.Context, asOf time.Time) ([]domain.RecurringExpense, error)
 	FindDueByUserID(ctx context.Context, userID string, asOf time.Time) ([]domain.RecurringExpense, error)
+	// FindActiveByUserID is every active schedule, unpaginated — what the
+	// forecast and health score need to estimate scheduled spending.
+	FindActiveByUserID(ctx context.Context, userID string) ([]domain.RecurringExpense, error)
 	Update(ctx context.Context, re *domain.RecurringExpense) error
 	Delete(ctx context.Context, id string) error
 }
@@ -76,4 +79,13 @@ func (r *recurringExpenseRepository) Update(ctx context.Context, re *domain.Recu
 
 func (r *recurringExpenseRepository) Delete(ctx context.Context, id string) error {
 	return r.db.WithContext(ctx).Delete(&domain.RecurringExpense{}, "id = ?", id).Error
+}
+
+func (r *recurringExpenseRepository) FindActiveByUserID(ctx context.Context, userID string) ([]domain.RecurringExpense, error) {
+	var items []domain.RecurringExpense
+	err := r.db.WithContext(ctx).
+		Where("user_id = ? AND is_active = TRUE", userID).
+		Order("created_at ASC").
+		Find(&items).Error
+	return items, err
 }

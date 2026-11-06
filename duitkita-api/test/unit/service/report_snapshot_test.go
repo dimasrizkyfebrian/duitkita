@@ -123,7 +123,10 @@ func TestReportSnapshotBuilder_DerivesPersonalMonth(t *testing.T) {
 	require.Equal(t, 26, s.ZeroSpendDays, "spending on the 1st, 5th, 6th and 15th only")
 	require.True(t, s.HasPrev)
 	require.EqualValues(t, 1_000_000, s.PrevSpent)
-	require.Equal(t, pdfreport.Health{Score: 30, Grade: "A"}, s.Health)
+	// Same formula as the app: total 1,25jt of 1,8jt is 50/50; Makan at 110%
+	// (f 0,533) weighs categories down to 22/30; records in 2 of 5 weeks is
+	// 8/20.
+	require.Equal(t, pdfreport.Health{Score: 80, Grade: "B"}, s.Health)
 
 	// Hadiah has neither spend nor budget, so it's left out.
 	require.Len(t, r.Categories, 3)
@@ -150,7 +153,9 @@ func TestReportSnapshotBuilder_DerivesPersonalMonth(t *testing.T) {
 	require.NotNil(t, r.Projection)
 	require.Equal(t, pdfreport.ProjectionNextMonth, r.Projection.Kind)
 	require.Equal(t, 10, r.Projection.Month)
-	require.EqualValues(t, 1_125_000, r.Projection.Amount, "average of the months with data in the last three")
+	// Jul–Sep less their scheduled 150rb + 50rb Mondays (0, 600rb, 900rb)
+	// averaged, plus October's 150rb + 4 Mondays.
+	require.EqualValues(t, 850_000, r.Projection.Amount)
 
 	require.EqualValues(t, 600_000, r.TopExpenses[0].Amount)
 	require.Len(t, r.Transactions, 4)
@@ -483,4 +488,25 @@ func poisson(rng *rand.Rand, lambda float64) int {
 
 func sortExpenses(es []repository.SnapshotExpense) {
 	sort.SliceStable(es, func(i, j int) bool { return es[i].ExpenseDate.Before(es[j].ExpenseDate) })
+}
+
+// Rent paid on the 1st by a schedule isn't a daily pace: the projection
+// stays at the rent, not rent × 31/2.
+func TestReportSnapshotBuilder_PartialMonthKeepsScheduledRentOutOfThePace(t *testing.T) {
+	now := time.Date(2026, 10, 2, 9, 0, 0, 0, pdfreport.WIB)
+	data := snapshotData{
+		budgets:  []repository.SnapshotCategoryBudget{{UserID: userMe, CategoryID: "rent", Name: "Sewa", Total: 3_000_000}},
+		expenses: []repository.SnapshotExpense{expense(userMe, "rent", "Sewa", date(2026, 10, 1), 3_000_000, "")},
+		recurring: []repository.SnapshotRecurring{{
+			ID: "r1", UserID: userMe, CategoryID: "rent", CategoryName: "Sewa", Amount: 3_000_000,
+			ScheduleType: "monthly", ScheduleDay: 1, NextRunAt: date(2026, 11, 1), CreatedAt: date(2026, 9, 1),
+		}},
+	}
+	b := newSnapshotBuilder(t, now, false, data)
+
+	r, err := b.Build(context.Background(), userMe, 2026, 10, "personal")
+	require.NoError(t, err)
+
+	require.Equal(t, pdfreport.ProjectionEndOfMonth, r.Projection.Kind)
+	require.EqualValues(t, 3_000_000, r.Projection.Amount)
 }
