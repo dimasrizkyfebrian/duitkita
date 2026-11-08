@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"sort"
 	"strings"
 	"time"
@@ -26,6 +28,9 @@ type AccountService interface {
 	Unarchive(ctx context.Context, userID, id string) (*response.AccountResponse, error)
 	AdjustBalance(ctx context.Context, userID, id string, req request.AdjustBalanceRequest) (*response.BalanceAdjustmentResponse, error)
 	ListAdjustments(ctx context.Context, userID, id string) ([]response.BalanceAdjustmentResponse, error)
+	// ListTransactions is the account's mutasi, one page of at most limit
+	// rows. cursor is the NextCursor of the previous page, "" for the first.
+	ListTransactions(ctx context.Context, userID, id string, limit int, cursor string) (*response.AccountTransactionListResponse, error)
 }
 
 type accountService struct {
@@ -250,6 +255,111 @@ func (s *accountService) ListAdjustments(ctx context.Context, userID, id string)
 		out = append(out, toBalanceAdjustmentResponse(&adjustments[i]))
 	}
 	return out, nil
+}
+
+const (
+	cursorDateLayout = "2006-01-02"
+	cursorTimeLayout = time.RFC3339Nano
+)
+
+// transactionCursorPayload is the JSON inside an opaque cursor: the three
+// sort keys of the last row of a page.
+type transactionCursorPayload struct {
+	Date      string `json:"d"`
+	CreatedAt string `json:"c"`
+	ID        string `json:"i"`
+}
+
+func encodeTransactionCursor(row repository.AccountTransactionRow) (string, error) {
+	payload, err := json.Marshal(transactionCursorPayload{
+		Date:      row.Date.Format(cursorDateLayout),
+		CreatedAt: row.CreatedAt.UTC().Format(cursorTimeLayout),
+		ID:        row.ID,
+	})
+	if err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(payload), nil
+}
+
+func decodeTransactionCursor(cursor string) (*repository.TransactionCursor, error) {
+	invalid := utils.ErrBadRequest("invalid cursor")
+	raw, err := base64.RawURLEncoding.DecodeString(cursor)
+	if err != nil {
+		return nil, invalid
+	}
+	var payload transactionCursorPayload
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return nil, invalid
+	}
+	date, err := time.Parse(cursorDateLayout, payload.Date)
+	if err != nil {
+		return nil, invalid
+	}
+	createdAt, err := time.Parse(cursorTimeLayout, payload.CreatedAt)
+	if err != nil {
+		return nil, invalid
+	}
+	// Every id in the mutasi is a UUID. Checking that here keeps anything
+	// else, a NUL byte included, from reaching Postgres and coming back a 500.
+	if _, err := uuid.Parse(payload.ID); err != nil {
+		return nil, invalid
+	}
+	return &repository.TransactionCursor{Date: date, CreatedAt: createdAt, ID: payload.ID}, nil
+}
+
+func (s *accountService) ListTransactions(ctx context.Context, userID, id string, limit int, cursor string) (*response.AccountTransactionListResponse, error) {
+	// A mangled cursor is the client's mistake whoever owns the account, and
+	// costs no lookup to detect.
+	var after *repository.TransactionCursor
+	if cursor != "" {
+		var err error
+		if after, err = decodeTransactionCursor(cursor); err != nil {
+			return nil, err
+		}
+	}
+
+	account, err := s.mustOwnAccount(ctx, userID, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// One row more than asked for tells whether another page exists.
+	rows, err := s.repo.ListTransactions(ctx, account.ID, limit+1, after)
+	if err != nil {
+		return nil, utils.ErrInternal("failed to list transactions")
+	}
+
+	res := &response.AccountTransactionListResponse{Items: make([]response.AccountTransactionResponse, 0, len(rows))}
+	if len(rows) > limit {
+		rows = rows[:limit]
+		next, err := encodeTransactionCursor(rows[len(rows)-1])
+		if err != nil {
+			return nil, utils.ErrInternal("failed to list transactions")
+		}
+		res.NextCursor = &next
+	}
+	for i := range rows {
+		res.Items = append(res.Items, toAccountTransactionResponse(account, &rows[i]))
+	}
+	return res, nil
+}
+
+func toAccountTransactionResponse(account *domain.Account, row *repository.AccountTransactionRow) response.AccountTransactionResponse {
+	res := response.AccountTransactionResponse{
+		ID:     row.ID,
+		Kind:   row.Kind,
+		Date:   row.Date.Format("2006-01-02"),
+		Amount: row.Amount,
+		Label:  row.Label,
+		// An adjustment is never "before opening": it is dated by when it was
+		// made, and always counts toward the balance.
+		BeforeOpening: row.Kind != "adjustment" && account.OpeningBalanceDate != nil && row.Date.Before(*account.OpeningBalanceDate),
+	}
+	if row.Note != nil {
+		res.Note = *row.Note
+	}
+	return res
 }
 
 func (s *accountService) mustOwnAccount(ctx context.Context, userID, id string) (*domain.Account, error) {

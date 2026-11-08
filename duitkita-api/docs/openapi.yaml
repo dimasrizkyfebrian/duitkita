@@ -21,6 +21,7 @@ tags:
   - name: Accounts
   - name: Budgets
   - name: Expenses
+  - name: Incomes
   - name: Recurring Expenses
   - name: Reminders
   - name: Notifications
@@ -995,6 +996,43 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /accounts/{id}/transactions:
+    get:
+      tags: [Accounts]
+      summary: The account's mutasi, newest first, paged by cursor
+      description: >
+        Expenses, incomes and balance adjustments of this account in one list,
+        ordered by date, then created_at, then id (all descending), so paging
+        stays stable even with many rows on the same date. Only the owner can
+        read it (404 otherwise). Read-only. Each row's amount is its signed
+        effect on this account's balance: negative for an expense, positive for
+        an income, the delta for an adjustment. Rows dated before the
+        account's opening balance date are listed too, flagged before_opening,
+        because they do not move the balance. Pass next_cursor back as cursor
+        for the next page; next_cursor is null on the last page. offset is not
+        supported.
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+        - $ref: '#/components/parameters/Limit'
+        - in: query
+          name: cursor
+          description: The next_cursor of the previous page. Opaque; a malformed one is rejected with 400.
+          schema: { type: string }
+      responses:
+        '200':
+          description: transactions retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/AccountTransactionListResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /expenses:
     post:
       tags: [Expenses]
@@ -1140,6 +1178,114 @@ paths:
     delete:
       tags: [Expenses]
       summary: Delete an expense
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204': { description: deleted, content: {} }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /incomes:
+    post:
+      tags: [Incomes]
+      summary: Record an income
+      description: >
+        Incomes are private to their owner: the linked partner never sees
+        them, and they appear neither in the activity feed nor in the
+        spending reports.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateIncomeRequest' }
+      responses:
+        '201':
+          description: income created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/IncomeResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    get:
+      tags: [Incomes]
+      summary: List the current user's incomes
+      description: Newest first (income_date, then created_at). Only the caller's own incomes are returned.
+      parameters:
+        - $ref: '#/components/parameters/AccountIdQuery'
+        - in: query
+          name: source
+          description: Only incomes of this source. An unknown source is rejected with 400.
+          schema: { $ref: '#/components/schemas/IncomeSource' }
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: incomes retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/IncomeListResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /incomes/{id}:
+    get:
+      tags: [Incomes]
+      summary: Get one income by id
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: income retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/IncomeResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Incomes]
+      summary: Update an income
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateIncomeRequest' }
+      responses:
+        '200':
+          description: income updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/IncomeResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Incomes]
+      summary: Delete an income
       parameters:
         - $ref: '#/components/parameters/IdPath'
       responses:
@@ -1959,7 +2105,7 @@ components:
     AccountIdQuery:
       in: query
       name: account_id
-      description: Only expenses tagged with this account. A malformed id is rejected with 400.
+      description: Only records tagged with this account (expenses or incomes). A malformed id is rejected with 400.
       schema: { type: string, format: uuid }
     From:
       in: query
@@ -2191,6 +2337,42 @@ components:
             another account's id to move the expense there (it must be the
             user's own and not archived). Re-sending the current account is
             always accepted, even if it has been archived since.
+
+    IncomeSource:
+      type: string
+      enum: [salary, bonus, freelance, gift, investment, other]
+
+    CreateIncomeRequest:
+      type: object
+      properties:
+        source: { $ref: '#/components/schemas/IncomeSource' }
+        amount: { type: integer, format: int64, minimum: 1 }
+        income_date: { type: string, format: date, example: "2026-10-25" }
+        account_id:
+          type: string
+          format: uuid
+          description: Optional. Must be one of the user's own, non-archived accounts.
+        note: { type: string, maxLength: 255 }
+      required: [source, amount, income_date]
+
+    UpdateIncomeRequest:
+      type: object
+      description: Every field is optional; omitted ones keep their current value.
+      properties:
+        source: { $ref: '#/components/schemas/IncomeSource' }
+        amount: { type: integer, format: int64, minimum: 1 }
+        income_date: { type: string, format: date }
+        account_id:
+          type: string
+          description: >
+            Omit to keep the current account, send "" to remove it, or send
+            another account's id to move the income there (it must be the
+            user's own and not archived). Re-sending the current account is
+            always accepted, even if it has been archived since.
+        note:
+          type: string
+          maxLength: 255
+          description: Send an empty string to clear an existing note.
 
     CreateRecurringExpenseRequest:
       type: object
@@ -2484,6 +2666,40 @@ components:
         note: { type: string }
         created_at: { type: string, format: date-time }
 
+    AccountTransactionResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [expense, income, adjustment] }
+        date:
+          type: string
+          format: date
+          description: YYYY-MM-DD. For an adjustment, the date of its created_at in WIB (Asia/Jakarta).
+        amount:
+          type: integer
+          format: int64
+          description: Signed effect on this account's balance. Expense negative, income positive, adjustment its delta.
+        label:
+          type: string
+          description: >
+            A code or name, never a sentence. Expense, the category name.
+            Income, the source code (see IncomeSource). Adjustment, empty.
+        note: { type: string, description: Absent when the row has no note. }
+        before_opening:
+          type: boolean
+          description: True when date is before the account's opening balance date, so the row does not affect the balance. Always false for an adjustment and for an account without an opening balance.
+
+    AccountTransactionListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/AccountTransactionResponse' }
+        next_cursor:
+          type: string
+          nullable: true
+          description: Opaque. Pass as cursor to get the next page; null on the last page.
+
     AccountSpend:
       type: object
       properties:
@@ -2523,6 +2739,39 @@ components:
           description: Absent when the expense has no account, and always absent on a partner's expenses.
         account:
           $ref: '#/components/schemas/AccountSummary'
+
+    IncomeResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        source: { $ref: '#/components/schemas/IncomeSource' }
+        amount: { type: integer, format: int64 }
+        note: { type: string, description: Absent when the income has no note. }
+        income_date: { type: string, format: date, example: "2026-10-25" }
+        account_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Always present; null when the income has no account.
+        account:
+          allOf:
+            - $ref: '#/components/schemas/AccountSummary'
+          nullable: true
+          description: Always present; null when the income has no account.
+        created_at: { type: string, format: date-time }
+
+    IncomeListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/IncomeResponse' }
+        total:
+          type: integer
+          format: int64
+          description: >
+            Sum of amount (rupiah) of all incomes matching the filters,
+            ignoring limit and offset; 0 when none match. Not a row count.
 
     RecurringExpenseResponse:
       type: object

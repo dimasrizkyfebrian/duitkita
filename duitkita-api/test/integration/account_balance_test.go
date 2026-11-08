@@ -70,6 +70,51 @@ func TestAccountBalance(t *testing.T) {
 	})
 }
 
+func TestAccountBalanceWithIncome(t *testing.T) {
+	tx := openTx(t)
+	ctx := context.Background()
+	f := newFixture(t, tx, 2026, 10)
+	repo := repository.NewAccountRepository(tx)
+
+	bca := f.account(t, "BCA", int64Ptr(1_000_000), "2026-10-10")
+	label := f.account(t, "OVO", nil, "")
+
+	balance := func() int64 {
+		t.Helper()
+		balances, err := repo.Balances(ctx, []string{bca.ID, label.ID})
+		require.NoError(t, err)
+		_, hasLabel := balances[label.ID]
+		require.False(t, hasLabel, "an account without an opening balance has no balance")
+		return balances[bca.ID]
+	}
+
+	received := f.income(t, &bca.ID, 500_000, "2026-10-15")
+	require.Equal(t, int64(1_500_000), balance())
+
+	f.income(t, &bca.ID, 200_000, "2026-10-05") // before the opening date: already reflected in it
+	require.Equal(t, int64(1_500_000), balance())
+
+	onOpening := f.income(t, &bca.ID, 100_000, "2026-10-10") // on the opening date: counts
+	require.Equal(t, int64(1_600_000), balance())
+
+	f.income(t, nil, 300_000, "2026-10-12")       // no account at all
+	f.income(t, &label.ID, 400_000, "2026-10-12") // balance-less account: nothing to compute
+	require.Equal(t, int64(1_600_000), balance())
+
+	f.expense(t, &bca.ID, 100_000, "2026-10-12")
+	require.Equal(t, int64(1_500_000), balance(), "income and expenses combine")
+
+	t.Run("detaching an income from its account moves the balance", func(t *testing.T) {
+		require.NoError(t, tx.Model(received).Update("account_id", nil).Error)
+		require.Equal(t, int64(1_000_000), balance())
+	})
+
+	t.Run("deleting an income moves the balance", func(t *testing.T) {
+		require.NoError(t, tx.Delete(onOpening).Error)
+		require.Equal(t, int64(900_000), balance())
+	})
+}
+
 func TestExpenseAccountPreload(t *testing.T) {
 	tx := openTx(t)
 	ctx := context.Background()

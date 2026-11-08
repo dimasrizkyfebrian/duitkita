@@ -18,6 +18,7 @@ type Services struct {
 	Account          AccountService
 	Budget           BudgetService
 	Expense          ExpenseService
+	Income           IncomeService
 	RecurringExpense RecurringExpenseService
 	Reminder         ReminderService
 	Notification     NotificationService
@@ -40,6 +41,7 @@ func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.Reten
 	accountRepo := repository.NewAccountRepository(db)
 	budgetRepo := repository.NewBudgetRepository(db)
 	expenseRepo := repository.NewExpenseRepository(db)
+	incomeRepo := repository.NewIncomeRepository(db)
 	recurringExpenseRepo := repository.NewRecurringExpenseRepository(db)
 	reminderRepo := repository.NewReminderRepository(db)
 	notificationRepo := repository.NewNotificationRepository(db)
@@ -66,6 +68,7 @@ func NewServices(db *gorm.DB, jwtCfg config.JWTConfig, retentionCfg config.Reten
 		Account:          NewAccountService(accountRepo, institutionRepo, redisClient),
 		Budget:           NewBudgetService(budgetRepo, categoryRepo, coupleRepo, activitySvc, expenseRepo, redisClient),
 		Expense:          NewExpenseService(expenseRepo, budgetRepo, coupleRepo, accountRepo, activitySvc, redisClient),
+		Income:           NewIncomeService(incomeRepo, accountRepo),
 		RecurringExpense: NewRecurringExpenseService(recurringExpenseRepo, categoryRepo, budgetRepo, expenseRepo, accountRepo, notificationSvc),
 		Reminder:         NewReminderService(reminderRepo, notificationSvc),
 		Notification:     notificationSvc,

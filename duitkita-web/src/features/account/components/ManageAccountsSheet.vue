@@ -35,7 +35,7 @@ async function afterCreate(account: Account) {
 
 <template>
   <BottomSheet v-model:open="open" title="Akun saya">
-    <div class="flex max-h-[70vh] flex-col gap-3 overflow-y-auto pb-1">
+    <div class="flex flex-col gap-3 pb-1">
       <div v-if="hasAnyBalance" class="rounded-2xl bg-black/3 px-4 py-3">
         <p class="text-muted text-[0.75rem] font-semibold">Total saldo di DuitKita</p>
         <div class="mt-0.5 flex items-center gap-2">

@@ -443,6 +443,68 @@ func (_c *AccountService_ListInstitutions_Call) RunAndReturn(run func(context.Co
 	return _c
 }
 
+// ListTransactions provides a mock function with given fields: ctx, userID, id, limit, cursor
+func (_m *AccountService) ListTransactions(ctx context.Context, userID string, id string, limit int, cursor string) (*response.AccountTransactionListResponse, error) {
+	ret := _m.Called(ctx, userID, id, limit, cursor)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListTransactions")
+	}
+
+	var r0 *response.AccountTransactionListResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, int, string) (*response.AccountTransactionListResponse, error)); ok {
+		return rf(ctx, userID, id, limit, cursor)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, int, string) *response.AccountTransactionListResponse); ok {
+		r0 = rf(ctx, userID, id, limit, cursor)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*response.AccountTransactionListResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, int, string) error); ok {
+		r1 = rf(ctx, userID, id, limit, cursor)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// AccountService_ListTransactions_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListTransactions'
+type AccountService_ListTransactions_Call struct {
+	*mock.Call
+}
+
+// ListTransactions is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - id string
+//   - limit int
+//   - cursor string
+func (_e *AccountService_Expecter) ListTransactions(ctx interface{}, userID interface{}, id interface{}, limit interface{}, cursor interface{}) *AccountService_ListTransactions_Call {
+	return &AccountService_ListTransactions_Call{Call: _e.mock.On("ListTransactions", ctx, userID, id, limit, cursor)}
+}
+
+func (_c *AccountService_ListTransactions_Call) Run(run func(ctx context.Context, userID string, id string, limit int, cursor string)) *AccountService_ListTransactions_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(int), args[4].(string))
+	})
+	return _c
+}
+
+func (_c *AccountService_ListTransactions_Call) Return(_a0 *response.AccountTransactionListResponse, _a1 error) *AccountService_ListTransactions_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *AccountService_ListTransactions_Call) RunAndReturn(run func(context.Context, string, string, int, string) (*response.AccountTransactionListResponse, error)) *AccountService_ListTransactions_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Unarchive provides a mock function with given fields: ctx, userID, id
 func (_m *AccountService) Unarchive(ctx context.Context, userID string, id string) (*response.AccountResponse, error) {
 	ret := _m.Called(ctx, userID, id)

@@ -132,7 +132,7 @@ async function onSubmit() {
 
 <template>
   <BottomSheet v-model:open="open" :title="isEdit ? 'Ubah akun' : 'Tambah akun'">
-    <form class="flex max-h-[70vh] flex-col gap-5 overflow-y-auto pb-1" @submit.prevent="onSubmit">
+    <form class="flex flex-col gap-5 pb-1" @submit.prevent="onSubmit">
       <div v-if="!isEdit" class="flex flex-col gap-2">
         <span
           :id="institutionLabelId"

@@ -20,10 +20,14 @@ const open = defineModel<boolean>('open', { required: true })
           leave-to-class="translate-y-full"
         >
           <div
-            class="rounded-t-sheet safe-bottom bg-sheet absolute inset-x-0 bottom-0 px-6 pt-6 shadow-[0_-12px_40px_-12px_rgba(7,28,60,0.45)]"
+            data-sheet-panel
+            class="rounded-t-sheet safe-bottom bg-sheet absolute inset-x-0 bottom-0 flex max-h-[90dvh] flex-col px-6 pt-6 shadow-[0_-12px_40px_-12px_rgba(7,28,60,0.45)]"
           >
-            <div class="mx-auto mb-5 h-1 w-10 rounded-full bg-black/10" aria-hidden="true"></div>
-            <div class="mb-5 flex items-center justify-between">
+            <div
+              class="mx-auto mb-5 h-1 w-10 shrink-0 rounded-full bg-black/10"
+              aria-hidden="true"
+            ></div>
+            <div data-sheet-header class="mb-5 flex shrink-0 items-center justify-between">
               <h2 class="text-ink text-[1.0625rem] font-extrabold">{{ title }}</h2>
               <button
                 type="button"
@@ -46,7 +50,12 @@ const open = defineModel<boolean>('open', { required: true })
               </button>
             </div>
 
-            <slot />
+            <div
+              data-sheet-body
+              class="-m-1 min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-1"
+            >
+              <slot />
+            </div>
           </div>
         </Transition>
       </div>

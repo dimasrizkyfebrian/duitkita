@@ -42,4 +42,32 @@ describe('last used account storage', () => {
     setLastUsedAccountId('user-a', '')
     expect(getLastUsedAccountId('user-a')).toBe('')
   })
+
+  it('keeps the expense key unchanged so existing remembered picks survive', () => {
+    setLastUsedAccountId('u1', 'bca')
+    expect(localStorage.getItem('duitkita:last-account:u1')).toBe('bca')
+    localStorage.setItem('duitkita:last-account:u2', 'ovo')
+    expect(getLastUsedAccountId('u2')).toBe('ovo')
+    expect(getLastUsedAccountId('u2', 'expense')).toBe('ovo')
+  })
+
+  it('stores income under its own key', () => {
+    setLastUsedAccountId('u1', 'bca', 'income')
+    expect(localStorage.getItem('duitkita:last-account:income:u1')).toBe('bca')
+    expect(localStorage.getItem('duitkita:last-account:u1')).toBeNull()
+  })
+
+  it('does not let income and expense overwrite each other for the same user', () => {
+    setLastUsedAccountId('u1', 'bca', 'expense')
+    setLastUsedAccountId('u1', 'ovo', 'income')
+    expect(getLastUsedAccountId('u1', 'expense')).toBe('bca')
+    expect(getLastUsedAccountId('u1', 'income')).toBe('ovo')
+    setLastUsedAccountId('u1', '', 'expense')
+    expect(getLastUsedAccountId('u1', 'income')).toBe('ovo')
+  })
+
+  it('reports null for a kind that was never picked', () => {
+    setLastUsedAccountId('u1', 'bca', 'expense')
+    expect(getLastUsedAccountId('u1', 'income')).toBeNull()
+  })
 })

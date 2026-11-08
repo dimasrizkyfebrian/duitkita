@@ -9,11 +9,12 @@ import CreateCategorySheet from '@/features/category/components/CreateCategorySh
 import ManageCategoriesSheet from '@/features/category/components/ManageCategoriesSheet.vue'
 import SetBudgetSheet from '@/features/budget/components/SetBudgetSheet.vue'
 import ManageBudgetsSheet from '@/features/budget/components/ManageBudgetsSheet.vue'
-import CreateExpenseSheet from '@/features/expense/components/CreateExpenseSheet.vue'
+import CatatSheet from '@/features/catat/components/CatatSheet.vue'
 import EditExpenseSheet from '@/features/expense/components/EditExpenseSheet.vue'
 import PartnerSheet from '@/features/couple/components/PartnerSheet.vue'
 import AccountsSummaryCard from '@/features/account/components/AccountsSummaryCard.vue'
 import { useAccounts } from '@/features/account/composables/useAccounts'
+import IncomeSummaryCard from '@/features/income/components/IncomeSummaryCard.vue'
 import IconWallet from '@/shared/icons/IconWallet.vue'
 import IconCategory from '@/shared/icons/IconCategory.vue'
 import IconPartner from '@/shared/icons/IconPartner.vue'
@@ -312,6 +313,7 @@ const visibleRecentItems = computed(() => recentItems.value.slice(0, recentExpan
         </div>
 
         <AccountsSummaryCard />
+        <IncomeSummaryCard />
 
         <!-- Recent expenses: own + partner's, merged, newest first. Collapsed to
              2 by default so this doesn't push the budget breakdown too far down. -->
@@ -599,7 +601,7 @@ const visibleRecentItems = computed(() => recentItems.value.slice(0, recentExpan
       :month="month"
       @changed="reload"
     />
-    <CreateExpenseSheet
+    <CatatSheet
       v-model:open="createExpenseOpen"
       :categories="budgeted"
       @created="afterExpenseCreated"
@@ -608,6 +610,7 @@ const visibleRecentItems = computed(() => recentItems.value.slice(0, recentExpan
       v-model:open="editExpenseOpen"
       :expense="editingExpense"
       :categories="budgeted"
+      :lookup-categories="allCategories"
       @saved="afterExpenseEdited"
       @deleted="afterExpenseEdited"
     />

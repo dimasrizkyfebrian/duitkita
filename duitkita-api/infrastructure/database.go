@@ -40,6 +40,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&domain.Account{},
 		&domain.AccountBalanceAdjustment{},
 		&domain.Expense{},
+		&domain.Income{},
 		&domain.RecurringExpense{},
 		&domain.BillReminder{},
 		&domain.Notification{},

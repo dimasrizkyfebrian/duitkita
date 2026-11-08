@@ -4,15 +4,17 @@ import BottomSheet from '@/shared/components/BottomSheet.vue'
 import BaseButton from '@/shared/components/BaseButton.vue'
 import { apiErrorMessage } from '@/shared/utils/apiError'
 import { useToast } from '@/shared/composables/useToast'
-import { archiveAccount, listBalanceAdjustments, unarchiveAccount } from '../api/account.api'
+import { archiveAccount, listAccountTransactions, unarchiveAccount } from '../api/account.api'
 import { useAccounts } from '../composables/useAccounts'
 import { useBalanceVisibility } from '../composables/useBalanceVisibility'
-import { displayBalance, displaySignedBalance } from '../utils/balance'
+import { displayBalance } from '../utils/balance'
+import { formatYmd } from '../utils/date'
 import AccountLogo from './AccountLogo.vue'
 import AccountFormSheet from './AccountFormSheet.vue'
 import AdjustBalanceSheet from './AdjustBalanceSheet.vue'
+import AccountTransactionList from './AccountTransactionList.vue'
 import BalanceToggle from './BalanceToggle.vue'
-import type { BalanceAdjustment } from '../types'
+import type { AccountTransaction } from '../types'
 
 const props = defineProps<{ accountId: string | null }>()
 
@@ -25,38 +27,72 @@ const { hidden } = useBalanceVisibility()
 // fresh balance as soon as an adjustment or rename reloads that list.
 const account = computed(() => accounts.value.find((a) => a.id === props.accountId) ?? null)
 
-const adjustments = ref<BalanceAdjustment[]>([])
-const adjustmentsLoading = ref(false)
+const transactions = ref<AccountTransaction[]>([])
+const nextCursor = ref<string | null>(null)
+const transactionsLoading = ref(false)
+const loadingMore = ref(false)
 const confirmingArchive = ref(false)
 const archiving = ref(false)
 const formOpen = ref(false)
 const adjustOpen = ref(false)
 
-async function loadAdjustments() {
-  if (!account.value || account.value.opening_balance === null) {
-    adjustments.value = []
+// Bumped on every first-page load so a slow response for an older load (or a
+// "Muat lagi" that was in flight) can't land after a newer reload.
+let loadSeq = 0
+
+async function loadTransactions() {
+  const id = account.value?.id
+  const seq = ++loadSeq
+  if (!id) {
+    transactions.value = []
+    nextCursor.value = null
+    transactionsLoading.value = false
     return
   }
-  adjustmentsLoading.value = true
+  transactionsLoading.value = true
   try {
-    adjustments.value = await listBalanceAdjustments(account.value.id)
+    const page = await listAccountTransactions(id)
+    if (seq !== loadSeq) return
+    transactions.value = page.items
+    nextCursor.value = page.next_cursor
   } catch (err) {
-    console.warn('[accounts] failed to load balance adjustments:', err)
-    adjustments.value = []
+    if (seq !== loadSeq) return
+    console.warn('[accounts] failed to load transactions:', err)
+    transactions.value = []
+    nextCursor.value = null
   } finally {
-    adjustmentsLoading.value = false
+    if (seq === loadSeq) transactionsLoading.value = false
+  }
+}
+
+async function loadMoreTransactions() {
+  const id = account.value?.id
+  const cursor = nextCursor.value
+  if (!id || cursor === null || loadingMore.value) return
+  const seq = loadSeq
+  loadingMore.value = true
+  try {
+    const page = await listAccountTransactions(id, cursor)
+    if (seq !== loadSeq) return
+    transactions.value = [...transactions.value, ...page.items]
+    nextCursor.value = page.next_cursor
+  } catch (err) {
+    if (seq !== loadSeq) return
+    toast.error(apiErrorMessage(err, 'Gagal memuat mutasi.'))
+  } finally {
+    loadingMore.value = false
   }
 }
 
 watch(open, (isOpen) => {
   if (!isOpen) return
   confirmingArchive.value = false
-  loadAdjustments()
+  loadTransactions()
 })
 
 async function afterChange() {
   await reload()
-  loadAdjustments()
+  loadTransactions()
 }
 
 async function onToggleArchive() {
@@ -83,19 +119,11 @@ async function onToggleArchive() {
     archiving.value = false
   }
 }
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('id-ID', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
-}
 </script>
 
 <template>
   <BottomSheet v-model:open="open" :title="account?.name ?? 'Akun'">
-    <div v-if="account" class="flex max-h-[70vh] flex-col gap-5 overflow-y-auto pb-1">
+    <div v-if="account" class="flex flex-col gap-5 pb-1">
       <div class="flex items-center gap-3">
         <AccountLogo :institution="account.institution" size="lg" />
         <div class="min-w-0 flex-1">
@@ -115,10 +143,9 @@ function formatDate(iso: string) {
           </div>
           <p class="text-muted mt-1 text-[0.75rem] leading-snug">
             Dari saldo awal {{ displayBalance(account.opening_balance ?? 0, hidden) }} per
-            {{ formatDate(account.opening_balance_date ?? '') }}, dikurangi pengeluaran yang kamu
-            catat<template v-if="adjustments.length > 0"
-              >, ditambah penyesuaian saldo di bawah</template
-            >. Patokannya tetap saldo di aplikasi bank atau e-wallet kamu.
+            {{ formatYmd(account.opening_balance_date ?? '') }}, ditambah pemasukan dan dikurangi
+            pengeluaran yang kamu catat, plus penyesuaian saldo kalau ada. Patokannya tetap saldo di
+            aplikasi bank atau e-wallet kamu.
           </p>
         </template>
         <template v-else>
@@ -148,35 +175,19 @@ function formatDate(iso: string) {
         </BaseButton>
       </div>
 
-      <div v-if="account.opening_balance !== null" class="flex flex-col gap-2">
-        <h3 class="text-ink text-[0.875rem] font-extrabold">Riwayat penyesuaian</h3>
-        <div v-if="adjustmentsLoading" class="h-14 animate-pulse rounded-2xl bg-black/5"></div>
-        <p v-else-if="adjustments.length === 0" class="text-muted text-[0.8125rem]">
-          Belum pernah disesuaikan.
+      <div class="flex flex-col gap-2">
+        <h3 class="text-ink text-[0.875rem] font-extrabold">Mutasi</h3>
+        <div v-if="transactionsLoading" class="h-14 animate-pulse rounded-2xl bg-black/5"></div>
+        <p v-else-if="transactions.length === 0" class="text-muted text-[0.8125rem]">
+          Belum ada mutasi.
         </p>
-        <ul v-else class="divide-hairline flex flex-col divide-y">
-          <li
-            v-for="adj in adjustments"
-            :key="adj.id"
-            class="flex items-center justify-between gap-3 py-2.5"
-          >
-            <div class="min-w-0">
-              <p class="text-ink text-[0.8125rem] font-bold">{{ formatDate(adj.created_at) }}</p>
-              <p v-if="adj.note" class="text-muted truncate text-[0.75rem]">{{ adj.note }}</p>
-            </div>
-            <div class="shrink-0 text-right">
-              <p
-                class="text-[0.8125rem] font-extrabold tabular-nums"
-                :class="adj.delta < 0 ? 'text-danger' : 'text-success'"
-              >
-                {{ displaySignedBalance(adj.delta, hidden) }}
-              </p>
-              <p class="text-muted text-[0.6875rem] tabular-nums">
-                jadi {{ displayBalance(adj.new_balance, hidden) }}
-              </p>
-            </div>
-          </li>
-        </ul>
+        <AccountTransactionList
+          v-else
+          :items="transactions"
+          :has-more="nextCursor !== null"
+          :loading-more="loadingMore"
+          @more="loadMoreTransactions"
+        />
       </div>
 
       <div class="flex flex-col gap-2">
