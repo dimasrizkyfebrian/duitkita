@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"encoding/base64"
 	"net/http"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 
 	"duitkita-api/model/domain"
 	"duitkita-api/model/dto/request"
+	"duitkita-api/repository"
 	"duitkita-api/repository/mocks"
 	"duitkita-api/service"
 )
@@ -313,4 +315,189 @@ func TestAccountService_ListInstitutions(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, res, 1)
 	require.Equal(t, "bank", res[0].Type)
+}
+
+func txRow(id, kind, date string, createdAt time.Time, amount int64) repository.AccountTransactionRow {
+	d, _ := time.Parse("2006-01-02", date)
+	return repository.AccountTransactionRow{ID: id, Kind: kind, Date: d, CreatedAt: createdAt, Amount: amount}
+}
+
+func TestAccountService_ListTransactions(t *testing.T) {
+	ctx := context.Background()
+	base := time.Date(2026, 10, 20, 8, 0, 0, 123456000, time.UTC)
+
+	t.Run("other user's account is not found", func(t *testing.T) {
+		svc, repo, _ := newAccountService(t)
+		repo.EXPECT().FindByID(ctx, "acc-1").Return(&domain.Account{ID: "acc-1", UserID: "someone-else"}, nil)
+
+		_, err := svc.ListTransactions(ctx, "user-1", "acc-1", 20, "")
+
+		requireAppError(t, err, http.StatusNotFound, "account not found")
+	})
+
+	t.Run("before_opening marks only dated rows older than the opening date", func(t *testing.T) {
+		svc, repo, _ := newAccountService(t)
+		repo.EXPECT().FindByID(ctx, "acc-1").Return(&domain.Account{
+			ID: "acc-1", UserID: "user-1", OpeningBalance: int64Ptr(1_000_000), OpeningBalanceDate: datePtr("2026-10-10"),
+		}, nil)
+		repo.EXPECT().ListTransactions(ctx, "acc-1", 21, mockMatchByType[*repository.TransactionCursor]()).Return([]repository.AccountTransactionRow{
+			txRow("on-opening", "expense", "2026-10-10", base, -1),
+			txRow("before", "expense", "2026-10-05", base, -2),
+			txRow("before-income", "income", "2026-10-09", base, 3),
+			txRow("old-adjustment", "adjustment", "2026-10-01", base, 4),
+		}, nil)
+
+		res, err := svc.ListTransactions(ctx, "user-1", "acc-1", 20, "")
+
+		require.NoError(t, err)
+		got := map[string]bool{}
+		for _, item := range res.Items {
+			got[item.ID] = item.BeforeOpening
+		}
+		require.Equal(t, map[string]bool{"on-opening": false, "before": true, "before-income": true, "old-adjustment": false}, got)
+	})
+
+	t.Run("before_opening is false everywhere without an opening date", func(t *testing.T) {
+		svc, repo, _ := newAccountService(t)
+		repo.EXPECT().FindByID(ctx, "acc-1").Return(&domain.Account{ID: "acc-1", UserID: "user-1"}, nil)
+		repo.EXPECT().ListTransactions(ctx, "acc-1", 21, mockMatchByType[*repository.TransactionCursor]()).Return([]repository.AccountTransactionRow{
+			txRow("a", "expense", "2000-01-01", base, -1),
+			txRow("b", "income", "2000-01-02", base, 1),
+		}, nil)
+
+		res, err := svc.ListTransactions(ctx, "user-1", "acc-1", 20, "")
+
+		require.NoError(t, err)
+		require.Len(t, res.Items, 2)
+		for _, item := range res.Items {
+			require.False(t, item.BeforeOpening)
+		}
+	})
+
+	t.Run("maps a row to its response", func(t *testing.T) {
+		svc, repo, _ := newAccountService(t)
+		repo.EXPECT().FindByID(ctx, "acc-1").Return(&domain.Account{ID: "acc-1", UserID: "user-1"}, nil)
+		row := txRow("x", "expense", "2026-10-12", base, -25_000)
+		row.Label = "Makan"
+		row.Note = strPtr("siang")
+		repo.EXPECT().ListTransactions(ctx, "acc-1", 21, mockMatchByType[*repository.TransactionCursor]()).Return([]repository.AccountTransactionRow{row}, nil)
+
+		res, err := svc.ListTransactions(ctx, "user-1", "acc-1", 20, "")
+
+		require.NoError(t, err)
+		require.Equal(t, "x", res.Items[0].ID)
+		require.Equal(t, "expense", res.Items[0].Kind)
+		require.Equal(t, "2026-10-12", res.Items[0].Date)
+		require.Equal(t, int64(-25_000), res.Items[0].Amount)
+		require.Equal(t, "Makan", res.Items[0].Label)
+		require.Equal(t, "siang", res.Items[0].Note)
+		require.Nil(t, res.NextCursor)
+	})
+
+	t.Run("asks for one extra row and hands out a cursor that resumes after the last shown row", func(t *testing.T) {
+		svc, repo, _ := newAccountService(t)
+		repo.EXPECT().FindByID(ctx, "acc-1").Return(&domain.Account{ID: "acc-1", UserID: "user-1"}, nil)
+		r1 := txRow("11111111-1111-4111-8111-111111111111", "expense", "2026-10-12", base.Add(3*time.Hour), -1)
+		r2 := txRow("22222222-2222-4222-8222-222222222222", "income", "2026-10-12", base.Add(2*time.Hour), 2)
+		r3 := txRow("33333333-3333-4333-8333-333333333333", "expense", "2026-10-11", base, -3)
+		call := 0
+		repo.EXPECT().ListTransactions(ctx, "acc-1", 3, mockMatchByType[*repository.TransactionCursor]()).RunAndReturn(
+			func(_ context.Context, _ string, _ int, after *repository.TransactionCursor) ([]repository.AccountTransactionRow, error) {
+				call++
+				if call == 1 {
+					require.Nil(t, after)
+					return []repository.AccountTransactionRow{r1, r2, r3}, nil
+				}
+				require.NotNil(t, after)
+				require.True(t, r2.Date.Equal(after.Date), "date: got %v want %v", after.Date, r2.Date)
+				require.True(t, r2.CreatedAt.Equal(after.CreatedAt), "created_at: got %v want %v", after.CreatedAt, r2.CreatedAt)
+				require.Equal(t, "22222222-2222-4222-8222-222222222222", after.ID)
+				return []repository.AccountTransactionRow{r3}, nil
+			}).Twice()
+
+		first, err := svc.ListTransactions(ctx, "user-1", "acc-1", 2, "")
+
+		require.NoError(t, err)
+		require.Len(t, first.Items, 2)
+		require.Equal(t, []string{"11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"}, []string{first.Items[0].ID, first.Items[1].ID})
+		require.NotNil(t, first.NextCursor)
+
+		second, err := svc.ListTransactions(ctx, "user-1", "acc-1", 2, *first.NextCursor)
+
+		require.NoError(t, err)
+		require.Len(t, second.Items, 1)
+		require.Equal(t, "33333333-3333-4333-8333-333333333333", second.Items[0].ID)
+		require.Nil(t, second.NextCursor)
+	})
+
+	t.Run("no cursor when the repo returns no more than the limit", func(t *testing.T) {
+		svc, repo, _ := newAccountService(t)
+		repo.EXPECT().FindByID(ctx, "acc-1").Return(&domain.Account{ID: "acc-1", UserID: "user-1"}, nil)
+		repo.EXPECT().ListTransactions(ctx, "acc-1", 3, mockMatchByType[*repository.TransactionCursor]()).Return([]repository.AccountTransactionRow{
+			txRow("r1", "expense", "2026-10-12", base, -1),
+			txRow("r2", "expense", "2026-10-11", base, -2),
+		}, nil)
+
+		res, err := svc.ListTransactions(ctx, "user-1", "acc-1", 2, "")
+
+		require.NoError(t, err)
+		require.Len(t, res.Items, 2)
+		require.Nil(t, res.NextCursor)
+	})
+
+	t.Run("empty result is an empty list, not null", func(t *testing.T) {
+		svc, repo, _ := newAccountService(t)
+		repo.EXPECT().FindByID(ctx, "acc-1").Return(&domain.Account{ID: "acc-1", UserID: "user-1"}, nil)
+		repo.EXPECT().ListTransactions(ctx, "acc-1", 21, mockMatchByType[*repository.TransactionCursor]()).Return(nil, nil)
+
+		res, err := svc.ListTransactions(ctx, "user-1", "acc-1", 20, "")
+
+		require.NoError(t, err)
+		require.NotNil(t, res.Items)
+		require.Empty(t, res.Items)
+	})
+
+	// A cursor the client mangled is rejected before anything is looked up.
+	t.Run("rejects a cursor that is not base64", func(t *testing.T) {
+		svc, _, _ := newAccountService(t)
+
+		_, err := svc.ListTransactions(ctx, "user-1", "acc-1", 20, "!!!")
+
+		requireAppError(t, err, http.StatusBadRequest, "invalid cursor")
+	})
+
+	t.Run("rejects a cursor that decodes to bad JSON", func(t *testing.T) {
+		svc, _, _ := newAccountService(t)
+		cursor := base64.RawURLEncoding.EncodeToString([]byte("{not json"))
+
+		_, err := svc.ListTransactions(ctx, "user-1", "acc-1", 20, cursor)
+
+		requireAppError(t, err, http.StatusBadRequest, "invalid cursor")
+	})
+
+	t.Run("rejects a cursor with unusable fields", func(t *testing.T) {
+		svc, _, _ := newAccountService(t)
+		cursor := base64.RawURLEncoding.EncodeToString([]byte(`{"d":"2026-10-12","c":"yesterday","i":"x"}`))
+
+		_, err := svc.ListTransactions(ctx, "user-1", "acc-1", 20, cursor)
+
+		requireAppError(t, err, http.StatusBadRequest, "invalid cursor")
+	})
+
+	// Every id in the mutasi is a UUID. Anything else would only fail inside
+	// Postgres (a NUL byte is not valid text) and surface as a 500.
+	for name, id := range map[string]string{
+		"a NUL byte id":  `\u0000`,
+		"a non-UUID id":  "abc",
+		"a half UUID id": "11111111-1111-1111-1111",
+	} {
+		t.Run("rejects a cursor with "+name, func(t *testing.T) {
+			svc, _, _ := newAccountService(t)
+			cursor := base64.RawURLEncoding.EncodeToString([]byte(`{"d":"2026-10-12","c":"2026-10-12T00:00:00Z","i":"` + id + `"}`))
+
+			_, err := svc.ListTransactions(ctx, "user-1", "acc-1", 20, cursor)
+
+			requireAppError(t, err, http.StatusBadRequest, "invalid cursor")
+		})
+	}
 }

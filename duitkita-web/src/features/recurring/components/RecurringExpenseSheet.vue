@@ -8,6 +8,7 @@ import { apiErrorMessage } from '@/shared/utils/apiError'
 import { useToast } from '@/shared/composables/useToast'
 import type { Category } from '@/features/category/types'
 import AccountPicker from '@/features/account/components/AccountPicker.vue'
+import CategoryPicker from '@/features/category/components/CategoryPicker.vue'
 import { useAccounts } from '@/features/account/composables/useAccounts'
 import {
   createRecurringExpense,
@@ -44,7 +45,6 @@ const WEEKDAY_LABELS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', '
 // Each chip group is labelled by its own heading rather than wrapped in a
 // fieldset — BottomSheet already lays the form out, and a fieldset would
 // bring default styling that has to be undone anyway.
-const categoryLabelId = useId()
 const scheduleTypeLabelId = useId()
 const weekdayLabelId = useId()
 const monthlyDayId = useId()
@@ -183,32 +183,7 @@ async function onDelete() {
       class="flex flex-col gap-5"
       @submit.prevent="onSubmit"
     >
-      <div v-if="!isEdit" class="flex flex-col gap-2">
-        <span
-          :id="categoryLabelId"
-          class="text-muted text-[0.6875rem] font-semibold tracking-widest uppercase"
-        >
-          Kategori
-        </span>
-        <div class="flex flex-wrap gap-2" role="group" :aria-labelledby="categoryLabelId">
-          <button
-            v-for="category in categories"
-            :key="category.id"
-            type="button"
-            :aria-pressed="categoryId === category.id"
-            class="rounded-control focus-visible:ring-azure/30 flex items-center gap-1.5 border px-3.5 py-2.5 text-[0.8125rem] font-bold transition-colors focus-visible:ring-4 focus-visible:outline-none"
-            :class="
-              categoryId === category.id
-                ? 'border-navy bg-navy text-white'
-                : 'border-hairline text-ink bg-white'
-            "
-            @click="categoryId = category.id"
-          >
-            <span v-if="category.icon">{{ category.icon }}</span>
-            {{ category.name }}
-          </button>
-        </div>
-      </div>
+      <CategoryPicker v-if="!isEdit" v-model="categoryId" :categories="categories" />
       <div v-else class="flex items-center gap-2 rounded-2xl bg-black/3 px-4 py-3">
         <span v-if="selectedCategory?.icon">{{ selectedCategory.icon }}</span>
         <span class="text-ink text-[0.875rem] font-bold">{{ selectedCategory?.name }}</span>

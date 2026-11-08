@@ -8,6 +8,7 @@ import { apiErrorMessage } from '@/shared/utils/apiError'
 import { useToast } from '@/shared/composables/useToast'
 import type { CategoryOverviewItem } from '@/features/dashboard/types'
 import AccountPicker from '@/features/account/components/AccountPicker.vue'
+import CategoryPicker from '@/features/category/components/CategoryPicker.vue'
 import { useAccounts } from '@/features/account/composables/useAccounts'
 import { deleteExpense, updateExpense } from '../api/expense.api'
 import type { Expense } from '../types'
@@ -18,6 +19,9 @@ const props = defineProps<{
   // budget this period, since moving an expense to a category without one
   // is rejected server-side.
   categories: CategoryOverviewItem[]
+  // Every category the dashboard knows, budgeted or not. Only used to name the
+  // expense's own category when it has no budget this period.
+  lookupCategories?: CategoryOverviewItem[]
 }>()
 
 const emit = defineEmits<{ saved: []; deleted: [] }>()
@@ -43,6 +47,21 @@ function todayIso() {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
 }
+
+// The picker speaks `id`; budgets key their categories by `category_id`.
+// An expense whose own category has no budget this period keeps it as an
+// option (same idea as `pickableAccounts`), so the field shows what it is
+// instead of going blank. Other unbudgeted categories stay out: moving an
+// expense onto one is rejected server-side.
+const pickableCategories = computed(() => {
+  const list = props.categories.map((c) => ({ id: c.category_id, name: c.name, icon: c.icon }))
+  const currentId = props.expense?.category_id
+  if (currentId && !list.some((c) => c.id === currentId)) {
+    const current = props.lookupCategories?.find((c) => c.category_id === currentId)
+    if (current) list.push({ id: current.category_id, name: current.name, icon: current.icon })
+  }
+  return list
+})
 
 const selectedId = ref('')
 const amount = ref(0)
@@ -117,28 +136,11 @@ async function onDelete() {
 <template>
   <BottomSheet v-model:open="open" title="Ubah pengeluaran">
     <form v-if="categories.length > 0" class="flex flex-col gap-5" @submit.prevent="onSubmit">
-      <div class="flex flex-col gap-2">
-        <span class="text-muted text-[0.6875rem] font-semibold tracking-widest uppercase">
-          Kategori
-        </span>
-        <div class="flex flex-wrap gap-2">
-          <button
-            v-for="category in categories"
-            :key="category.category_id"
-            type="button"
-            class="rounded-control flex items-center gap-1.5 border px-3.5 py-2.5 text-[0.8125rem] font-bold transition-colors"
-            :class="
-              selectedId === category.category_id
-                ? 'border-navy bg-navy text-white'
-                : 'border-hairline text-ink bg-white'
-            "
-            @click="selectedId = category.category_id"
-          >
-            <span v-if="category.icon">{{ category.icon }}</span>
-            {{ category.name }}
-          </button>
-        </div>
-      </div>
+      <CategoryPicker
+        v-model="selectedId"
+        :categories="pickableCategories"
+        placeholder="Kategori sebelumnya"
+      />
 
       <CurrencyInput v-model="amount" label="Besaran pengeluaran" />
 

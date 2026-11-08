@@ -2,6 +2,7 @@ import { authRequest } from '@/lib/http'
 import type {
   Account,
   AccountList,
+  AccountTransactionPage,
   AdjustBalanceRequest,
   BalanceAdjustment,
   CreateAccountRequest,
@@ -35,6 +36,12 @@ export function unarchiveAccount(id: string) {
 
 export function listBalanceAdjustments(id: string) {
   return authRequest<BalanceAdjustment[]>(`/accounts/${id}/adjustments`)
+}
+
+export function listAccountTransactions(accountId: string, cursor?: string, limit = 20) {
+  const params = new URLSearchParams({ limit: String(limit) })
+  if (cursor !== undefined) params.set('cursor', cursor)
+  return authRequest<AccountTransactionPage>(`/accounts/${accountId}/transactions?${params}`)
 }
 
 export function adjustBalance(id: string, payload: AdjustBalanceRequest) {

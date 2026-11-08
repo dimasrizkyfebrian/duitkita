@@ -73,7 +73,7 @@ const avatarBroken = ref(false)
         <button
           type="button"
           class="bg-azure -mt-7 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-[0_10px_28px_-6px_rgba(33,150,243,0.75)] transition-transform active:translate-y-px"
-          aria-label="Catat pengeluaran"
+          aria-label="Catat transaksi"
           @click="emit('catat')"
         >
           <svg

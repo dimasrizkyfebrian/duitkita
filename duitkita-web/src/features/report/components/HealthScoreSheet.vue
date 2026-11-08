@@ -35,7 +35,7 @@ function barColor(points: number, max: number) {
 
 <template>
   <BottomSheet v-model:open="open" title="Skor keuangan">
-    <div v-if="score" class="flex max-h-[70vh] flex-col gap-5 overflow-y-auto pb-1">
+    <div v-if="score" class="flex flex-col gap-5 pb-1">
       <div class="flex items-end gap-3">
         <p class="text-ink text-[2.25rem] leading-none font-extrabold">
           {{ score.grade === 'n/a' ? '–' : score.grade }}

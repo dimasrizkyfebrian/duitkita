@@ -52,6 +52,27 @@ export interface BalanceAdjustment {
   created_at: string
 }
 
+export type AccountTransactionKind = 'expense' | 'income' | 'adjustment'
+
+/** One row of an account's mutasi. `amount` is the signed effect on this
+ * account's balance. `label` is the category name (expense), the income source
+ * code (income) or empty (adjustment). `date` is a plain YYYY-MM-DD calendar
+ * date. `before_opening` rows predate the opening balance and don't count. */
+export interface AccountTransaction {
+  id: string
+  kind: AccountTransactionKind
+  date: string
+  amount: number
+  label: string
+  note?: string
+  before_opening: boolean
+}
+
+export interface AccountTransactionPage {
+  items: AccountTransaction[]
+  next_cursor: string | null
+}
+
 /** Leave out opening_balance (and its date) for a label-only account. */
 export interface CreateAccountRequest {
   institution_id: string

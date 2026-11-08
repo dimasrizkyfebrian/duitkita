@@ -69,7 +69,7 @@ function formatDate(iso: string) {
 
     <ul
       v-else
-      class="border-hairline divide-hairline flex max-h-[60vh] flex-col divide-y overflow-y-auto rounded-2xl border px-4"
+      class="border-hairline divide-hairline flex flex-col divide-y rounded-2xl border px-4"
     >
       <li v-for="log in logs" :key="log.id" class="flex items-center justify-between gap-3 py-3">
         <div class="min-w-0 flex-1">

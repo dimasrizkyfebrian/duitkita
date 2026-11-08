@@ -95,4 +95,11 @@ func (f *fixture) expense(t *testing.T, accountID *string, amount int64, on stri
 	return e
 }
 
+func (f *fixture) income(t *testing.T, accountID *string, amount int64, on string) *domain.Income {
+	t.Helper()
+	i := &domain.Income{ID: uuid.NewString(), UserID: f.userID, AccountID: accountID, Source: domain.IncomeSourceSalary, Amount: amount, IncomeDate: date(t, on)}
+	require.NoError(t, f.tx.Omit("User", "Account").Create(i).Error)
+	return i
+}
+
 func int64Ptr(v int64) *int64 { return &v }

@@ -32,6 +32,7 @@ func (h *AccountHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	accounts.POST("/:id/unarchive", h.unarchive)
 	accounts.GET("/:id/adjustments", h.listAdjustments)
 	accounts.POST("/:id/adjustments", h.adjustBalance)
+	accounts.GET("/:id/transactions", h.listTransactions)
 }
 
 func (h *AccountHandler) listInstitutions(c *gin.Context) {
@@ -113,6 +114,18 @@ func (h *AccountHandler) listAdjustments(c *gin.Context) {
 		return
 	}
 	utils.Success(c, http.StatusOK, "balance adjustments retrieved", res)
+}
+
+// listTransactions pages by cursor, so the offset parsePagination also reads
+// is ignored.
+func (h *AccountHandler) listTransactions(c *gin.Context) {
+	limit, _ := parsePagination(c)
+	res, err := h.svc.ListTransactions(c.Request.Context(), currentUserID(c), c.Param("id"), limit, c.Query("cursor"))
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	utils.Success(c, http.StatusOK, "transactions retrieved", res)
 }
 
 func (h *AccountHandler) adjustBalance(c *gin.Context) {
