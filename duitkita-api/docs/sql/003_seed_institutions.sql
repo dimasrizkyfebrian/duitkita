@@ -68,7 +68,13 @@ VALUES
     ('linkaja',     'LinkAja',            'ewallet', '/institutions/linkaja.svg',     640, true),
     ('isaku',       'i.saku',             'ewallet', '/institutions/isaku.svg',       650, true),
     ('doku',        'DOKU',               'ewallet', '/institutions/doku.svg',        680, true),
-    ('flip',        'Flip',               'ewallet', '/institutions/flip.svg',        690, true)
+    ('flip',        'Flip',               'ewallet', '/institutions/flip.svg',        690, true),
+
+    -- E-money cards
+    ('brizzi',         'BRIZZI',            'ewallet', '/institutions/brizzi.svg',         700, true),
+    ('flazz',          'Flazz BCA',         'ewallet', '/institutions/flazz.svg',          710, true),
+    ('mandiri_emoney', 'Mandiri e-money',   'ewallet', '/institutions/mandiri_emoney.svg', 720, true),
+    ('tapcash',        'TapCash',           'ewallet', '/institutions/tapcash.svg',        730, true)
 ON CONFLICT (code) DO UPDATE SET
     name       = EXCLUDED.name,
     type       = EXCLUDED.type,
